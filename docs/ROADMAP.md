@@ -7,9 +7,10 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 
 ## Phase 1 — Bring-up on the GB10 (make it work end-to-end)
 - [x] T001 **Bring-up & smoke test** on the GB10: `WhisperCppSTT`, `make smoke` (2026-11-04).
-- [ ] T002 **Latency baseline**: `make bench`, p50/p90 per stage plus the estimated true end-of-speech → audio time (VAD tail included), Piper `high` vs `medium`. Model fixed at `qwen3:14b` (D009). Task file: `docs/tasks/T002-latency-baseline.md`.
+- [x] T002 **Latency baseline**: `make bench` + `first_sentence_ms`/`tts_first_ms` metrics (2026-11-04). Results in STATUS.
 - [ ] T003 **Vendor frontend assets** (vad-web, onnxruntime-web, Silero model) into `frontend/vendor/` so it works offline and isn't CDN-dependent.
-- [ ] T005 **Model warm-up on session start**: fire a tiny Ollama request when `start` arrives (in parallel with the opener) so the first learner turn doesn't pay the ~7 s cold load. Respect `keep_alive`.
+- [ ] T005 **Warm-up + random seed**: preload model + system prompt on `start`; random Ollama `seed` per request so replies aren't identical across sessions. Task file: `docs/tasks/T005-warmup-seed.md`.
+- [ ] T006 **Latency cuts** (after Sameer's decisions on VAD tail, Piper voice, STT instance): target p50 < 1500 ms end-of-speech → audio.
 - [ ] T004 **Render feedback Markdown** in the browser (small vendored renderer, sanitized).
 
 ## Phase 2 — Conversation quality

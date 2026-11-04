@@ -1,6 +1,6 @@
 # Status
 
-_Last updated: 2026-11-04 (T032 HTTPS on the LAN merged)_
+_Last updated: 2026-11-04 (T002 latency baseline merged)_
 
 ## Works on the GB10 (T001, 2026-11-04)
 - End-to-end headless: `make smoke` passes. German utterance → whisper.cpp (`:8768`, `language=de`) → Ollama → Piper → WAV over `/ws`.
@@ -13,6 +13,15 @@ _Last updated: 2026-11-04 (T032 HTTPS on the LAN merged)_
 
 - HTTPS on the LAN (T032): Uvicorn TLS with a local CA (`make certs`). Verified with curl and a `wss://` smoke test from the GB10; Sameer's check from the Mac is still pending. Names in the cert: `promaxgb10-6116.fritz.box` (recommended), `.local`, `192.168.178.55`, `localhost`.
 - mDNS caveat: avahi advertises the Docker bridge (`172.30.0.1`) for `promaxgb10-6116.local`, so prefer the `.fritz.box` name or the IP.
+
+## Latency baseline (T002, `make bench`, 20 warm turns, qwen3:14b)
+| ms (p50 / p90) | STT | LLM 1st token after STT | wait for 1st sentence | TTS 1st sentence | first audio (server) | + VAD tail 768 → est. real |
+|---|---|---|---|---|---|---|
+| Piper thorsten-**high** | 484 / 652 | 123 / 764 | 454 / 1200 | 398 / 1013 | 1935 / 3345 | **2703 / 4113** |
+| Piper thorsten-**medium** | 478 / 669 | 156 / 860 | 554 / 1357 | 190 / 338 | 1881 / 2636 | **2649 / 3404** |
+
+Target < 1500 ms. Biggest stages: VAD tail (768, fixed), STT (~480, shared server), first-sentence decode (~450–550), TTS (190–400).
+Ollama 0.34.2 samples deterministically when no `seed` is sent: the same prompt always gives the same reply (fix: T005).
 
 ## Works (verified in a dev sandbox)
 - Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 21 passed (STT and TLS tests included).
