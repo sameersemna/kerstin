@@ -312,3 +312,9 @@ tts_first                    190       338
 ```
 
 ## Review (Claude Code fills this in)
+- **Verdict:** accept (2026-11-04)
+- **Notes:**
+  - Diff limited to allowed files. `make test` (21) and `make lint` are clean. The metric change is timestamps only, so it adds no latency. `smoke_test.py` was only refactored, behavior unchanged.
+  - The derived-stage rows are medians of per-turn differences, so they don't add up to the median totals. That's correct.
+  - **Finding (lead):** replies on turns 11–13 are word-for-word identical to turns 1–3. Lead reproduced it with the real `Session`: history is sent (3→11 messages), but Ollama 0.34.2 samples deterministically (no `seed` sent → fixed), and `qwen3:14b` gives the same reply to a repeated sentence regardless of history. The latency numbers stay valid (the prompts differ). For the product, every session would play out the same way → fix in T005 (random seed per request).
+  - German errors in the bench replies, for T010: "Hast du irgendeine Hobbys" (→ irgendwelche), "Ich habe dort noch nie gewesen" (→ bin), "den Frauenkirche" (→ die), "es klingt wie ein schöner Tag trotzdem" (word order). Some replies have 4 sentences (persona limit is 3). There are odd facts ("Hafenamt", "Hamburger Ufer") and a logic slip (learn new words from podcasts "in deiner Muttersprache").
