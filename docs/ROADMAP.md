@@ -7,7 +7,7 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 
 ## Phase 1 — Bring-up on the GB10 (make it work end-to-end)
 - [x] T001 **Bring-up & smoke test** on the GB10: `WhisperCppSTT`, `make smoke` (2026-11-04).
-- [ ] T002 **Latency baseline**: script that runs N recorded German utterances through the pipeline headlessly and prints p50/p90 per stage; record results in STATUS. Compare 2–3 Ollama models. Must also measure the browser VAD tail (true end-of-speech → first audio), Piper `high` vs `medium` voice, and German correctness of replies.
+- [ ] T002 **Latency baseline**: `make bench`, p50/p90 per stage plus the estimated true end-of-speech → audio time (VAD tail included), Piper `high` vs `medium`. Model fixed at `qwen3:14b` (D009). Task file: `docs/tasks/T002-latency-baseline.md`.
 - [ ] T003 **Vendor frontend assets** (vad-web, onnxruntime-web, Silero model) into `frontend/vendor/` so it works offline and isn't CDN-dependent.
 - [ ] T005 **Model warm-up on session start**: fire a tiny Ollama request when `start` arrives (in parallel with the opener) so the first learner turn doesn't pay the ~7 s cold load. Respect `keep_alive`.
 - [ ] T004 **Render feedback Markdown** in the browser (small vendored renderer, sanitized).
