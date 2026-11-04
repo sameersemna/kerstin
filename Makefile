@@ -1,4 +1,4 @@
-.PHONY: setup voice run test lint check
+.PHONY: setup voice run test lint check smoke
 
 VENV ?= .venv
 PY := $(VENV)/bin/python
@@ -21,7 +21,10 @@ test:             ## run unit tests (no GPU / network needed)
 	cd backend && KERSTIN_TTS_BACKEND=none ../$(PY) -m pytest -q
 
 lint:
-	$(VENV)/bin/ruff check backend
+	$(VENV)/bin/ruff check backend scripts
 
 check:            ## check Ollama, STT server, voice file, GPU temperature
 	bash scripts/check_env.sh
+
+smoke:            ## run the headless end-to-end test (server must be running)
+	$(PY) scripts/smoke_test.py
