@@ -1,6 +1,6 @@
 # Status
 
-_Last updated: 2026-11-04 (T001 bring-up merged)_
+_Last updated: 2026-11-04 (T032 HTTPS on the LAN merged)_
 
 ## Works on the GB10 (T001, 2026-11-04)
 - End-to-end headless: `make smoke` passes. German utterance → whisper.cpp (`:8768`, `language=de`) → Ollama → Piper → WAV over `/ws`.
@@ -11,8 +11,11 @@ _Last updated: 2026-11-04 (T001 bring-up merged)_
 
 - Browser path works (Sameer, 2026-11-04): mic → vad-web (CDN) → reply audio over the SSH tunnel.
 
+- HTTPS on the LAN (T032): Uvicorn TLS with a local CA (`make certs`). Verified with curl and a `wss://` smoke test from the GB10; Sameer's check from the Mac is still pending. Names in the cert: `promaxgb10-6116.fritz.box` (recommended), `.local`, `192.168.178.55`, `localhost`.
+- mDNS caveat: avahi advertises the Docker bridge (`172.30.0.1`) for `promaxgb10-6116.local`, so prefer the `.fritz.box` name or the IP.
+
 ## Works (verified in a dev sandbox)
-- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 14 passed (includes the T001 `WhisperCppSTT` tests).
+- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 21 passed (STT and TLS tests included).
 - App starts; `/health`, `/api/scenarios`, `/`, static files served; WebSocket `start` → session + opener text.
 
 ## Not yet verified
@@ -26,4 +29,4 @@ _Last updated: 2026-11-04 (T001 bring-up merged)_
 - Short utterances (< 0.35 s) get no server reply at all, so the UI stays on "du sprichst …".
 - Feedback is shown as raw Markdown text.
 - No echo cancellation beyond the browser's default — use headphones.
-- Single-user, no auth, binds to 127.0.0.1.
+- Single-user, no auth. Default bind is 127.0.0.1; with `KERSTIN_HOST=0.0.0.0` anyone on the LAN or NordVPN Meshnet can use it (D010, auth comes with T040).

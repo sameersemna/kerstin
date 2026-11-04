@@ -44,7 +44,7 @@ Trust the CA once per device. Download it from `https://promaxgb10-6116.local:87
 - **iOS:** open the URL in Safari → install the profile → Settings → General → About → Certificate Trust Settings → enable it.
 - **Android:** Settings → Security → Encryption & credentials → Install a certificate → CA certificate.
 
-Then open `https://promaxgb10-6116.local:8770`. If `.local` does not resolve, use the fallback `https://192.168.178.55:8770`.
+Then open `https://promaxgb10-6116.fritz.box:8770` (the FritzBox's DNS name; requires `make certs CERTS_ARGS="--dns promaxgb10-6116.fritz.box"`) or `https://promaxgb10-6116.local:8770`. On the GB10, avahi also advertises Docker bridge addresses for `.local`, so that name can point the Mac to an address it can't reach. If both names fail, use `https://192.168.178.55:8770`.
 
 Fallback to the SSH tunnel (plain HTTP on localhost):
 

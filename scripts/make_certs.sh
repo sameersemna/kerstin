@@ -14,13 +14,15 @@ SRV_CRT="$CERT_DIR/kerstin.crt"
 
 NEW_CA=0
 EXTRA_IPS=()
+EXTRA_DNS=()
 
 usage() {
   cat <<EOF
-Usage: bash scripts/make_certs.sh [--new-ca] [--ip ADDRESS]...
+Usage: bash scripts/make_certs.sh [--new-ca] [--ip ADDRESS]... [--dns NAME]...
 
   --new-ca     replace the existing local CA (clients must trust it again)
   --ip IP      add another IP SAN (repeatable)
+  --dns NAME   add another DNS SAN, e.g. promaxgb10-6116.fritz.box (repeatable)
 EOF
 }
 
@@ -36,6 +38,14 @@ while [[ $# -gt 0 ]]; do
         exit 2
       fi
       EXTRA_IPS+=("$2")
+      shift 2
+      ;;
+    --dns)
+      if [[ $# -lt 2 ]]; then
+        echo "error: --dns needs a name" >&2
+        exit 2
+      fi
+      EXTRA_DNS+=("$2")
       shift 2
       ;;
     -h|--help)
@@ -97,6 +107,9 @@ if [[ -n "$DEFAULT_IP" ]]; then
 fi
 for extra in "${EXTRA_IPS[@]}"; do
   add_san "IP:${extra}"
+done
+for extra in "${EXTRA_DNS[@]}"; do
+  add_san "DNS:${extra}"
 done
 SAN_STRING=$(printf '%s,' "${SAN_ENTRIES[@]}")
 SAN_STRING=${SAN_STRING%,}
