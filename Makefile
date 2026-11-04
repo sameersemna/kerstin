@@ -1,8 +1,9 @@
-.PHONY: setup voice certs run test lint check smoke
+.PHONY: setup voice certs run test lint check smoke bench
 
 VENV ?= .venv
 PY := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
+BENCH_ARGS ?=
 
 setup:            ## create venv and install backend + piper + dev deps
 	python3 -m venv $(VENV)
@@ -31,3 +32,6 @@ check:            ## check Ollama, STT server, voice file, GPU temperature
 
 smoke:            ## run the headless end-to-end test (server must be running)
 	$(PY) scripts/smoke_test.py
+
+bench:            ## latency baseline (server must be running)
+	$(PY) scripts/latency_bench.py $(BENCH_ARGS)
