@@ -13,7 +13,7 @@ Browser (mic + Silero VAD) ──PCM──▶ FastAPI /ws ──▶ Whisper ─�
 ```bash
 make setup          # venv + deps, creates .env from .env.example
 make voice          # download de_DE-thorsten-high Piper voice
-ollama pull qwen3:30b-a3b
+ollama pull qwen3:14b
 # edit .env: point KERSTIN_STT_URL at your Whisper server
 make check          # Ollama, STT, voice, GPU temperature
 make run            # http://127.0.0.1:8770
@@ -37,7 +37,7 @@ All settings are `KERSTIN_*` environment variables (see `.env.example`, defined 
 
 | Setting | Default | Notes |
 |---|---|---|
-| `KERSTIN_OLLAMA_MODEL` | `qwen3:30b-a3b` | MoE, ~3B active params → fast first token. Try `gemma3:12b`, `mistral-small3.2` |
+| `KERSTIN_OLLAMA_MODEL` | `qwen3:14b` | dense 14B, ~10 GB; warm first token ≈0.1 s after STT on the GB10. Alternatives: `qwen3:30b-a3b` (MoE) |
 | `KERSTIN_STT_BACKEND` | `http` | `http` = your running Whisper server (OpenAI-compatible); `local` = faster-whisper in-process |
 | `KERSTIN_TTS_BACKEND` | `piper` | `http` for a Kokoro-German server, `none` for text only |
 | `KERSTIN_OLLAMA_KEEP_ALIVE` | `10m` | frees the shared GPU when idle |

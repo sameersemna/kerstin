@@ -14,7 +14,7 @@ Silero VAD via vad-web on the client; server receives complete utterances. Why: 
 ## D004 · 2026-11-04 · Accepted — STT via existing HTTP server by default
 `HttpSTT` against an OpenAI-compatible endpoint; `LocalSTT` optional. Why: Sameer already runs Whisper; CTranslate2 CUDA wheels on aarch64 are uncertain.
 
-## D005 · 2026-11-04 · Accepted — Default LLM `qwen3:30b-a3b`, thinking off
+## D005 · 2026-11-04 · Superseded by D009 — Default LLM `qwen3:30b-a3b`, thinking off
 MoE keeps first-token latency low on GB10 memory bandwidth. To be confirmed by T002; alternatives: `gemma3:12b`, `mistral-small3.2`.
 
 ## D006 · 2026-11-04 · Accepted — Piper `de_DE-thorsten-high` as default TTS
@@ -25,3 +25,6 @@ Should Kerstin occasionally show B2-learner traits beyond word-searching (e.g. a
 
 ## D008 · 2026-11-04 · Open — Feedback language
 Explanations in English (current) vs German vs configurable.
+
+## D009 · 2026-11-04 · Accepted — Default LLM `qwen3:14b` (supersedes D005)
+Sameer's call after T001: it is already pulled, ~10 GB resident (light on the shared GPU), warm first token ≈0.1 s after STT. `qwen3:30b-a3b` stays an untested alternative. Known risk: one German grammar slip seen in T001 ("haben sie auch geregnet"). T010 watches reply correctness.
