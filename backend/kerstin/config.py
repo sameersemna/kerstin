@@ -39,10 +39,12 @@ class Settings(BaseSettings):
     history_max_turns: int = 24  # user+assistant messages kept in context
 
     # --- Speech-to-text ---
+    # "whispercpp": whisper.cpp server (POST /inference, multipart)
     # "http": OpenAI-compatible /v1/audio/transcriptions endpoint (speaches, faster-whisper-server, ...)
     # "local": faster-whisper in-process
-    stt_backend: Literal["http", "local"] = "http"
+    stt_backend: Literal["http", "local", "whispercpp"] = "http"
     stt_url: str = "http://127.0.0.1:8000"
+    stt_inference_path: str = "/inference"
     stt_model: str = "Systran/faster-whisper-large-v3"
     stt_language: str = "de"
     stt_local_device: str = "cuda"  # "cuda" or "cpu" (see docs/STATUS.md re: aarch64 wheels)

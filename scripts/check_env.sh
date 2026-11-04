@@ -19,7 +19,11 @@ if tags=$(curl -fsS -m 3 "$OLLAMA/api/tags"); then
 else bad "not reachable"; fi
 
 echo "STT (${KERSTIN_STT_BACKEND:-http})"
-if [[ "${KERSTIN_STT_BACKEND:-http}" == "http" ]]; then
+if [[ "${KERSTIN_STT_BACKEND:-http}" == "whispercpp" ]]; then
+  # whisper.cpp server: GET / is its HTML page (never POST /load here)
+  code=$(curl -s -o /dev/null -w '%{http_code}' -m 3 "$STT/" || true)
+  if [[ "$code" == "200" ]]; then ok "$STT/ answers"; else bad "$STT/ -> HTTP $code"; fi
+elif [[ "${KERSTIN_STT_BACKEND:-http}" == "http" ]]; then
   code=$(curl -s -o /dev/null -w '%{http_code}' -m 3 "$STT/v1/models" || true)
   if [[ "$code" == "200" ]]; then ok "$STT/v1/models answers"; else warn "$STT/v1/models -> HTTP $code (server may use another path; see docs/STATUS.md)"; fi
 else
