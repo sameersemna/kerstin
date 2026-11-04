@@ -205,5 +205,11 @@ bge-m3:latest    790764642607    664 MB    100% GPU     8192       9 minutes fro
 ```
 
 ## Review (Claude Code fills this in)
-- **Verdict:**
+- **Verdict:** accept (2026-11-04)
 - **Notes:**
+  - Diff limited to allowed files. `make test` (14 passed) and `make lint` pass on review. No audio files in the tree.
+  - Lead re-ran `make smoke --turns 3` with `qwen3:14b` already warm: server `first_audio_ms` was 1279 / 1220 / 1593 ms, STT 356–431 ms, GPU 48–58 °C. Kilo's run (2169 ms, STT 697 ms) was the same pipeline; the spread is consistent with the shared whisper.cpp server and run-to-run variance.
+  - All numbers start when the server receives the audio. The browser's VAD silence tail (≈0.5–0.8 s) comes on top, so the real end-of-speech → audio time is ≈1.8–2.9 s. Handed to T002.
+  - Cold first turn: 7.4 s to first token (model load). Follow-up: T005 warm-up.
+  - Persona issue seen with `qwen3:14b`: "War es sonnig oder **haben sie** auch geregnet?" (should be "hat es"). This is a grammar error, which breaks the persona contract. The model also asked about the weather right after being told it was fantastic. Input for the T002 model comparison and T010.
+  - Nit (not blocking): `smoke_test.py` imports `SynthesisConfig` at module level, so its `ImportError` fallback can never trigger. Harmless with piper-tts 1.8.0.
