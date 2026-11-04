@@ -20,9 +20,33 @@ make run            # http://127.0.0.1:8770
 make test           # unit tests, no GPU needed
 ```
 
-## Using it from the Mac
+## Using it from the Mac / phone (HTTPS)
 
-The browser only allows the microphone on `localhost` or HTTPS. Kerstin binds to `127.0.0.1` on the GB10, so use an SSH tunnel:
+The browser only allows the microphone on `localhost` or HTTPS. Kerstin can serve HTTPS itself on the LAN with a small local CA (D010); no SSH tunnel and no nginx changes are needed.
+
+On the GB10:
+
+```bash
+make certs          # creates certs/ (gitignored), reuses the CA on later runs
+# add to .env:
+#   KERSTIN_HOST=0.0.0.0
+#   KERSTIN_TLS_CERTFILE=certs/kerstin.crt
+#   KERSTIN_TLS_KEYFILE=certs/kerstin.key
+#   KERSTIN_TLS_CA_CERTFILE=certs/kerstin-ca.crt
+make run
+```
+
+`KERSTIN_HOST=0.0.0.0` makes Kerstin reachable from the LAN (and NordVPN Meshnet peers) **with no auth** — use it only on a trusted home network.
+
+Trust the CA once per device. Download it from `https://promaxgb10-6116.local:8770/kerstin-ca.crt` (the browser warns this one time because the CA is not trusted yet) or copy it with `scp`:
+
+- **macOS:** open the certificate → Keychain Access → System → the cert → Trust → “Always Trust”. Chrome and Safari use this; Firefox needs its own import or `security.enterprise_roots.enabled=true`.
+- **iOS:** open the URL in Safari → install the profile → Settings → General → About → Certificate Trust Settings → enable it.
+- **Android:** Settings → Security → Encryption & credentials → Install a certificate → CA certificate.
+
+Then open `https://promaxgb10-6116.local:8770`. If `.local` does not resolve, use the fallback `https://192.168.178.55:8770`.
+
+Fallback to the SSH tunnel (plain HTTP on localhost):
 
 ```bash
 ssh -N -L 8770:127.0.0.1:8770 promaxgb10-6116

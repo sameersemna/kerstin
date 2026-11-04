@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -24,9 +24,14 @@ class Settings(BaseSettings):
     )
 
     # --- Server ---
-    host: str = "127.0.0.1"  # bind to localhost; reach it from the Mac via SSH tunnel
+    host: str = "127.0.0.1"  # bind to localhost; use 0.0.0.0 + TLS for LAN access
     port: int = 8770
     log_level: str = "info"
+
+    # --- TLS (optional; created by `make certs`) ---
+    tls_certfile: Path | None = None
+    tls_keyfile: Path | None = None
+    tls_ca_certfile: Path | None = None  # public CA cert, offered for download
 
     # --- LLM (Ollama) ---
     ollama_url: str = "http://127.0.0.1:11434"
@@ -66,11 +71,33 @@ class Settings(BaseSettings):
     # --- Frontend ---
     frontend_dir: Path = PROJECT_DIR / "frontend"
 
-    @field_validator("piper_voice_path", "prompts_dir", "frontend_dir", mode="after")
+    @field_validator(
+        "piper_voice_path",
+        "prompts_dir",
+        "frontend_dir",
+        "tls_certfile",
+        "tls_keyfile",
+        "tls_ca_certfile",
+        mode="after",
+    )
     @classmethod
-    def _resolve_relative(cls, v: Path) -> Path:
+    def _resolve_relative(cls, v: Path | None) -> Path | None:
         # Relative paths in .env are relative to the project root, not the cwd
+        if v is None:
+            return None
         return v if v.is_absolute() else (PROJECT_DIR / v).resolve()
+
+    @model_validator(mode="after")
+    def _validate_tls_pair(self) -> Settings:
+        if (self.tls_certfile is None) != (self.tls_keyfile is None):
+            raise ValueError(
+                "KERSTIN_TLS_CERTFILE and KERSTIN_TLS_KEYFILE must be set together"
+            )
+        return self
+
+    @property
+    def tls_enabled(self) -> bool:
+        return self.tls_certfile is not None and self.tls_keyfile is not None
 
 
 settings = Settings()

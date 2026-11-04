@@ -110,11 +110,224 @@ Auth / access tokens (T040), reverse proxy / port 443, Let's Encrypt, systemd se
 
 ## Worker report (Kilo Code fills this in)
 - **Changed files:**
+  - `backend/kerstin/config.py` — `tls_certfile`, `tls_keyfile`, `tls_ca_certfile` (all `Path | None`), relative-path resolution for them, a model validator that requires cert+key together, and the `tls_enabled` property.
+  - `backend/kerstin/__main__.py` — `uvicorn_kwargs()`, URL logging on start, and a missing-file check that tells the user to run `make certs` (exit 2).
+  - `backend/kerstin/main.py` — `GET /kerstin-ca.crt` (404 when unset/missing, 500 if the file contains `PRIVATE KEY`), registered before the static mount.
+  - `backend/tests/test_tls.py` (new) — 7 tests covering the cert/key pair validation, `tls_enabled`, `uvicorn_kwargs` with/without TLS, and the CA route (404 / 200 / 500).
+  - `scripts/make_certs.sh` (new) — local CA + 397-day server cert, SAN selection, reuse of the existing CA, `--new-ca`, `--ip`, key permissions, next steps.
+  - `scripts/check_env.sh` — read-only TLS block (cert/key presence, key mode 600, 30-day expiry warning, SANs); existing checks untouched.
+  - `scripts/smoke_test.py` — `--cafile`, `ssl.SSLContext` for `wss://` health + WebSocket, default URL from `settings.tls_enabled` / `settings.port`; plain `ws://` path unchanged.
+  - `Makefile` — `certs` target and `.PHONY`.
+  - `.env.example` — commented HTTPS block with the no-auth/0.0.0.0 warning.
+  - `.gitignore` — `certs/`.
+  - `frontend/index.html` — footer hint only (no more SSH-tunnel text).
+  - `README.md` — “Using it from the Mac / phone (HTTPS)” rewritten (CA trust for macOS/iOS/Android, IP fallback, SSH fallback, headphones).
+  - `docs/tasks/T032-https-lan.md` — Worker report only.
+  - `certs/` is generated but **not committed** (gitignored).
 - **How tested:**
+  - `make test` → `21 passed` (14 existing + 7 new TLS tests); `make lint` → `All checks passed!`.
+  - `make certs` twice: `openssl verify` → `OK`; CA SHA-256 fingerprint identical before/after; SANs as expected (no `100.84.109.254`); both private keys mode `600`; `git status` does not list `certs/`.
+  - TLS server run on **port 8771** with `KERSTIN_HOST=0.0.0.0` and the three `KERSTIN_TLS_*` vars passed as environment variables (Sameer's `.env` and the 8770 instance were not touched).
+  - Three `curl --cacert ... /health` calls (localhost, `192.168.178.55`, `.local` via `--resolve`) → all `200` with no `-k`.
+  - `/kerstin-ca.crt` → `application/x-x509-ca-cert`, body starts with `-----BEGIN CERTIFICATE-----`, downloaded copy is byte-identical to `certs/kerstin-ca.crt`, and contains no `PRIVATE KEY`.
+  - `scripts/smoke_test.py --url wss://localhost:8771/ws --cafile certs/kerstin-ca.crt` → exit `0`, 2 turns.
+  - `avahi-resolve -4 -n promaxgb10-6116.local` → `172.30.0.1` (Docker bridge); `getent hosts` and an actual `curl https://promaxgb10-6116.local:8771/health` resolved to `192.168.178.55` and succeeded. The IP fallback in the README covers the Docker-bridge answer.
+  - Plain HTTP unchanged: with no TLS env vars, `make run` (on 8771 because 8770 is Sameer's live instance) served `http://127.0.0.1:8771/health` with `200`; `test_uvicorn_kwargs_without_tls` asserts the exact old kwargs; the `127.0.0.1:8770` listener was left running untouched.
+  - No nginx/firewall/system-trust/sudo/package changes; no `--new-ca` run (it would rotate the CA used for the live checks).
 - **Measurements (if any):**
+  - TLS smoke (server metrics): turn 1 cold (model load) `stt_ms=432`, `llm_first_token_ms=8399`, `first_audio_ms=9138`, `total_ms=9863`; turn 2 warm `stt_ms=430`, `llm_first_token_ms=535`, `first_audio_ms=1289`, `total_ms=2107`. Client-measured first audio: 9145 ms / 1298 ms.
+  - Warm `first_audio_ms=1289 ms` is inside T001's 1.2–1.6 s range (and better than T001's 2169 ms), so TLS added no measurable turn latency.
+  - GPU: 46→53 °C (turn 1), 53→49 °C (turn 2), 49 °C at end.
+  - CA SHA-256: `4C:EF:3F:3A:36:D1:7C:AA:27:C0:3B:D4:1E:3B:D6:9B:0F:A8:42:12:28:7F:48:25:D3:2C:CF:28:59:8A:9E:7E` (unchanged on the second `make certs`).
 - **Deviations from spec / extra files touched:**
-- **New dependencies (+license):**
+  - The “plain HTTP on `127.0.0.1:8770`” check was done on port **8771** instead, because Sameer's instance owns 8770 and the task says to leave it alone. `uvicorn_kwargs()` without TLS is unit-tested to be exactly the old dict, and the 8770 listener was not restarted or reconfigured.
+  - `openssl x509 -req -CAcreateserial` leaves `certs/kerstin-ca.srl` (serial bookkeeping). It is inside the gitignored `certs/`, harmless, and not one of the four named files.
+  - `--new-ca` is implemented and prints a warning but was not executed, to avoid rotating the CA that the live checks used.
+  - No other files touched.
+- **New dependencies (+license):** None. `openssl` 3.0.13 was already installed; no Python or system packages added.
 - **Open questions:**
+  - `avahi-resolve` on the GB10 reports the Docker bridge `172.30.0.1` for `promaxgb10-6116.local`, while `getent`/curl use `192.168.178.55`. If the Mac resolves the `.local` name to the bridge too, users should use `https://192.168.178.55:8770`; a deeper mDNS/interface fix is outside T032.
+
+### Outputs
+
+`make test` / `make lint`:
+
+```text
+$ make test
+21 passed, 1 warning in 0.35s
+
+$ make lint
+.venv/bin/ruff check backend scripts
+All checks passed!
+```
+
+`make certs` (first run; OpenSSL RSA progress dots omitted):
+
+```text
+$ make certs
+Hostname: promaxgb10-6116
+SANs:
+  DNS:localhost
+  DNS:promaxgb10-6116
+  DNS:promaxgb10-6116.local
+  IP:127.0.0.1
+  IP:192.168.178.55
+Creating local CA ...
+Creating server certificate ...
+Certificate request self-signature ok
+subject=CN = promaxgb10-6116.local
+
+certs/kerstin.crt: OK
+subject=CN = promaxgb10-6116.local
+notBefore=Nov  4 19:52:55 2026 GMT
+notAfter=Dec  6 19:52:55 2027 GMT
+X509v3 Subject Alternative Name:
+    DNS:localhost, DNS:promaxgb10-6116, DNS:promaxgb10-6116.local,
+    IP Address:127.0.0.1, IP Address:192.168.178.55
+
+Next steps:
+  Add to .env:
+    KERSTIN_HOST=0.0.0.0
+    KERSTIN_TLS_CERTFILE=certs/kerstin.crt
+    KERSTIN_TLS_KEYFILE=certs/kerstin.key
+    KERSTIN_TLS_CA_CERTFILE=certs/kerstin-ca.crt
+
+  Start Kerstin:
+    make run
+
+  Open on the Mac/phone:
+    https://promaxgb10-6116.local:8770
+```
+
+Certificate checks:
+
+```text
+$ openssl verify -CAfile certs/kerstin-ca.crt certs/kerstin.crt
+certs/kerstin.crt: OK
+
+$ openssl x509 -noout -fingerprint -sha256 -in certs/kerstin-ca.crt
+sha256 Fingerprint=4C:EF:3F:3A:36:D1:7C:AA:27:C0:3B:D4:1E:3B:D6:9B:
+0F:A8:42:12:28:7F:48:25:D3:2C:CF:28:59:8A:9E:7E
+# identical output after a second `make certs`
+
+$ stat -c '%a %n' certs/*.key
+600 certs/kerstin-ca.key
+600 certs/kerstin.key
+```
+
+`curl` over TLS (no `-k`):
+
+```text
+$ curl -sS --cacert certs/kerstin-ca.crt https://localhost:8771/health
+{"version":"0.1.0","ollama":{"ok":true,"model_available":true},"model":"qwen3:14b","stt_backend":"whispercpp","tts_backend":"piper"}
+
+$ curl -sS --cacert certs/kerstin-ca.crt https://192.168.178.55:8771/health
+{"version":"0.1.0","ollama":{"ok":true,"model_available":true},"model":"qwen3:14b","stt_backend":"whispercpp","tts_backend":"piper"}
+
+$ curl -sS --cacert certs/kerstin-ca.crt --resolve promaxgb10-6116.local:8771:192.168.178.55 \
+    https://promaxgb10-6116.local:8771/health
+{"version":"0.1.0","ollama":{"ok":true,"model_available":true},"model":"qwen3:14b","stt_backend":"whispercpp","tts_backend":"piper"}
+
+$ curl -sS -D - --cacert certs/kerstin-ca.crt https://localhost:8771/kerstin-ca.crt
+HTTP/1.1 200 OK
+content-length: 1549
+content-type: application/x-x509-ca-cert
+
+-----BEGIN CERTIFICATE-----
+# no PRIVATE KEY in the body; downloaded copy matches certs/kerstin-ca.crt
+```
+
+Smoke over `wss://`:
+
+```text
+$ .venv/bin/python scripts/smoke_test.py --url wss://localhost:8771/ws --cafile certs/kerstin-ca.crt
+GET https://localhost:8771/health -> 200
+{"version":"0.1.0","ollama":{"ok":true,"model_available":true},"model":"qwen3:14b","stt_backend":"whispercpp","tts_backend":"piper"}
+Synthesizing utterance with Piper voice de_DE-thorsten-high.onnx ...
+Utterance: 4.35 s, 139200 bytes PCM
+Sending {"type": "start"}
+[     0 ms] {"type": "session", "scenario": "freies_gespraech", "title": "Freies Gespräch"}
+[     0 ms] {"type": "reply_text", "turn": 0, "text": "Hey, schön, dass es heute klappt! Ich habe gerade einen Flat White bestellt. Wie war deine Woche bisher?"}
+[   869 ms] binary turn=0 size=255536
+[   869 ms] {"type": "reply_done", "turn": 0}
+Opener complete
+GPU before turn 1: 46 °C
+[     5 ms] {"type": "status", "state": "transcribing", "turn": 1}
+[   438 ms] {"type": "transcript", "turn": 1, "text": "Am Wochenende war ich mit Freunden am See und das Werther\n war fantastisch."}
+[   438 ms] {"type": "status", "state": "thinking", "turn": 1}
+[  8823 ms] {"type": "reply_text", "turn": 1, "text": "Das klingt sehr schön!"}
+[  9145 ms] binary turn=1 size=48176
+[  9525 ms] {"type": "reply_text", "turn": 1, "text": "Wo war das? Hast du dich gut entspannen können?"}
+[  9870 ms] binary turn=1 size=108592
+[  9870 ms] {"type": "reply_done", "turn": 1}
+[  9870 ms] {"type": "metrics", "turn": 1, "audio_s": 4.35, "stt_ms": 432, "llm_first_token_ms": 8399, "first_audio_ms": 9138, "total_ms": 9863, "sentences": 2}
+GPU after turn 1: 53 °C
+Turn 1 complete
+GPU before turn 2: 53 °C
+[     6 ms] {"type": "status", "state": "transcribing", "turn": 2}
+[   437 ms] {"type": "transcript", "turn": 2, "text": "Am Wochenende war ich mit Freunden am See und das Werther\n war fantastisch."}
+[   437 ms] {"type": "status", "state": "thinking", "turn": 2}
+[   935 ms] {"type": "reply_text", "turn": 2, "text": "Das klingt sehr schön!"}
+[  1298 ms] binary turn=2 size=44592
+[  1645 ms] {"type": "reply_text", "turn": 2, "text": "Wo war das? Hast du dich gut entspannen können?"}
+[  2114 ms] binary turn=2 size=115760
+[  2114 ms] {"type": "reply_done", "turn": 2}
+[  2114 ms] {"type": "metrics", "turn": 2, "audio_s": 4.35, "stt_ms": 430, "llm_first_token_ms": 535, "first_audio_ms": 1289, "total_ms": 2107, "sentences": 2}
+GPU after turn 2: 49 °C
+Turn 2 complete
+GPU at end: 49 °C
+
+Summary
+turn   stt_ms  llm_1st_ms  srv_audio_ms  cli_audio_ms  total_ms  gpu_before  gpu_after
+--------------------------------------------------------------------------------------
+   1      432        8399          9138          9145      9863       46 °C      53 °C
+   2      430         535          1289          1298      2107       53 °C      49 °C
+```
+
+mDNS:
+
+```text
+$ avahi-resolve -4 -n promaxgb10-6116.local
+promaxgb10-6116.local	172.30.0.1
+
+$ getent hosts promaxgb10-6116.local
+192.168.178.55  promaxgb10-6116 promaxgb10-6116.local
+```
+
+`check_env.sh` with TLS (read-only):
+
+```text
+$ KERSTIN_TLS_CERTFILE=certs/kerstin.crt KERSTIN_TLS_KEYFILE=certs/kerstin.key bash scripts/check_env.sh
+...
+TLS
+  [ok]   cert certs/kerstin.crt
+  [ok]   key certs/kerstin.key
+  [ok]   key mode 600
+  [ok]   cert valid for more than 30 days
+         SANs:
+           DNS:localhost
+           DNS:promaxgb10-6116
+           DNS:promaxgb10-6116.local
+           IP Address:127.0.0.1
+           IP Address:192.168.178.55
+...
+```
+
+Plain HTTP (no TLS env vars; port 8771 because Sameer owns 8770):
+
+```text
+$ KERSTIN_PORT=8771 make run
+Kerstin: open http://localhost:8771
+INFO:     Uvicorn running on http://127.0.0.1:8771 (Press CTRL+C to quit)
+
+$ curl -sS http://127.0.0.1:8771/health
+{"version":"0.1.0","ollama":{"ok":true,"model_available":true},"model":"qwen3:14b","stt_backend":"whispercpp","tts_backend":"piper"}
+
+$ ss -ltn | grep ':8770'
+LISTEN 0 2048 127.0.0.1:8770 0.0.0.0:*   # Sameer's instance, untouched
+```
+
+The `make run` instances started for this task were stopped afterwards; `certs/` stays on disk (gitignored).
 
 ## Review (Claude Code fills this in)
 - **Verdict:**

@@ -10,3 +10,4 @@ voices/*.onnx.json
 recordings/
 *.log
 .DS_Store
+certs/

@@ -12,6 +12,7 @@ import argparse
 import asyncio
 import io
 import json
+import ssl
 import struct
 import subprocess
 import sys
@@ -153,6 +154,14 @@ def health_url_for(ws_url: str) -> str:
     return urlunparse((scheme, parsed.netloc, "/health", "", "", ""))
 
 
+def build_ssl_context(ws_url: str, cafile: str | None) -> ssl.SSLContext | None:
+    if not ws_url.startswith("wss://"):
+        return None
+    if not cafile:
+        raise SmokeError("wss:// requires --cafile (or KERSTIN_TLS_CA_CERTFILE)")
+    return ssl.create_default_context(cafile=cafile)
+
+
 def parse_text_message(msg: str) -> dict:
     try:
         data = json.loads(msg)
@@ -275,8 +284,9 @@ def print_summary(rows: list[dict]) -> None:
 
 
 async def run(args: argparse.Namespace) -> None:
+    ssl_context = build_ssl_context(args.url, args.cafile)
     health_url = health_url_for(args.url)
-    async with httpx.AsyncClient() as http:
+    async with httpx.AsyncClient(verify=ssl_context) as http:
         response = await http.get(health_url, timeout=5.0)
         print(f"GET {health_url} -> {response.status_code}")
         print(response.text)
@@ -289,7 +299,7 @@ async def run(args: argparse.Namespace) -> None:
     print(f"Utterance: {len(pcm) / 2 / SAMPLE_RATE:.2f} s, {len(pcm)} bytes PCM")
 
     rows: list[dict] = []
-    async with websockets.connect(args.url, max_size=None) as ws:
+    async with websockets.connect(args.url, max_size=None, ssl=ssl_context) as ws:
         start: dict = {"type": "start"}
         if args.scenario:
             start["scenario"] = args.scenario
@@ -324,8 +334,16 @@ async def run(args: argparse.Namespace) -> None:
 
 
 def main() -> int:
+    settings = Settings()
+    default_url = (
+        f"wss://localhost:{settings.port}/ws"
+        if settings.tls_enabled
+        else f"ws://127.0.0.1:{settings.port}/ws"
+    )
+    default_cafile = str(settings.tls_ca_certfile) if settings.tls_ca_certfile else None
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--url", default="ws://127.0.0.1:8770/ws")
+    parser.add_argument("--url", default=default_url)
+    parser.add_argument("--cafile", default=default_cafile)
     parser.add_argument("--scenario", default=None, help="scenario key (default: server default)")
     parser.add_argument("--turns", type=int, default=2)
     args = parser.parse_args()
