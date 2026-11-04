@@ -28,3 +28,6 @@ Explanations in English (current) vs German vs configurable.
 
 ## D009 · 2026-11-04 · Accepted — Default LLM `qwen3:14b` (supersedes D005)
 Sameer's call after T001: it is already pulled, ~10 GB resident (light on the shared GPU), warm first token ≈0.1 s after STT. `qwen3:30b-a3b` stays an untested alternative. Known risk: one German grammar slip seen in T001 ("haben sie auch geregnet"). T010 watches reply correctness.
+
+## D010 · 2026-11-04 · Accepted — HTTPS on the LAN via Uvicorn TLS + local openssl CA
+Kerstin serves TLS itself (`KERSTIN_TLS_*`). The cert comes from a project-local CA made by `scripts/make_certs.sh`, and each client trusts that CA once. Why: no new software, and nginx on `:80` belongs to other projects, so it stays untouched. mkcert, Caddy and Tailscale were not needed. The default (no TLS vars) is still plain HTTP on 127.0.0.1. **Accepted risk:** with `KERSTIN_HOST=0.0.0.0` anyone on the home LAN (and NordVPN Meshnet peers) can use Kerstin, with no auth. That's fine for a trusted home network; auth comes with T040 before anything goes public.

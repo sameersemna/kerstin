@@ -28,7 +28,7 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 ## Phase 4 — Ops on the shared GB10
 - [ ] T030 **Thermal guard**: poll `nvidia-smi`; above 80 °C, reject new sessions / switch to smaller model; never cap clocks machine-wide.
 - [ ] T031 **systemd user service** + log rotation; start on boot optional.
-- [ ] T032 **HTTPS on LAN** (Caddy or mkcert) so phones/tablets can use the mic without SSH tunnel.
+- [ ] T032 **HTTPS on LAN** (Uvicorn TLS + local CA, D010) so the Mac and phones can use the mic without an SSH tunnel. Task file: `docs/tasks/T032-https-lan.md`. Pulled forward at Sameer's request.
 
 ## Phase 5 — Going public (only after Sameer decides)
 - [ ] T040 Auth + per-user limits; multi-session concurrency test.
