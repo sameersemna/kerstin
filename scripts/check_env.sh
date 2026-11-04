@@ -35,6 +35,39 @@ if [[ "${KERSTIN_TTS_BACKEND:-piper}" == "piper" ]]; then
   [[ -f "$VOICE" ]] && ok "voice $VOICE" || bad "voice missing -> make voice"
 fi
 
+if [[ -n "${KERSTIN_TLS_CERTFILE:-}" ]]; then
+  echo "TLS"
+  TLS_KEY="${KERSTIN_TLS_KEYFILE:-}"
+  if [[ -f "$KERSTIN_TLS_CERTFILE" ]]; then
+    ok "cert $KERSTIN_TLS_CERTFILE"
+  else
+    bad "cert missing: $KERSTIN_TLS_CERTFILE"
+  fi
+  if [[ -z "$TLS_KEY" ]]; then
+    bad "KERSTIN_TLS_KEYFILE not set"
+  elif [[ -f "$TLS_KEY" ]]; then
+    ok "key $TLS_KEY"
+    mode=$(stat -c '%a' "$TLS_KEY" 2>/dev/null || true)
+    if [[ "$mode" == "600" ]]; then
+      ok "key mode 600"
+    else
+      warn "key mode ${mode:-unknown}, expected 600"
+    fi
+  else
+    bad "key missing: $TLS_KEY"
+  fi
+  if [[ -f "$KERSTIN_TLS_CERTFILE" ]]; then
+    if openssl x509 -checkend 2592000 -noout -in "$KERSTIN_TLS_CERTFILE" >/dev/null 2>&1; then
+      ok "cert valid for more than 30 days"
+    else
+      warn "cert expires within 30 days (or cannot be parsed)"
+    fi
+    echo "         SANs:"
+    openssl x509 -noout -ext subjectAltName -in "$KERSTIN_TLS_CERTFILE" 2>/dev/null \
+      | tail -n +2 | tr ',' '\n' | sed 's/^ */           /' || true
+  fi
+fi
+
 echo "GPU"
 if command -v nvidia-smi >/dev/null; then
   t=$(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -1)

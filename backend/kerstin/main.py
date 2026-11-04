@@ -10,7 +10,7 @@ import json
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -71,6 +71,19 @@ async def scenarios() -> JSONResponse:
     return JSONResponse(
         [{"key": s.key, "title": s.title} for s in deps.prompts.scenarios().values()]
     )
+
+
+@app.get("/kerstin-ca.crt")
+async def ca_cert() -> Response:
+    """Serve the public local CA so clients can trust it (never a private key)."""
+    path = settings.tls_ca_certfile
+    if path is None or not path.is_file():
+        raise HTTPException(status_code=404, detail="CA certificate not available")
+    data = path.read_bytes()
+    if b"PRIVATE KEY" in data:
+        log.error("Refusing to serve %s: it contains a private key", path)
+        raise HTTPException(status_code=500, detail="CA file contains a private key")
+    return Response(content=data, media_type="application/x-x509-ca-cert")
 
 
 @app.websocket("/ws")
