@@ -330,5 +330,9 @@ LISTEN 0 2048 127.0.0.1:8770 0.0.0.0:*   # Sameer's instance, untouched
 The `make run` instances started for this task were stopped afterwards; `certs/` stays on disk (gitignored).
 
 ## Review (Claude Code fills this in)
-- **Verdict:**
+- **Verdict:** accept (2026-11-04)
 - **Notes:**
+  - Diff limited to the 13 allowed files. `make test` (21 passed) and `make lint` are clean on review. `certs/` is ignored by git; keys are mode 600.
+  - Lead re-verified on 8771: `openssl verify` OK; SANs correct (no NordVPN/Docker addresses); CA has `CA:TRUE` + `keyCertSign`; `/health` returns 200 via localhost, the LAN IP and `.local` (via `--resolve`) without `-k`; `/kerstin-ca.crt` serves the cert and no key.
+  - The `wss://` smoke test (3 turns) passed. Warm `first_audio_ms` was 1906 / 1859 ms here vs 1289 ms in Kilo's run. TLS isn't the cause: the server metric starts after the frame has been decrypted, and client-side first audio is only +5 ms over the server number. The spread comes from reply length and LLM timing, which T002 measures.
+  - mDNS: avahi publishes the Docker bridge `172.30.0.1` for `promaxgb10-6116.local`, so a Mac may get an unreachable address. Not Kilo's bug. Follow-up (lead): a `make_certs.sh --dns NAME` option, so the FritzBox name `promaxgb10-6116.fritz.box` (resolves to 192.168.178.55) can be in the cert.
