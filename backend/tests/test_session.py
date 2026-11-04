@@ -65,6 +65,10 @@ async def test_opener_and_turn():
     await s._turn_task
     types = [m["type"] for m in js]
     assert "transcript" in types and "reply_done" in types and "metrics" in types
+    metrics = next(m for m in js if m["type"] == "metrics")
+    assert metrics["first_sentence_ms"] >= 0
+    assert metrics["tts_first_ms"] >= 0
+    assert metrics["first_sentence_ms"] <= metrics["first_audio_ms"]
     texts = [m["text"] for m in js if m["type"] == "reply_text" and m["turn"] == 1]
     assert texts == ["Oh, cool! Und wie gefällt dir Berlin bisher?"] or texts == [
         "Oh, cool!", "Und wie gefällt dir Berlin bisher?"

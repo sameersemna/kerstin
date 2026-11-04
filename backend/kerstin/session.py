@@ -46,6 +46,8 @@ class TurnMetrics:
     audio_s: float = 0.0
     stt_ms: int = 0
     llm_first_token_ms: int = 0
+    first_sentence_ms: int = 0  # t0 until the consumer got the first non-empty sentence
+    tts_first_ms: int = 0  # duration of the first sentence's synthesize() call
     first_audio_ms: int = 0  # from end of learner speech (server receive) to first audio sent
     total_ms: int = 0
     sentences: int = 0
@@ -157,12 +159,23 @@ class Session:
                 await queue.put(None)
 
         async def consume() -> None:
+            first_sentence = True
+            first_tts = True
             while (sent := await queue.get()) is not None:
                 sent = strip_think(sent).strip()
                 if not sent:
                     continue
+                if first_sentence:
+                    m.first_sentence_ms = ms()
+                    first_sentence = False
                 await self.send_json({"type": "reply_text", "turn": turn_id, "text": sent})
-                wav = await self.deps.tts.synthesize(clean_for_tts(sent))
+                if first_tts:
+                    synth_started = time.perf_counter()
+                    wav = await self.deps.tts.synthesize(clean_for_tts(sent))
+                    m.tts_first_ms = int((time.perf_counter() - synth_started) * 1000)
+                    first_tts = False
+                else:
+                    wav = await self.deps.tts.synthesize(clean_for_tts(sent))
                 await self._send_audio(turn_id, wav)
                 if not m.first_audio_ms:
                     m.first_audio_ms = ms()

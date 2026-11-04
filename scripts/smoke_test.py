@@ -115,7 +115,7 @@ def wav_to_pcm16(wav_bytes: bytes) -> bytes:
     return pad + pcm + pad
 
 
-def synthesize_utterance(settings: Settings) -> bytes:
+def synthesize_utterance(settings: Settings, text: str = UTTERANCE) -> bytes:
     voice = PiperVoice.load(str(settings.piper_voice_path))
     buf = io.BytesIO()
     with wave.open(buf, "wb") as wav_file:
@@ -123,11 +123,11 @@ def synthesize_utterance(settings: Settings) -> bytes:
         if hasattr(voice, "synthesize_wav"):
             try:
                 cfg = SynthesisConfig(length_scale=settings.piper_length_scale)
-                voice.synthesize_wav(UTTERANCE, wav_file, syn_config=cfg)
+                voice.synthesize_wav(text, wav_file, syn_config=cfg)
             except ImportError:
-                voice.synthesize_wav(UTTERANCE, wav_file)
+                voice.synthesize_wav(text, wav_file)
         else:
-            voice.synthesize(UTTERANCE, wav_file, length_scale=settings.piper_length_scale)
+            voice.synthesize(text, wav_file, length_scale=settings.piper_length_scale)
     return wav_to_pcm16(buf.getvalue())
 
 
@@ -177,7 +177,7 @@ def check_error(data: dict) -> None:
         raise SmokeError(f"server error: {data.get('message')!r}")
 
 
-async def wait_for_opener(ws) -> None:
+async def wait_for_opener(ws, verbose: bool = True) -> None:
     deadline = time.monotonic() + TIMEOUT_OPENER_S
     t0 = time.monotonic()
     while True:
@@ -188,7 +188,8 @@ async def wait_for_opener(ws) -> None:
             msg = await asyncio.wait_for(ws.recv(), timeout=remaining)
         except TimeoutError as exc:
             raise SmokeError(f"opener timed out after {TIMEOUT_OPENER_S:.0f} s") from exc
-        log_message(msg, t0)
+        if verbose:
+            log_message(msg, t0)
         if isinstance(msg, bytes):
             continue
         data = parse_text_message(msg)
