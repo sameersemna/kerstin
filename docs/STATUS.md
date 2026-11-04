@@ -8,7 +8,8 @@ _Last updated: 2026-11-04 (T000 scaffold)_
 
 ## Not yet verified (T001 will check these on the GB10)
 - Real Ollama streaming with `qwen3:30b-a3b` and `think: false` (older Ollama versions may ignore `think`; `strip_think` removes leftover `<think>` blocks either way).
-- Sameer's Whisper server: does it expose OpenAI-compatible `POST /v1/audio/transcriptions`? If it is whisper.cpp's server (`/inference`) or something else, `HttpSTT` needs a small variant.
+- ~~Sameer's Whisper server API~~ → **answered 2026-11-04:** whisper.cpp server on `:8768` (`POST /inference`, not OpenAI-compatible, default language English → must send `language=de`). It is shared with the Sunny project and handles one request at a time. T001 adds `WhisperCppSTT`.
+- Ollama 0.34.2 is installed; `qwen3:30b-a3b` is not pulled yet.
 - `piper-tts` on aarch64: install + `PiperVoice.load` + `synthesize_wav`. Code handles both the new (`synthesize_wav`) and old (`synthesize`) APIs.
 - `LocalSTT` (faster-whisper): CTranslate2 PyPI wheels for aarch64 may be CPU-only; CUDA may need a source build. Not on the default path.
 - vad-web 0.0.22 asset paths from jsdelivr (`baseAssetPath`, `onnxWASMBasePath`).
