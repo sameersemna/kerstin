@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kerstin</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Voice activity detection (Silero VAD in the browser). Pinned versions; vendor locally later (see ROADMAP). -->
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.22/dist/bundle.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Kerstin <span class="sub">Deutsch sprechen · B2</span></h1>
+    <div class="controls">
+      <select id="scenario" aria-label="Szenario"></select>
+      <button id="startBtn" class="primary">Gespräch starten</button>
+      <button id="endBtn" disabled>Beenden &amp; Feedback</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="log" aria-live="polite"></section>
+    <aside>
+      <div id="state" class="state idle">bereit</div>
+      <div id="metrics" class="metrics">–</div>
+      <div id="feedback" class="feedback" hidden></div>
+    </aside>
+  </main>
+
+  <footer>
+    Läuft lokal. Mikrofon braucht <code>localhost</code> oder HTTPS – siehe README (SSH-Tunnel).
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

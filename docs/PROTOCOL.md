@@ -1,0 +1,38 @@
+# WebSocket protocol — `/ws`
+
+Version 0.1. Text frames are JSON; binary frames are audio. Any change here must be made in the same commit as the code change on both sides.
+
+## Client → server
+
+| Frame | Meaning |
+|---|---|
+| `{"type":"start","scenario":"<key>"}` | Start (or restart) a session. Keys from `GET /api/scenarios`. |
+| **binary** | One complete learner utterance: 16 kHz, mono, signed 16-bit little-endian PCM, no header. Implicitly starts turn `n+1` and cancels any running turn. |
+| `{"type":"interrupt"}` | Learner barged in; cancel the running turn. |
+| `{"type":"end"}` | End the conversation and request feedback. |
+| `{"type":"ping"}` | Keepalive → `pong`. |
+
+## Server → client
+
+| Frame | Meaning |
+|---|---|
+| `{"type":"session","scenario","title"}` | Session started; reset UI, `turn = 0`. |
+| `{"type":"status","state":"transcribing"\|"thinking"\|"feedback_running","turn"}` | Progress hints. |
+| `{"type":"transcript","turn","text"}` | What STT heard. |
+| `{"type":"stt_empty","turn"}` | Nothing recognized. |
+| `{"type":"reply_text","turn","text"}` | One sentence of Kerstin's reply (sent just before its audio). Turn 0 = opener. |
+| **binary** | `[4-byte big-endian uint32 turn id][WAV file]` — one sentence of audio. Drop if turn id < current turn. |
+| `{"type":"reply_done","turn"}` | Reply finished. |
+| `{"type":"reply_interrupted","turn"}` | Reply cancelled by barge-in. |
+| `{"type":"metrics","turn","audio_s","stt_ms","llm_first_token_ms","first_audio_ms","total_ms","sentences"}` | Timings (ms measured from server receiving the utterance). |
+| `{"type":"feedback","markdown"}` | End-of-session report. |
+| `{"type":"error","message","turn"?}` | Error. |
+| `{"type":"pong"}` | Reply to ping. |
+
+## Turn ids
+Both sides start at 0 after `session`. Each binary utterance from the client increments the turn on both sides (the server increments even if the utterance is too short and ignored, to stay in sync).
+
+## HTTP
+- `GET /health` → Ollama reachability, model presence, configured backends.
+- `GET /api/scenarios` → `[{"key","title"}]`.
+- `GET /` → browser client.

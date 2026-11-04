@@ -1,0 +1,61 @@
+:root {
+  --bg: #f6f4ef;
+  --panel: #ffffff;
+  --ink: #1d1b18;
+  --muted: #6d675e;
+  --accent: #1f5f8b;
+  --me: #e3eef6;
+  --her: #f1ece2;
+  --warn: #a14a1b;
+  --border: #ddd6ca;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171614;
+    --panel: #201f1c;
+    --ink: #ece8e1;
+    --muted: #a19a8f;
+    --accent: #6fb0dc;
+    --me: #1f3442;
+    --her: #2c2924;
+    --warn: #e08a5a;
+    --border: #38342e;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  display: flex; flex-direction: column; min-height: 100vh;
+}
+header {
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+}
+h1 { margin: 0; font-size: 1.3rem; }
+h1 .sub { font-weight: 400; color: var(--muted); font-size: .9rem; margin-left: 6px; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; }
+select, button {
+  font: inherit; padding: 8px 12px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--panel); color: var(--ink);
+}
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button:disabled { opacity: .5; }
+main {
+  flex: 1; display: grid; grid-template-columns: 1fr 320px; gap: 16px; padding: 16px;
+  max-width: 1100px; width: 100%; margin: 0 auto;
+}
+@media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+#log { display: flex; flex-direction: column; gap: 10px; }
+.msg { padding: 10px 14px; border-radius: 12px; max-width: 85%; }
+.msg.me { align-self: flex-end; background: var(--me); }
+.msg.her { align-self: flex-start; background: var(--her); }
+.msg .who { font-size: .75rem; color: var(--muted); display: block; margin-bottom: 2px; }
+.msg.interrupted::after { content: " …"; color: var(--muted); }
+aside { display: flex; flex-direction: column; gap: 12px; }
+.state { padding: 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--border); text-align: center; }
+.state.listening { border-color: var(--accent); color: var(--accent); }
+.state.speaking { border-color: var(--warn); color: var(--warn); }
+.metrics { font: 12px/1.4 ui-monospace, monospace; color: var(--muted); white-space: pre-wrap; }
+.feedback { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; white-space: pre-wrap; font-size: .92rem; }
+footer { padding: 10px 16px; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--border); }

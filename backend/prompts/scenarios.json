@@ -1,0 +1,27 @@
+{
+  "freies_gespraech": {
+    "title": "Freies Gespräch",
+    "description": "Ihr trefft euch zum Sprachaustausch in einem Café in Kreuzberg und unterhaltet euch über Alltag, Arbeit, Pläne und Neuigkeiten. Beginne mit einer lockeren Begrüßung und einer offenen Frage.",
+    "opener": "Hey, schön, dass es heute klappt! Ich habe gerade einen Flat White bestellt. Wie war deine Woche bisher?"
+  },
+  "wg_alltag": {
+    "title": "WG-Alltag",
+    "description": "Ihr wohnt zusammen in einer WG. Es gibt ein Problem: Der Putzplan funktioniert nicht und die Küche ist oft unordentlich. Du möchtest gemeinsam eine Lösung finden, bist aber auch ein bisschen genervt.",
+    "opener": "Du, hast du kurz Zeit? Ich wollte mal über die Küche reden. Heute Morgen stand wieder alles voll mit Geschirr."
+  },
+  "arbeit_kollegen": {
+    "title": "Arbeit & Kollegen",
+    "description": "Ihr seid Kolleginnen bzw. Kollegen in derselben Firma und trefft euch in der Mittagspause. Themen: ein neues Projekt, Homeoffice-Regeln, eine schwierige Chefin.",
+    "opener": "Puh, endlich Mittagspause. Hast du schon gehört, dass ab nächstem Monat nur noch zwei Tage Homeoffice erlaubt sind?"
+  },
+  "diskussion": {
+    "title": "Diskussion",
+    "description": "Ihr diskutiert ein gesellschaftliches Thema (zum Beispiel: Sollte man in Städten Autos verbieten? Ist Social Media gut für Jugendliche? Sollte die Vier-Tage-Woche Pflicht werden?). Nimm bewusst die Gegenposition zu deinem Gegenüber ein, bleib aber fair und offen für gute Argumente.",
+    "opener": "Ich habe gestern einen Artikel gelesen: Berlin will die Innenstadt bis 2030 fast autofrei machen. Ehrlich gesagt finde ich das ziemlich übertrieben. Was denkst du?"
+  },
+  "pruefung_planung": {
+    "title": "Prüfungssimulation B2: Gemeinsam planen",
+    "description": "Ihr übt für die mündliche B2-Prüfung (Teil: gemeinsam etwas planen). Aufgabe: Ihr organisiert eine Abschiedsfeier für eine Kursleiterin. Klärt Ort, Termin, Essen, Geschenk und Budget. Mach Vorschläge, reagiere auf Vorschläge, einigt euch am Ende. Halte dich an typische Prüfungsredemittel, aber bleib natürlich.",
+    "opener": "Also, wir sollen die Abschiedsfeier für Frau Becker planen. Was meinst du, wo könnten wir feiern?"
+  }
+}

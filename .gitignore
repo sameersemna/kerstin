@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+voices/*.onnx
+voices/*.onnx.json
+recordings/
+*.log
+.DS_Store

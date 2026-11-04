@@ -1,0 +1,20 @@
+# Component licenses
+
+Kerstin may become a public, paid service. Every shipped component must allow commercial use. **Verify each entry against the upstream license before going public (T043)** — this table is a starting point, not legal advice.
+
+| Component | Role | License (as understood) | Commercial OK? | Notes |
+|---|---|---|---|---|
+| FastAPI, Uvicorn, httpx, pydantic | server | MIT / BSD | ✅ | |
+| OpenAI Whisper weights | STT | MIT | ✅ | |
+| faster-whisper / CTranslate2 | STT (optional) | MIT | ✅ | |
+| Qwen3 (Ollama) | LLM | Apache 2.0 | ✅ | default |
+| Mistral Small 3.x | LLM alt | Apache 2.0 | ✅ | |
+| Gemma 3 | LLM alt | Gemma Terms of Use | ⚠️ | commercial allowed with use-policy conditions |
+| Ollama | LLM runtime | MIT | ✅ | |
+| piper-tts (piper1-gpl) | TTS engine | GPL-3.0 | ⚠️ | OK for a hosted service; distribution of a bundled app has GPL obligations. Original rhasspy/piper was MIT. |
+| Piper voice `de_DE-thorsten-high` | TTS voice | Thorsten dataset CC0 (check voice card) | ✅ (verify) | |
+| Kokoro-82M German ports | TTS alt | Apache 2.0 (check each fine-tune) | ✅ (verify) | |
+| Coqui XTTS v2 | TTS | Coqui Public Model License | ❌ | non-commercial — do not use in default path |
+| @ricky0123/vad-web | browser VAD | ISC | ✅ | |
+| Silero VAD model | VAD | MIT | ✅ | |
+| onnxruntime-web | browser runtime | MIT | ✅ | |
