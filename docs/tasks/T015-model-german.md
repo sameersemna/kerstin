@@ -834,3 +834,11 @@ none
 ```
 
 ## Review (Claude Code fills this in)
+- **Verdict:** accept (2026-11-05)
+- **Notes:**
+  - Diff limited to allowed scripts. One shared `cool_down` helper; `make test` (53) and `make lint` clean. `think: false` works for gemma4 (no llm.py change). Thermal ≤ 67 °C.
+  - **Lead's German grading (seeds 1234 + 99, 60 replies per model):**
+    - `qwen3:14b`: ≈11/60 replies with grammar/idiom errors: "Das tut leid", "Was hat er nicht gefallen", "Das stimme ich zu", "ein sehr nettes Vorschlag", "weniger Autos … verbessern würde", "Kopenhagen … ihre Fahrradwege" (2×), "Hast du … gefahren/unterwegs gewesen" (2×), "dass Satz", "Deine Satz", "immer nur du putzt". Wrong explanations in 3 of 10 correction replies (seed 5 included). Markdown in 7 replies. 10/10 verbatim repeats.
+    - `gemma4:26b`: 3/60: "… alle zusammen an den Tisch setzen" (missing *uns*), "wir sind da wohl gleicher Meinung" (→ einer Meinung), and one wrong correction "auf **dem** Tisch" (seed 1234; seed 99 correctly says Akkusativ). 0 markdown/emoji. It reacts to repeated lines instead of copying, and takes the opposing view in *Diskussion* as the scenario asks.
+  - Latency favors gemma: first audio p50/p90 1384/1661 vs 1630/2171 ms; early clause 30 % vs 10 %. Cost: 17 GB vs 9.8 GB resident while loaded (unloads after keep_alive).
+  - Recommendation to Sameer: switch the default to `gemma4:26b` (would supersede D009). License: Ollama reports Apache 2.0; verify upstream before going public (T043).
