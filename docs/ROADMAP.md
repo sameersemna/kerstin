@@ -10,7 +10,7 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 - [x] T002 **Latency baseline**: `make bench` + `first_sentence_ms`/`tts_first_ms` metrics (2026-11-04). Results in STATUS.
 - [ ] T003 **Vendor frontend assets** (vad-web, onnxruntime-web, Silero model) into `frontend/vendor/` so it works offline and isn't CDN-dependent.
 - [x] T005 **Warm-up + random seed** (2026-11-05): cold first turn 8.8 s → 1.4 s; replies vary across sessions.
-- [ ] T006 **Speak the first clause early** (D012: VAD tail + shared STT kept): first chunk at a comma once ≥ 4 words. Task file: `docs/tasks/T006-early-first-clause.md`.
+- [x] T006 **Speak the first clause early** (2026-11-05): paired median −379 ms; fires in ~30–60 % of turns.
 - [ ] T004 **Render feedback Markdown** in the browser (small vendored renderer, sanitized).
 
 ## Phase 2 — Conversation quality

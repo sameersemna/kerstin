@@ -32,7 +32,7 @@ Mode hint for Kilo: use **Architect** mode first only if the task file says "des
 - [ ] No blocking calls on the event loop; no audio/transcripts written to disk; no telemetry
 - [ ] Protocol changes reflected in `docs/PROTOCOL.md` on both client and server
 - [ ] New deps listed in `docs/LICENSES.md` with license
-- [ ] Latency impact stated if pipeline code changed
+- [ ] Latency impact stated if pipeline code changed. A/B latency claims come from **paired** runs (fixed `KERSTIN_LLM_SEED`, same utterances), compared per turn, not two random samples
 - [ ] Persona changes come with sample conversations
 
 Outcome:

@@ -1,6 +1,6 @@
 # Status
 
-_Last updated: 2026-11-05 (T005 merged; default voice → thorsten-medium, D011)_
+_Last updated: 2026-11-05 (T006 early first clause merged)_
 
 ## Works on the GB10 (T001, 2026-11-04)
 - End-to-end headless: `make smoke` passes. German utterance → whisper.cpp (`:8768`, `language=de`) → Ollama → Piper → WAV over `/ws`.
@@ -23,8 +23,10 @@ _Last updated: 2026-11-05 (T005 merged; default voice → thorsten-medium, D011)
 Target < 1500 ms. Biggest stages: VAD tail (768, fixed), STT (~480, shared server), first-sentence decode (~450–550), TTS (190–400).
 Since T005: random `seed` per request (`KERSTIN_LLM_SEED` fixes it for benches), and a warm-up on `start` loads the model while the opener plays. Cold first turn: 1.4 s to first audio (was 8.8 s). Warm p50 first audio after T005: 1.8 s server-side.
 
+Since T006: the first clause (≥ 4 words at `,` `;` `:` `–`) is spoken early. Paired A/B (fixed seed): median −379 ms first audio; 0 cost when no clause. Estimated real end-of-speech → audio now ≈ 2.2–2.6 s p50 (D013 open).
+
 ## Works (verified in a dev sandbox)
-- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 30 passed.
+- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 37 passed.
 - App starts; `/health`, `/api/scenarios`, `/`, static files served; WebSocket `start` → session + opener text.
 
 ## Not yet verified
