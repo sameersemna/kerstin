@@ -144,3 +144,10 @@ A Whisper initial prompt, changing VAD settings, server-side VAD, re-ask/voice p
 ## Review (Claude Code fills this in)
 - **Verdict:**
 - **Notes:**
+- **Verdict:** accept (2026-11-05)
+- **Notes:**
+  - Diff limited to allowed files. `make test` (89) and `make lint` are clean. No silent returns remain in `_turn`. INFO logs carry reason + dBFS only. Tests were strengthened, not weakened (`PCM_1S` is now a 440 Hz sine; the STT call count is asserted for the gate).
+  - Evidence: whisper.cpp (large-v3, no `-l`/VAD flags) answers almost any non-speech with "Vielen Dank." / "Amen." / "Untertitelung des ZDF, 2020". Per-request `suppress_nst`/`no_speech_thold` are ignored by this server.
+  - Kilo added `vielen dank` and `amen` as whole-utterance drops: **justified**. Clicks at −17.8 dBFS (same level as real speech, −17.4) produced "Vielen Dank.", so no level rule can separate them. Cost: a learner saying *only* "Vielen Dank." sees "nicht verstanden"; longer phrases pass.
+  - `pcm16_rms_dbfs` runs on the event loop: ≈4.6 ms per 10 s, ≈2 ms for a typical 4 s utterance. Acceptable; move it to a thread if utterances get longer.
+  - Follow-up idea (not now): show the drop reason in the UI ("zu leise" vs "nicht verstanden").
