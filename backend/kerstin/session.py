@@ -39,6 +39,7 @@ class Deps:
     tts: TTS
     prompts: PromptStore
     history_max_turns: int = 24
+    llm_warmup: bool = True
 
 
 @dataclass
@@ -62,6 +63,7 @@ class Session:
     history: list[Message] = field(default_factory=list)
     turn_id: int = 0
     _turn_task: asyncio.Task | None = None
+    _warmup_task: asyncio.Task | None = None
 
     # ---------- public API (called by the websocket handler) ----------
 
@@ -69,6 +71,13 @@ class Session:
         sc = self.deps.prompts.scenario(self.scenario_key)
         self.history.clear()
         await self.send_json({"type": "session", "scenario": sc.key, "title": sc.title})
+        if self.deps.llm_warmup:
+            system = {
+                "role": "system",
+                "content": self.deps.prompts.system_prompt(self.scenario_key),
+            }
+            warmup_messages = [system, {"role": "assistant", "content": sc.opener}]
+            self._warmup_task = asyncio.create_task(self.deps.llm.warmup(warmup_messages))
         await self._speak_fixed(sc.opener)
 
     async def handle_audio(self, pcm16: bytes) -> None:
@@ -102,6 +111,14 @@ class Session:
         await self.send_json({"type": "feedback", "markdown": strip_think(text).strip()})
 
     async def close(self) -> None:
+        task = self._warmup_task
+        if task and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        self._warmup_task = None
         await self.interrupt()
 
     # ---------- internals ----------

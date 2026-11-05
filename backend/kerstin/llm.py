@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 from collections.abc import AsyncIterator
 
 import httpx
@@ -16,12 +17,13 @@ Message = dict[str, str]
 
 
 class OllamaLLM:
-    def __init__(self, s: Settings) -> None:
+    def __init__(self, s: Settings, client: httpx.AsyncClient | None = None) -> None:
         self.s = s
         self.base = s.ollama_url.rstrip("/")
-        self.client = httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=5.0))
+        self.client = client or httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=5.0))
 
     def _payload(self, messages: list[Message], stream: bool, max_tokens: int | None) -> dict:
+        seed = self.s.llm_seed if self.s.llm_seed is not None else random.randrange(1, 2**31)
         payload: dict = {
             "model": self.s.ollama_model,
             "messages": messages,
@@ -30,6 +32,7 @@ class OllamaLLM:
             "options": {
                 "temperature": self.s.llm_temperature,
                 "num_ctx": self.s.ollama_num_ctx,
+                "seed": seed,
             },
         }
         if max_tokens:
@@ -61,6 +64,15 @@ class OllamaLLM:
         r = await self.client.post(f"{self.base}/api/chat", json=payload)
         r.raise_for_status()
         return r.json().get("message", {}).get("content", "")
+
+    async def warmup(self, messages: list[Message]) -> None:
+        """Load the model and cache the prompt prefix; never raises."""
+        payload = self._payload(messages, stream=False, max_tokens=1)
+        try:
+            r = await self.client.post(f"{self.base}/api/chat", json=payload)
+            r.raise_for_status()
+        except Exception as e:  # noqa: BLE001
+            log.warning("LLM warm-up failed: %s", e)
 
     async def health(self) -> dict:
         try:
