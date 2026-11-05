@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from difflib import SequenceMatcher
 
 # Extend these lists from real observations.
 TAG_WORDS = frozenset(
@@ -95,6 +96,22 @@ def _trim_repetitions(text: str) -> str:
             break
 
     return " ".join(words)
+
+
+def is_echo(
+    transcript: str, last_reply: str, min_words: int = 6, threshold: float = 0.8
+) -> bool:
+    """Return True when a transcript is mostly Kerstin's own last reply."""
+    transcript_words = _normalize(transcript).split()
+    reply_words = _normalize(last_reply).split()
+    if len(transcript_words) < min_words or not reply_words:
+        return False
+
+    matcher = SequenceMatcher(None, transcript_words, reply_words, autojunk=False)
+    covered_words = sum(block.size for block in matcher.get_matching_blocks())
+    if covered_words < min_words:
+        return False
+    return covered_words / len(transcript_words) >= threshold
 
 
 def clean_transcript(text: str) -> tuple[str, str | None]:

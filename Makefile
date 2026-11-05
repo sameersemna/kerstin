@@ -1,4 +1,4 @@
-.PHONY: setup voice certs run test lint check smoke bench persona-eval
+.PHONY: setup voice certs run test test-js lint check smoke bench persona-eval
 
 VENV ?= .venv
 PY := $(VENV)/bin/python
@@ -24,6 +24,10 @@ run:              ## start Kerstin on 127.0.0.1:8770 (see .env)
 
 test:             ## run unit tests (no GPU / network needed)
 	cd backend && KERSTIN_TTS_BACKEND=none ../$(PY) -m pytest -q
+	@if command -v node >/dev/null 2>&1; then node --test frontend/tests/*.test.js; else echo "skip JS tests (no node)"; fi
+
+test-js:          ## frontend unit tests (node --test, no deps)
+	node --test frontend/tests/*.test.js
 
 lint:
 	$(VENV)/bin/ruff check backend scripts

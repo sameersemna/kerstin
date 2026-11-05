@@ -214,6 +214,23 @@ async def test_hallucination_is_dropped_before_llm_and_history():
     assert not any(m["type"] == "transcript" for m in js)
 
 
+async def test_echo_is_dropped_before_llm_and_history():
+    opener = PromptStore(BACKEND_DIR / "prompts").scenario("freies_gespraech").opener
+    stt = CountingSTT(opener)
+    llm = FakeLLM(["Hallo."])
+    s, js, _ = make_session(llm, stt=stt)
+    await s.start()
+    history_before = list(s.history)
+    await s.handle_audio(PCM_1S)
+    await s._turn_task
+    empty = [m for m in js if m["type"] == "stt_empty"]
+    assert empty and empty[-1]["reason"] == "echo"
+    assert s.history == history_before
+    assert stt.calls == 1
+    assert llm.last_messages is None
+    assert not any(m["type"] == "transcript" for m in js)
+
+
 async def test_feedback():
     s, js, _ = make_session(FakeLLM(["Gut. Und du?"]))
     await s.start()

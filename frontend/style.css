@@ -41,6 +41,7 @@ select, button {
 }
 button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 button:disabled { opacity: .5; }
+#interruptBtn:not(:disabled) { border-color: var(--warn); color: var(--warn); }
 main {
   flex: 1; display: grid; grid-template-columns: 1fr 320px; gap: 16px; padding: 16px;
   max-width: 1100px; width: 100%; margin: 0 auto;

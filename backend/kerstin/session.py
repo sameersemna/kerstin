@@ -21,7 +21,7 @@ from .audio import pcm16_duration_s, pcm16_rms_dbfs
 from .llm import Message, OllamaLLM
 from .prompts import PromptStore
 from .stt import STT
-from .stt_filter import clean_transcript
+from .stt_filter import clean_transcript, is_echo
 from .text import SentenceSplitter, clean_for_tts, strip_think
 from .tts import TTS
 
@@ -182,6 +182,21 @@ class Session:
                 return
             if reason:
                 log.info("turn %s %s (audio_dbfs=%s)", turn_id, reason, m.audio_dbfs)
+
+            last_reply = next(
+                (
+                    message["content"]
+                    for message in reversed(self.history)
+                    if message["role"] == "assistant"
+                ),
+                "",
+            )
+            if is_echo(text, last_reply):
+                await self.send_json(
+                    {"type": "stt_empty", "turn": turn_id, "reason": "echo"}
+                )
+                log.info("turn %s dropped: echo (audio_dbfs=%s)", turn_id, m.audio_dbfs)
+                return
 
         if not text:
             await self.send_json(

@@ -19,7 +19,7 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 | `{"type":"session","scenario","title"}` | Session started; reset UI, `turn = 0`. |
 | `{"type":"status","state":"transcribing"\|"thinking"\|"feedback_running","turn"}` | Progress hints. |
 | `{"type":"transcript","turn","text"}` | What STT heard. |
-| `{"type":"stt_empty","turn","reason"?}` | Nothing recognized. Optional `reason`: `too_short`, `too_quiet`, `tags_only`, `hallucination` or `empty`. |
+| `{"type":"stt_empty","turn","reason"?}` | Nothing recognized. Optional `reason`: `too_short`, `too_quiet`, `tags_only`, `hallucination`, `echo` or `empty`. |
 | `{"type":"reply_text","turn","text"}` | One sentence of Kerstin's reply (sent just before its audio). Turn 0 = opener. |
 | **binary** | `[4-byte big-endian uint32 turn id][WAV file]` — one sentence of audio. Drop if turn id < current turn. |
 | `{"type":"reply_done","turn"}` | Reply finished. |

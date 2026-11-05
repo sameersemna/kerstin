@@ -14,8 +14,13 @@
     <h1>Kerstin <span class="sub">Deutsch sprechen · B2</span></h1>
     <div class="controls">
       <select id="scenario" aria-label="Szenario"></select>
+      <select id="micMode" aria-label="Mikrofon-Modus">
+        <option value="speakers">Lautsprecher (Mikro pausiert, während Kerstin spricht)</option>
+        <option value="headphones">Kopfhörer (einfach dazwischenreden)</option>
+      </select>
       <button id="startBtn" class="primary">Gespräch starten</button>
       <button id="endBtn" disabled>Beenden &amp; Feedback</button>
+      <button id="interruptBtn" disabled>Unterbrechen</button>
     </div>
   </header>
 
@@ -32,6 +37,7 @@
     Läuft lokal. Mikrofon braucht HTTPS oder <code>localhost</code> – siehe README (HTTPS im LAN).
   </footer>
 
+  <script src="mic_gate.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
