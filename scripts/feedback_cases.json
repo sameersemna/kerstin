@@ -1,0 +1,347 @@
+[
+  {
+    "scenario": "freies_gespraech",
+    "messages": [
+      {
+        "role": "assistant",
+        "content": "Hey, schön, dass es heute klappt! Ich habe gerade einen Flat White bestellt. Wie war deine Woche bisher?"
+      },
+      {
+        "role": "user",
+        "content": "Ich habe gestern mit ein Freund im Park gesessen, weil das Wetter so schön war."
+      },
+      {
+        "role": "assistant",
+        "content": "Das klingt schön. Worüber habt ihr gesprochen?"
+      },
+      {
+        "role": "user",
+        "content": "Wir haben über meine neue Arbeit gesprochen, weil ich bin seit zwei Wochen im Team."
+      },
+      {
+        "role": "assistant",
+        "content": "Und wie gefällt dir das Team bisher?"
+      },
+      {
+        "role": "user",
+        "content": "Ich habe mich darüber gefreut, dass alle so freundlich sind."
+      },
+      {
+        "role": "assistant",
+        "content": "Das freut mich. Hast du schon Pläne fürs Wochenende?"
+      },
+      {
+        "role": "user",
+        "content": "Ich freue mich für den Sommer, weil wir ans Meer fahren."
+      },
+      {
+        "role": "assistant",
+        "content": "Ans Meer klingt gut. Fahrt ihr mit dem Zug?"
+      },
+      {
+        "role": "user",
+        "content": "Ich bin den ganzen Tag gelaufen, deshalb bin ich jetzt ziemlich müde."
+      }
+    ],
+    "planted": [
+      {
+        "utterance_index": 1,
+        "wrong": "mit ein Freund",
+        "right": "mit einem Freund",
+        "category": "kasus"
+      },
+      {
+        "utterance_index": 3,
+        "wrong": "weil ich bin seit zwei Wochen im Team",
+        "right": "weil ich seit zwei Wochen im Team bin",
+        "category": "verbposition"
+      },
+      {
+        "utterance_index": 7,
+        "wrong": "für den Sommer",
+        "right": "auf den Sommer",
+        "category": "praeposition"
+      }
+    ],
+    "correct_tricky": [
+      "Ich habe mich darüber gefreut, dass alle so freundlich sind.",
+      "Ich bin den ganzen Tag gelaufen, deshalb bin ich jetzt ziemlich müde."
+    ]
+  },
+  {
+    "scenario": "wg_alltag",
+    "messages": [
+      {
+        "role": "assistant",
+        "content": "Du, hast du kurz Zeit? Ich wollte mal über die Küche reden. Heute Morgen stand wieder alles voll mit Geschirr."
+      },
+      {
+        "role": "user",
+        "content": "Ich habe gestern die Küche geputzt, aber danach hat mein Mitbewohner sein Geschirr wieder auf der Tisch gestellt."
+      },
+      {
+        "role": "assistant",
+        "content": "Das ist wirklich ärgerlich. Hast du ihn darauf angesprochen?"
+      },
+      {
+        "role": "user",
+        "content": "Ja, aber er sagt, dass er es oft vergisst, weil er ist abends sehr müde."
+      },
+      {
+        "role": "assistant",
+        "content": "Vielleicht hilft ein Putzplan mit festen Aufgaben."
+      },
+      {
+        "role": "user",
+        "content": "Wegen des Wetters haben wir gestern drinnen gegessen."
+      },
+      {
+        "role": "assistant",
+        "content": "Das klingt nach einer guten Lösung. Wann könnten wir den Plan besprechen?"
+      },
+      {
+        "role": "user",
+        "content": "Ich möchte einen neuen Putzplan mit klare Regeln, damit es weniger Streit gibt."
+      },
+      {
+        "role": "assistant",
+        "content": "Einverstanden. Dann reden wir am Sonntag in Ruhe darüber."
+      },
+      {
+        "role": "user",
+        "content": "Obwohl ich müde war, bin ich gestern noch einkaufen gegangen."
+      }
+    ],
+    "planted": [
+      {
+        "utterance_index": 1,
+        "wrong": "auf der Tisch",
+        "right": "auf den Tisch",
+        "category": "kasus"
+      },
+      {
+        "utterance_index": 3,
+        "wrong": "weil er ist abends sehr müde",
+        "right": "weil er abends sehr müde ist",
+        "category": "verbposition"
+      },
+      {
+        "utterance_index": 7,
+        "wrong": "mit klare Regeln",
+        "right": "mit klaren Regeln",
+        "category": "adjektivendung"
+      }
+    ],
+    "correct_tricky": [
+      "Wegen des Wetters haben wir gestern drinnen gegessen.",
+      "Obwohl ich müde war, bin ich gestern noch einkaufen gegangen."
+    ]
+  },
+  {
+    "scenario": "arbeit_kollegen",
+    "messages": [
+      {
+        "role": "assistant",
+        "content": "Puh, endlich Mittagspause. Hast du schon gehört, dass ab nächstem Monat nur noch zwei Tage Homeoffice erlaubt sind?"
+      },
+      {
+        "role": "user",
+        "content": "Ich habe gestern mit mein Chef über das neue Projekt gesprochen, aber er war nicht zufrieden."
+      },
+      {
+        "role": "assistant",
+        "content": "Das ist schade. Was genau hat ihm nicht gefallen?"
+      },
+      {
+        "role": "user",
+        "content": "Er findet, dass der Zeitplan zu eng ist, weil wir haben nur zwei Wochen für die Vorbereitung."
+      },
+      {
+        "role": "assistant",
+        "content": "Zwei Wochen sind wirklich knapp. Könnt ihr die Frist verlängern?"
+      },
+      {
+        "role": "user",
+        "content": "Trotz des Stresses haben wir das Projekt pünktlich abgeschlossen."
+      },
+      {
+        "role": "assistant",
+        "content": "Das ist eine gute Nachricht. Und wie geht es jetzt weiter?"
+      },
+      {
+        "role": "user",
+        "content": "Ich habe gestern den ganzen Tag an der Präsentation gearbeitet und habe danach nach Hause gefahren."
+      },
+      {
+        "role": "assistant",
+        "content": "Dann hast du dir eine Pause verdient. Gute Arbeit!"
+      },
+      {
+        "role": "user",
+        "content": "Ich freue mich auf das Meeting, weil ich die Präsentation gut vorbereitet habe."
+      }
+    ],
+    "planted": [
+      {
+        "utterance_index": 1,
+        "wrong": "mit mein Chef",
+        "right": "mit meinem Chef",
+        "category": "kasus"
+      },
+      {
+        "utterance_index": 3,
+        "wrong": "weil wir haben nur zwei Wochen",
+        "right": "weil wir nur zwei Wochen haben",
+        "category": "verbposition"
+      },
+      {
+        "utterance_index": 7,
+        "wrong": "habe danach nach Hause gefahren",
+        "right": "bin danach nach Hause gefahren",
+        "category": "perfekt-hilfsverb"
+      }
+    ],
+    "correct_tricky": [
+      "Trotz des Stresses haben wir das Projekt pünktlich abgeschlossen.",
+      "Ich freue mich auf das Meeting, weil ich die Präsentation gut vorbereitet habe."
+    ]
+  },
+  {
+    "scenario": "diskussion",
+    "messages": [
+      {
+        "role": "assistant",
+        "content": "Ich habe gestern einen Artikel gelesen: Berlin will die Innenstadt bis 2030 fast autofrei machen. Ehrlich gesagt finde ich das ziemlich übertrieben. Was denkst du?"
+      },
+      {
+        "role": "user",
+        "content": "Meiner Meinung nach, die Autos sind nicht das größte Problem, sondern der viele Lieferverkehr."
+      },
+      {
+        "role": "assistant",
+        "content": "Da stimme ich dir teilweise zu. Was würdest du gegen den Lieferverkehr tun?"
+      },
+      {
+        "role": "user",
+        "content": "Ich würde mehr Lieferzonen einrichten und die Pakete mit Fahrräder ausliefern."
+      },
+      {
+        "role": "assistant",
+        "content": "Das klingt praktisch. Glaubst du, dass die Geschäfte das unterstützen würden?"
+      },
+      {
+        "role": "user",
+        "content": "Obwohl ich das Auto oft benutze, finde ich eine autofreie Innenstadt sinnvoll."
+      },
+      {
+        "role": "assistant",
+        "content": "Interessant, dass du trotzdem autofrei denkst. Was wäre dir dabei besonders wichtig?"
+      },
+      {
+        "role": "user",
+        "content": "Ich finde, das öffentliche Verkehr sollte besser werden, bevor man die Innenstadt für Autos schließt."
+      },
+      {
+        "role": "assistant",
+        "content": "Das ist ein fairer Vorschlag. Wie könnte man das finanzieren?"
+      },
+      {
+        "role": "user",
+        "content": "Trotz der hohen Kosten lohnt sich der Ausbau langfristig."
+      }
+    ],
+    "planted": [
+      {
+        "utterance_index": 1,
+        "wrong": "Meiner Meinung nach, die Autos sind",
+        "right": "Meiner Meinung nach sind die Autos",
+        "category": "verbposition"
+      },
+      {
+        "utterance_index": 3,
+        "wrong": "mit Fahrräder",
+        "right": "mit Fahrrädern",
+        "category": "kasus"
+      },
+      {
+        "utterance_index": 7,
+        "wrong": "das öffentliche Verkehr",
+        "right": "der öffentliche Verkehr",
+        "category": "genus"
+      }
+    ],
+    "correct_tricky": [
+      "Obwohl ich das Auto oft benutze, finde ich eine autofreie Innenstadt sinnvoll.",
+      "Trotz der hohen Kosten lohnt sich der Ausbau langfristig."
+    ]
+  },
+  {
+    "scenario": "pruefung_planung",
+    "messages": [
+      {
+        "role": "assistant",
+        "content": "Also, wir sollen die Abschiedsfeier für Frau Becker planen. Was meinst du, wo könnten wir feiern?"
+      },
+      {
+        "role": "user",
+        "content": "Ich schlage vor, dass wir die Feier im großem Kursraum machen, weil das am günstigsten ist."
+      },
+      {
+        "role": "assistant",
+        "content": "Der Kursraum ist eine gute Idee. Wann sollen wir feiern?"
+      },
+      {
+        "role": "user",
+        "content": "Ich denke, wir sollten das Geschenk zusammen kaufen, weil es ist persönlicher."
+      },
+      {
+        "role": "assistant",
+        "content": "Gute Idee. Wer sammelt das Geld für das Geschenk?"
+      },
+      {
+        "role": "user",
+        "content": "Wegen des knappen Budgets sollten wir die Kosten vorher genau planen."
+      },
+      {
+        "role": "assistant",
+        "content": "Stimmt, wir müssen auf das Budget achten. Was möchtest du für das Essen vorschlagen?"
+      },
+      {
+        "role": "user",
+        "content": "Ich könnte mich für die Getränke kümmern, aber ich habe nur am Donnerstag Zeit."
+      },
+      {
+        "role": "assistant",
+        "content": "Perfekt. Dann übernimmst du die Getränke und ich frage nach dem Raum."
+      },
+      {
+        "role": "user",
+        "content": "Ich habe mich für die Hilfe meiner Kollegin bedankt."
+      }
+    ],
+    "planted": [
+      {
+        "utterance_index": 1,
+        "wrong": "im großem Kursraum",
+        "right": "im großen Kursraum",
+        "category": "adjektivendung"
+      },
+      {
+        "utterance_index": 3,
+        "wrong": "weil es ist persönlicher",
+        "right": "weil es persönlicher ist",
+        "category": "verbposition"
+      },
+      {
+        "utterance_index": 7,
+        "wrong": "für die Getränke",
+        "right": "um die Getränke",
+        "category": "praeposition"
+      }
+    ],
+    "correct_tricky": [
+      "Wegen des knappen Budgets sollten wir die Kosten vorher genau planen.",
+      "Ich habe mich für die Hilfe meiner Kollegin bedankt."
+    ]
+  }
+]
