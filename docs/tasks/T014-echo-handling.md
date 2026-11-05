@@ -102,5 +102,37 @@ Changing VAD thresholds or `redemptionFrames` (D012), vendoring assets (T003), W
 - **Open questions:** The manual speaker-mode/headphone-mode check without headphones remains for Sameer after merge. The strict Node directory command caveat above is environmental; the same six tests pass via the Makefile target.
 
 ## Review (Claude Code fills this in)
-- **Verdict:**
-- **Notes:**
+- **Verdict:** Changes requested (round 1).
+- **Notes:** Tests and lint pass, the diff stays within allowed files, the headphones path is unchanged, and the Makefile glob plus the earlier `start` send are good deviations. Two bugs, both reproduced with a Node/Python simulation:
+  1. **Mic stuck paused (blocker).** `enqueueAudio` awaits `decodeAudioData`, so `reply_done` is usually handled *before* the reply's last chunk calls `playbackStarted`. The result:
+     - (A) A one-chunk reply: `replyFinished()` is ignored because `!activeReply`, so the gate pauses and never resumes.
+     - (B) Chunk 1 ends, `reply_done` arrives, then chunk 2 starts: the `idle` reset clears `replyDone`, and the gate stays paused forever.
+
+     Short 1-sentence replies are the persona's normal case, so this would hit almost every turn.
+  2. **Echo false positives.** "Any 4-word window of the transcript appears in the reply" drops real answers, e.g. "Ich habe gerade einen Kaffee getrunken, weil ich müde war." and "Am Wochenende etwas vor? Ja, ich gehe wandern." are both treated as echo of a reply containing those phrases. Learners reuse Kerstin's phrasing constantly.
+  3. Nit: the `m` in the `last_reply` generator reads like the metrics `m`; rename it.
+
+### Follow-up (round 1) — required changes
+1. **Turn-aware gate.**
+   - Signatures become `playbackStarted(turn)` and `replyFinished(turn?)`. The gate tracks `playedTurn` (highest turn whose audio started) and `doneTurn` (highest turn finished; a `replyFinished()` with no turn, e.g. on `error`, means "everything so far is finished").
+   - `replyFinished` is **always recorded**, even before any playback of that turn.
+   - Speakers mode: resume after `tailMs` when paused **and** idle **and** `doneTurn >= playedTurn`. `playbackStarted` during the tail cancels the timer, as before. Drop the `activeReply`/`replyDone` flags.
+   - `app.js`: pass `item.turn` / `msg.turn`.
+   - Also count pending decodes in `enqueueAudio` (`try/finally`) and call `playbackIdle()` only when nothing is playing, the queue is empty **and** no decode is pending, including the stale-audio early return.
+2. **New gate tests:**
+   - (g) `replyFinished(1)` before `playbackStarted(1)` → resumes after idle + tail.
+   - (h) start(1) → idle → `replyFinished(1)` → start(1) during tail → idle → resumes after tail.
+   - (i) never stuck: after any sequence ending in finished+idle, `isListening()` is true after the tail.
+
+   Keep (a)–(f) green; adapt them to the turn arguments.
+3. **Echo rule (precision over recall; the gate is the main defence):**
+   - Defaults change to `min_words=6, threshold=0.8`.
+   - Echo when the normalized transcript has ≥ `min_words` words **and** coverage ≥ `threshold`. Coverage = sum of `SequenceMatcher(None, t_words, r_words, autojunk=False).get_matching_blocks()` sizes ÷ `len(t_words)`.
+   - Remove the 4-word-window loop and the `.ratio()` rule (coverage subsumes both).
+   - Tests:
+     - Keep the exact, partial and punctuation cases True. Make the partial case ≥ 6 words.
+     - Add STT drift "ich habe gerade einen flat weiß bestellt" → True.
+     - Must be False: the two sentences in note 2 above, and "Und wie war deine Woche bisher?" (5 words).
+4. Rename the generator variable (nit 3).
+
+Allowed files: unchanged. Re-run `make test`, `make lint`, `make smoke` (port 8771). Update the Worker report and append a "Round 1" line.
