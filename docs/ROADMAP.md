@@ -18,7 +18,7 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 - [x] T015 **Model comparison for German correctness** (2026-11-05): gemma4:26b 5 % vs qwen3:14b 18 % errors → default gemma4:26b (D015).
 - [ ] T011 **Separate feedback model** setting (`KERSTIN_FEEDBACK_MODEL`), allow a larger model for the report.
 - [ ] T012 **Kokoro German TTS** via `HttpTTS` (or in-process ONNX); A/B against Piper for naturalness and latency.
-- [ ] T013 **STT robustness**: energy gate before STT, hallucination filter after it, `stt_empty` with a reason (also fixes the silent short-utterance drop), `audio_dbfs` in metrics. Task file: `docs/tasks/T013-stt-robustness.md`.
+- [x] T013 **STT robustness** (2026-11-05): energy gate (−55 dBFS), hallucination filter, `stt_empty` reasons, `audio_dbfs` in the UI.
 - [ ] T014 **Echo handling**: document headphones; optionally pause VAD while Kerstin speaks with a "push-to-interrupt" mode.
 
 ## Phase 3 — Learning features

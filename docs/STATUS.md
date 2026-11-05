@@ -1,6 +1,6 @@
 # Status
 
-_Last updated: 2026-11-05 (T015 merged; default model → gemma4:26b, D015)_
+_Last updated: 2026-11-05 (T013 STT robustness merged)_
 
 ## Works on the GB10 (T001, 2026-11-04)
 - End-to-end headless: `make smoke` passes. German utterance → whisper.cpp (`:8768`, `language=de`) → Ollama → Piper → WAV over `/ws`.
@@ -28,7 +28,7 @@ Since T006: the first clause (≥ 4 words at `,` `;` `:` `–`) is spoken early.
 T015 latency with `gemma4:26b` (fixed seed, `--runs 2`): first audio p50/p90 1384/1661 ms server-side → est. real 2152/2429 ms with the VAD tail. The T002 table above is the `qwen3:14b` baseline.
 
 ## Works (verified in a dev sandbox)
-- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 53 passed.
+- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 89 passed.
 - App starts; `/health`, `/api/scenarios`, `/`, static files served; WebSocket `start` → session + opener text.
 
 ## Not yet verified
@@ -38,7 +38,7 @@ T015 latency with `gemma4:26b` (fixed seed, `--runs 2`): first audio p50/p90 138
 ## Known limitations
 - **Latency over target** once the VAD tail is counted (≈1.8–2.9 s vs < 1.5 s).
 - German correctness (T015, lead-graded): `gemma4:26b` makes errors in ≈5 % of replies (3/60), and 1 of 10 correction explanations was wrong ("auf dem Tisch"). Better than `qwen3:14b` (18 %) but not zero; keep checking with `make persona-eval`.
-- Short utterances (< 0.35 s) get no server reply at all, so the UI stays on "du sprichst …".
+- STT filter (T013): an utterance consisting *only* of "Vielen Dank", "Tschüss" or "Amen" is dropped as a likely Whisper hallucination (whisper.cpp outputs these for clicks/noise even at speech level). Gate threshold −55 dBFS: tune it against the "Pegel" shown in the UI.
 - Feedback is shown as raw Markdown text.
 - No echo cancellation beyond the browser's default — use headphones.
 - Single-user, no auth. Default bind is 127.0.0.1; with `KERSTIN_HOST=0.0.0.0` anyone on the LAN or NordVPN Meshnet can use it (D010, auth comes with T040).
