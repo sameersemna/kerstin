@@ -9,7 +9,7 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 - [x] T001 **Bring-up & smoke test** on the GB10: `WhisperCppSTT`, `make smoke` (2026-11-04).
 - [x] T002 **Latency baseline**: `make bench` + `first_sentence_ms`/`tts_first_ms` metrics (2026-11-04). Results in STATUS.
 - [ ] T003 **Vendor frontend assets** (vad-web, onnxruntime-web, Silero model) into `frontend/vendor/` so it works offline and isn't CDN-dependent.
-- [ ] T005 **Warm-up + random seed**: preload model + system prompt on `start`; random Ollama `seed` per request so replies aren't identical across sessions. Task file: `docs/tasks/T005-warmup-seed.md`.
+- [x] T005 **Warm-up + random seed** (2026-11-05): cold first turn 8.8 s → 1.4 s; replies vary across sessions.
 - [ ] T006 **Latency cuts** (after Sameer's decisions on VAD tail, Piper voice, STT instance): target p50 < 1500 ms end-of-speech → audio.
 - [ ] T004 **Render feedback Markdown** in the browser (small vendored renderer, sanitized).
 

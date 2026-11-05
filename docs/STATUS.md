@@ -1,6 +1,6 @@
 # Status
 
-_Last updated: 2026-11-04 (T002 latency baseline merged)_
+_Last updated: 2026-11-05 (T005 warm-up + seed merged)_
 
 ## Works on the GB10 (T001, 2026-11-04)
 - End-to-end headless: `make smoke` passes. German utterance → whisper.cpp (`:8768`, `language=de`) → Ollama → Piper → WAV over `/ws`.
@@ -21,10 +21,10 @@ _Last updated: 2026-11-04 (T002 latency baseline merged)_
 | Piper thorsten-**medium** | 478 / 669 | 156 / 860 | 554 / 1357 | 190 / 338 | 1881 / 2636 | **2649 / 3404** |
 
 Target < 1500 ms. Biggest stages: VAD tail (768, fixed), STT (~480, shared server), first-sentence decode (~450–550), TTS (190–400).
-Ollama 0.34.2 samples deterministically when no `seed` is sent: the same prompt always gives the same reply (fix: T005).
+Since T005: random `seed` per request (`KERSTIN_LLM_SEED` fixes it for benches), and a warm-up on `start` loads the model while the opener plays. Cold first turn: 1.4 s to first audio (was 8.8 s). Warm p50 first audio after T005: 1.8 s server-side.
 
 ## Works (verified in a dev sandbox)
-- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 21 passed (STT and TLS tests included).
+- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 30 passed.
 - App starts; `/health`, `/api/scenarios`, `/`, static files served; WebSocket `start` → session + opener text.
 
 ## Not yet verified
@@ -34,7 +34,7 @@ Ollama 0.34.2 samples deterministically when no `seed` is sent: the same prompt 
 ## Known limitations
 - **Latency over target** once the VAD tail is counted (≈1.8–2.9 s vs < 1.5 s).
 - `qwen3:14b` produced a German grammar error ("haben sie auch geregnet"). Watch for this in T010 (persona tuning).
-- First turn after the model has been idle/unloaded takes ≈9 s (T005).
+- `qwen3:14b` repeats its earlier answer when the learner repeats a sentence verbatim in the same session (T010).
 - Short utterances (< 0.35 s) get no server reply at all, so the UI stays on "du sprichst …".
 - Feedback is shown as raw Markdown text.
 - No echo cancellation beyond the browser's default — use headphones.
