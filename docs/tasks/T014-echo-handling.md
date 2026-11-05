@@ -94,12 +94,12 @@ Changing VAD thresholds or `redemptionFrames` (D012), vendoring assets (T003), W
 3. Switch to headphone mode, put headphones on: talking over Kerstin interrupts her, as before.
 
 ## Worker report (Kilo Code fills this in)
-- **Changed files:**
-- **How tested:**
-- **Measurements (if any):**
-- **Deviations from spec / extra files touched:**
-- **New dependencies (+license):**
-- **Open questions:**
+- **Changed files:** `frontend/mic_gate.js` (new), `frontend/tests/mic_gate.test.js` (new), `frontend/app.js`, `frontend/index.html`, `frontend/style.css`, `backend/kerstin/stt_filter.py`, `backend/kerstin/session.py`, `backend/tests/test_stt_filter.py`, `backend/tests/test_session.py`, `docs/PROTOCOL.md`, `Makefile`, `README.md`, this task file.
+- **How tested:** `make test` → 97 Python tests + 6 Node tests passed; `make lint` passed; `make smoke` on port 8771 with the configured TLS/STT/TTS/Ollama backends passed both turns. Also checked `node --check` for the new/changed frontend JS. Unit coverage: mic gate cases (a)–(f), echo exact/partial/punctuation/short/empty/overlap, and session echo before LLM/history.
+- **Measurements (if any):** Smoke turn 2 (warm model): first audio 1401 ms, total 3401 ms. Turn 1 was 6870 ms first audio due model warm-up.
+- **Deviations from spec / extra files touched:** Node v24.14.1 on this machine rejects a directory argument (`node --test frontend/tests/` fails with `MODULE_NOT_FOUND`), so `test-js`/`make test` use `node --test frontend/tests/*.test.js`. Also moved the `{"type":"start"}` WebSocket send in `start()` until after VAD/gate creation, so the opener audio cannot arrive before the mic gate exists.
+- **New dependencies (+license):** None.
+- **Open questions:** The manual speaker-mode/headphone-mode check without headphones remains for Sameer after merge. The strict Node directory command caveat above is environmental; the same six tests pass via the Makefile target.
 
 ## Review (Claude Code fills this in)
 - **Verdict:**

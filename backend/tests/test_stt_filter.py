@@ -1,6 +1,6 @@
 import pytest
 
-from kerstin.stt_filter import clean_transcript
+from kerstin.stt_filter import clean_transcript, is_echo
 
 
 @pytest.mark.parametrize(
@@ -77,3 +77,40 @@ def test_three_repetitions_are_kept():
 
 def test_empty_is_handled():
     assert clean_transcript("") == ("", "empty")
+
+
+REPLY = (
+    "Hey, schön, dass es heute klappt! Ich habe gerade einen Flat White bestellt. "
+    "Wie war deine Woche bisher?"
+)
+
+
+@pytest.mark.parametrize(
+    "transcript",
+    [
+        REPLY,
+        "Ich habe gerade einen Flat White bestellt",
+        "hey schön dass es heute klappt ich habe gerade einen flat white bestellt",
+    ],
+)
+def test_echo_variants_are_detected(transcript):
+    assert is_echo(transcript, REPLY)
+
+
+@pytest.mark.parametrize(
+    "transcript",
+    [
+        "Ich trinke heute lieber einen Tee.",
+        "Flat White ist lecker.",
+    ],
+)
+def test_small_word_overlap_is_not_echo(transcript):
+    assert not is_echo(transcript, REPLY)
+
+
+def test_short_answer_is_not_echo():
+    assert not is_echo("Ja, genau.", REPLY)
+
+
+def test_empty_last_reply_is_not_echo():
+    assert not is_echo("Ich habe gerade einen Flat White bestellt.", "")

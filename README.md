@@ -53,7 +53,8 @@ ssh -N -L 8770:127.0.0.1:8770 promaxgb10-6116
 # then open http://localhost:8770 on the Mac
 ```
 
-Use headphones — otherwise Kerstin's voice can trigger the mic (barge-in).
+- **Lautsprecher-Modus (Standard):** das Mikrofon pausiert, während Kerstin spricht. Mit der **Leertaste** (oder „Unterbrechen“) stoppst du sie und sprichst weiter.
+- **Kopfhörer-Modus:** einfach dazwischenreden — wie bisher.
 
 ## Configuration
 

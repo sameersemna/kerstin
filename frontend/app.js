@@ -13,11 +13,31 @@ let currentTurn = 0;          // latest turn id we accept audio for
 let playQueue = [];           // [{turn, buffer}]
 let playing = null;           // current AudioBufferSourceNode
 let herBubble = null;         // current Kerstin message element
+let micGate = null;
+let micMode = "speakers";
+const MIC_MODE_KEY = "kerstin.micMode";
+try {
+  const savedMode = localStorage.getItem(MIC_MODE_KEY);
+  if (savedMode === "speakers" || savedMode === "headphones") micMode = savedMode;
+} catch {}
 
 // ---------- UI helpers ----------
 function setState(text, cls = "idle") {
   stateEl.textContent = text;
   stateEl.className = "state " + cls;
+}
+function isSpeaking() {
+  return Boolean(playing || playQueue.length);
+}
+function setInterruptEnabled(enabled) {
+  $("interruptBtn").disabled = !enabled;
+}
+function updateSpeakingState() {
+  const hint = micGate && !micGate.isListening();
+  setState(
+    hint ? "Kerstin spricht … (Leertaste = unterbrechen)" : "Kerstin spricht …",
+    "speaking"
+  );
 }
 function addMsg(who, text) {
   const el = document.createElement("div");
@@ -45,19 +65,31 @@ async function enqueueAudio(arrayBuf) {
 }
 function playNext() {
   const item = playQueue.shift();
-  if (!item) { playing = null; if (vadInstance) setState("hört zu …", "listening"); return; }
+  if (!item) {
+    playing = null;
+    setInterruptEnabled(false);
+    if (micGate) micGate.playbackIdle();
+    if (vadInstance && (!micGate || micGate.isListening())) {
+      setState("hört zu …", "listening");
+    }
+    return;
+  }
   if (item.turn < currentTurn) return playNext();
   const src = audioCtx.createBufferSource();
   src.buffer = item.buffer;
   src.connect(audioCtx.destination);
   src.onended = () => { if (playing === src) playNext(); };
   playing = src;
-  setState("Kerstin spricht …", "speaking");
+  if (micGate) micGate.playbackStarted();
+  setInterruptEnabled(true);
+  updateSpeakingState();
   src.start();
 }
 function stopPlayback() {
   playQueue = [];
   if (playing) { try { playing.stop(); } catch {} playing = null; }
+  setInterruptEnabled(false);
+  if (micGate) micGate.playbackIdle();
 }
 
 // ---------- PCM conversion ----------
@@ -88,7 +120,13 @@ function connect() {
 
 function handle(msg) {
   switch (msg.type) {
-    case "session": logEl.innerHTML = ""; herBubble = null; currentTurn = 0; break;
+    case "session":
+      logEl.innerHTML = "";
+      herBubble = null;
+      currentTurn = 0;
+      setInterruptEnabled(false);
+      if (micGate) micGate.userInterrupt();
+      break;
     case "status":
       if (msg.state === "transcribing") setState("verstehe …", "idle");
       else if (msg.state === "thinking") setState("denkt nach …", "idle");
@@ -99,12 +137,21 @@ function handle(msg) {
       addMsg("me", msg.text);
       herBubble = null;
       break;
-    case "stt_empty": setState("nicht verstanden – bitte wiederholen", "listening"); break;
+    case "stt_empty":
+      if (micGate && !micGate.isListening()) micGate.replyFinished();
+      if (!micGate || micGate.isListening()) {
+        setState("nicht verstanden – bitte wiederholen", "listening");
+      }
+      break;
     case "reply_text":
       if (msg.turn >= currentTurn) { currentTurn = msg.turn; appendHer(msg.text); }
       break;
-    case "reply_done": herBubble = null; break;
+    case "reply_done":
+      if (micGate) micGate.replyFinished();
+      herBubble = null;
+      break;
     case "reply_interrupted":
+      if (micGate) micGate.replyFinished();
       if (herBubble) herBubble.classList.add("interrupted");
       herBubble = null;
       break;
@@ -119,7 +166,11 @@ function handle(msg) {
       feedbackEl.textContent = msg.markdown; // TODO(ROADMAP): render markdown
       setState("fertig", "idle");
       break;
-    case "error": setState("Fehler: " + msg.message, "speaking"); console.error(msg); break;
+    case "error":
+      if (micGate) micGate.replyFinished();
+      setState("Fehler: " + msg.message, "speaking");
+      console.error(msg);
+      break;
   }
 }
 
@@ -131,8 +182,6 @@ async function start() {
   feedbackEl.hidden = true;
   if (!ws || ws.readyState !== WebSocket.OPEN) await connect();
 
-  ws.send(JSON.stringify({ type: "start", scenario: $("scenario").value }));
-
   vadInstance = await vad.MicVAD.new({
     baseAssetPath: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.22/dist/",
     onnxWASMBasePath: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/",
@@ -141,8 +190,9 @@ async function start() {
     redemptionFrames: 8,     // ~0.5-0.8 s of silence ends the utterance (tune in docs/LATENCY.md)
     minSpeechFrames: 4,
     onSpeechStart: () => {
+      if (micGate && !micGate.isListening()) return;
       // barge-in: learner starts talking while Kerstin speaks
-      if (playing || playQueue.length) {
+      if (micGate && micGate.getMode() === "headphones" && isSpeaking()) {
         stopPlayback();
         ws.send(JSON.stringify({ type: "interrupt" }));
       }
@@ -153,7 +203,17 @@ async function start() {
       ws.send(floatTo16BitPCM(audio));
     },
   });
+  micGate = createMicGate({
+    mode: micMode,
+    pauseVad: () => { if (vadInstance) vadInstance.pause(); },
+    resumeVad: () => {
+      if (!vadInstance) return;
+      vadInstance.start();
+      setState("hört zu …", "listening");
+    },
+  });
   vadInstance.start();
+  ws.send(JSON.stringify({ type: "start", scenario: $("scenario").value }));
   $("endBtn").disabled = false;
   setState("hört zu …", "listening");
 }
@@ -161,9 +221,20 @@ async function start() {
 function end() {
   if (vadInstance) { vadInstance.pause(); vadInstance = null; }
   stopPlayback();
+  if (micGate) micGate.userInterrupt();
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "end" }));
   $("endBtn").disabled = true;
   $("startBtn").disabled = false;
+}
+
+function interruptSpeaking() {
+  if (!isSpeaking()) return;
+  stopPlayback();
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: "interrupt" }));
+  }
+  if (micGate) micGate.userInterrupt();
+  if (vadInstance) setState("hört zu …", "listening");
 }
 
 async function loadScenarios() {
@@ -174,4 +245,24 @@ async function loadScenarios() {
 
 $("startBtn").onclick = () => start().catch((e) => { console.error(e); setState("Start fehlgeschlagen: " + e, "speaking"); $("startBtn").disabled = false; });
 $("endBtn").onclick = end;
+$("interruptBtn").onclick = interruptSpeaking;
+$("micMode").value = micMode;
+$("micMode").onchange = (e) => {
+  micMode = e.target.value === "headphones" ? "headphones" : "speakers";
+  try { localStorage.setItem(MIC_MODE_KEY, micMode); } catch {}
+  if (!micGate) return;
+  const wasPaused = !micGate.isListening();
+  micGate.setMode(micMode);
+  if (isSpeaking()) updateSpeakingState();
+  else if (wasPaused && vadInstance) setState("hört zu …", "listening");
+};
+document.addEventListener("keydown", (e) => {
+  if (e.code !== "Space" || e.repeat) return;
+  const target = e.target;
+  const tag = target && target.tagName;
+  if (target && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(tag))) return;
+  if (!isSpeaking()) return;
+  e.preventDefault();
+  interruptSpeaking();
+});
 loadScenarios();
