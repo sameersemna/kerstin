@@ -1,6 +1,6 @@
 # Status
 
-_Last updated: 2026-11-05 (T006 early first clause merged)_
+_Last updated: 2026-11-05 (T010 persona eval merged)_
 
 ## Works on the GB10 (T001, 2026-11-04)
 - End-to-end headless: `make smoke` passes. German utterance → whisper.cpp (`:8768`, `language=de`) → Ollama → Piper → WAV over `/ws`.
@@ -26,7 +26,7 @@ Since T005: random `seed` per request (`KERSTIN_LLM_SEED` fixes it for benches),
 Since T006: the first clause (≥ 4 words at `,` `;` `:` `–`) is spoken early. Paired A/B (fixed seed): median −379 ms first audio; 0 cost when no clause. Estimated real end-of-speech → audio now ≈ 2.2–2.6 s p50 (D013 open).
 
 ## Works (verified in a dev sandbox)
-- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 37 passed.
+- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 53 passed.
 - App starts; `/health`, `/api/scenarios`, `/`, static files served; WebSocket `start` → session + opener text.
 
 ## Not yet verified
@@ -35,7 +35,7 @@ Since T006: the first clause (≥ 4 words at `,` `;` `:` `–`) is spoken early.
 
 ## Known limitations
 - **Latency over target** once the VAD tail is counted (≈1.8–2.9 s vs < 1.5 s).
-- `qwen3:14b` produced a German grammar error ("haben sie auch geregnet"). Watch for this in T010 (persona tuning).
+- **German correctness fails the persona contract:** `qwen3:14b` makes grammar/idiom errors in ≈25 % of replies (T010 lead review) and gives partly wrong explanations when asked to correct. Prompt tuning fixed length (mean 22 words, 2/30 too long) but not grammar → D014.
 - `qwen3:14b` repeats its earlier answer when the learner repeats a sentence verbatim in the same session (T010).
 - Short utterances (< 0.35 s) get no server reply at all, so the UI stays on "du sprichst …".
 - Feedback is shown as raw Markdown text.
