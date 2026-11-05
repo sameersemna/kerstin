@@ -46,3 +46,6 @@ T010 shows `qwen3:14b` makes grammar errors in ≈25 % of replies and gives wron
 
 ## D015 · 2026-11-05 · Accepted — Default LLM `gemma4:26b` (supersedes D009)
 Sameer's call after T015 (lead graded 60 replies per model). German errors: 3/60 (5 %) vs ≈11/60 (18 %) for `qwen3:14b`. One wrong correction explanation out of 10 correction requests vs 3. No markdown/emoji. Reacts to repetition instead of copying. Takes the opposing view in *Diskussion*. Faster: first audio p50/p90 1384/1661 vs 1630/2171 ms. Cost: ≈17 GB vs 9.8 GB while loaded on the shared GPU (still unloads after `keep_alive`). License per Ollama: Apache 2.0, to be verified upstream (T043).
+
+## D016 · 2026-11-05 · Accepted — Thermal guard = per-turn admission control, read-only
+Kerstin checks GPU temperature (`nvidia-smi --query-gpu=temperature.gpu`, cached ≤ 2 s, no background polling) before each GPU job (session start/warm-up, STT+LLM turn, feedback). At ≥ 80 °C she refuses new GPU work until ≤ 74 °C (hysteresis) and tells the learner; a running reply is not aborted (80 → 84 °C margin covers one short reply). Fail-open when `nvidia-smi` is unavailable. No model switch when hot (loading a second model adds load and memory on the shared GPU), no clock/power/fan changes, no touching other processes. Supersedes the "switch to smaller model" idea in the old ROADMAP line.
