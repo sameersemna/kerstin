@@ -20,6 +20,7 @@ from .llm import OllamaLLM
 from .prompts import PromptStore
 from .session import Deps, Session
 from .stt import make_stt
+from .thermal import ThermalGuard
 from .tts import make_tts
 
 logging.basicConfig(
@@ -44,6 +45,11 @@ async def lifespan(app: FastAPI):
         first_clause_min_words=settings.tts_first_clause_min_words,
         stt_min_rms_dbfs=settings.stt_min_rms_dbfs,
         stt_filter=settings.stt_filter,
+        thermal=(
+            ThermalGuard(settings.thermal_hot_c, settings.thermal_resume_c)
+            if settings.thermal_guard
+            else None
+        ),
     )
     log.info(
         "Kerstin %s ready: model=%s stt=%s tts=%s",
@@ -58,6 +64,13 @@ app = FastAPI(title="Kerstin", version=__version__, lifespan=lifespan)
 @app.get("/health")
 async def health() -> JSONResponse:
     assert deps is not None
+    if deps.thermal is None:
+        thermal_state = "disabled"
+        gpu_temp_c = None
+    else:
+        thermal = await deps.thermal.check()
+        thermal_state = thermal.state
+        gpu_temp_c = thermal.temp_c
     return JSONResponse(
         {
             "version": __version__,
@@ -65,6 +78,8 @@ async def health() -> JSONResponse:
             "model": settings.ollama_model,
             "stt_backend": settings.stt_backend,
             "tts_backend": settings.tts_backend,
+            "gpu_temp_c": gpu_temp_c,
+            "thermal": thermal_state,
         }
     )
 

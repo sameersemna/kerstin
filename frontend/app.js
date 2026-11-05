@@ -159,6 +159,14 @@ function handle(msg) {
         setState("nicht verstanden – bitte wiederholen", "listening");
       }
       break;
+    case "thermal":
+      if (micGate) micGate.replyFinished(msg.turn);
+      setState(
+        `GPU zu warm (${msg.temp_c} °C) – kurze Pause, bitte gleich nochmal versuchen`,
+        "speaking"
+      );
+      if (msg.turn === undefined) $("startBtn").disabled = false;
+      break;
     case "reply_text":
       if (msg.turn >= currentTurn) { currentTurn = msg.turn; appendHer(msg.text); }
       break;
