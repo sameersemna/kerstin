@@ -160,3 +160,10 @@ tts_first                    192       367
 ```
 
 ## Review (Claude Code fills this in)
+- **Verdict:** accept (2026-11-05)
+- **Notes:**
+  - Diff limited to allowed files; the code is minimal and correct. `make test` (37) and `make lint` are clean. Setting 0 = old behavior.
+  - The report's headline delta (p50 −342 ms) is **not attributable** to T006. The stage it targets, `first_sentence_wait`, was 528 vs 522 ms. The difference came from STT and first-token variance between two unpaired runs with different random replies.
+  - Lead re-measured **paired**: fixed `KERSTIN_LLM_SEED=1234`, the same 10 utterances, setting 0 vs 4, comparing `first_audio − llm_first_token` per turn. Turns 1–3 had identical replies in both runs. No clause: +39 / −2 ms. Early clause: −448 ms. Over all 10 turns the median is **−379 ms** (mean −486). The clause fired in 6/10 turns, and where it fired the gain was −309 to −1597 ms. Most splits came at `–` (qwen3 likes dashes) and commas.
+  - Replies diverged from turn 4 on despite the fixed seed (probably GPU numeric nondeterminism once histories differ by whitespace or length). Not a T006 issue.
+  - For future benches: compare paired runs with a fixed seed, not two random samples.
