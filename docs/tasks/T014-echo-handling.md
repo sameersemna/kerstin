@@ -103,7 +103,8 @@ Changing VAD thresholds or `redemptionFrames` (D012), vendoring assets (T003), W
 - **Round 1:** Reworked the gate to track `playedTurn`/`doneTurn` and pending audio decodes, added tests (g)–(i), replaced the echo window/ratio rule with `min_words=6` coverage `>= 0.8`, and renamed the `last_reply` generator variable. Re-ran `make test` (99 Python + 9 Node), `make lint`, and `make smoke` on 8771; all passed.
 
 ## Review (Claude Code fills this in)
-- **Verdict:** Changes requested (round 1).
+- **Verdict:** Accepted after round 1 (2026-11-05).
+- **Round 1 check:** both bugs fixed. Re-ran the race simulation: one-chunk reply and gap-then-last-chunk both resume after the tail; an idle gap before `reply_done` keeps the mic paused. Echo false positives from note 2 are now False; STT drift case still True. Kilo's extra "≥ 6 covered words" guard is fine (my 5-word example was actually 6 words). 99 Python + 9 JS tests, lint, smoke pass.
 - **Notes:** Tests and lint pass, the diff stays within allowed files, the headphones path is unchanged, and the Makefile glob plus the earlier `start` send are good deviations. Two bugs, both reproduced with a Node/Python simulation:
   1. **Mic stuck paused (blocker).** `enqueueAudio` awaits `decodeAudioData`, so `reply_done` is usually handled *before* the reply's last chunk calls `playbackStarted`. The result:
      - (A) A one-chunk reply: `replyFinished()` is ignored because `!activeReply`, so the gate pauses and never resumes.
