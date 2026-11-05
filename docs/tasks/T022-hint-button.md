@@ -182,5 +182,50 @@ Beispiel: „Ich kann die Dose ohne einen funktionierenden Dosenöffner nicht ö
 Each pair used the same fixed history and turn text, differing only by the concurrent hint. The with-hint runs show the expected queueing delay from `OLLAMA_NUM_PARALLEL=1`. No Ollama configuration was changed.
 
 ## Review (Claude Code fills this in)
-- **Verdict:**
+- **Verdict:** Changes requested (round 1). The plumbing is accepted; the answer quality isn't yet.
 - **Notes:**
+  - **What's good:** the server/UI code is clean and matches the spec. Hints are isolated from history, turns, playback and the mic gate (tested). The single-pass placeholder replacement is better than the spec. 149 Python + 23 JS tests and lint pass. The concurrent-turn delay is +673 ms mean.
+  - **Why the 10 samples are weak evidence:**
+    - the prompt now contains answers for 2 of the 10 test queries (`ausgehen` for "to run out of milk", `als selbstverständlich ansehen`);
+    - 7 of the 10 contexts already contain the answer word (Kündigungsfrist, Vermieter, Kaution, Dosenöffner, Arbeitsweg, aufschieben, freuen auf);
+    - the spec's own examples (Kündigungsfrist, aufschieben) came from the query list, which is the lead's mistake.
+  - **Lead's fresh run** (6 queries, neutral context "Wochenende / müde", final prompt): **2 of 6 teach errors**:
+    - "to give up" → Beispiel „Ich habe **mit dem Rauchen aufgegeben**.“ (wrong: *das Rauchen aufgeben* / *mit dem Rauchen aufhören*);
+    - "to complain about" → „**jemanden beschweren** (sich beschwerte, hat sich beschwert)“ (wrong: *sich beschweren über* + Akk., *beschwerte sich*);
+    - minor: „sich an etwas gewöhnen (**gewöhnte sich an**, …)“ reads as separable and lacks + Akk.; „**stur** (ist stur gewesen, war stur)“ has invented verb forms for an adjective; „die Steckdose“ has no plural;
+    - latency in this run was 1.6–2.4 s warm (the first call was 10 s, cold).
+  - Hints run at the chat temperature (0.8). For a lookup that's too high.
+
+### Follow-up (round 1) — required changes
+1. **Hold-out hygiene** (`hint.md`):
+   - Remove every query-specific answer (`ausgehen`/milk, `als selbstverständlich ansehen`).
+   - Replace the format examples with words that are in **no** eval case: **die Wohnung** (Pl. die Wohnungen), **anfangen** (fing an, hat angefangen), **sich erinnern an** + Akk. (erinnerte sich, hat sich erinnert).
+2. **Prompt rules** (`hint.md`):
+   - Adjectives/adverbs: the bold word only (irregular comparative allowed, e.g. „gut (besser, am besten)“); **never verb forms**.
+   - Nouns always get article + plural (or „nur Sg.“).
+   - Verbs with a reflexive or a fixed preposition:
+     - the lemma is „sich … + Präposition + Kasus“;
+     - the Präteritum/Perfekt forms are the bare verb with *sich* (*beschwerte sich, hat sich beschwert*), with no preposition attached;
+     - write „jemanden/etwas“ only when the verb really takes that object.
+   - The `Beispiel:` sentence must use the expression exactly as in line 1 (same preposition, same case). The model checks this before answering: „Prüfe vor der Antwort, ob der Beispielsatz grammatisch korrekt ist und die Wendung genau so verwendet.“
+3. **Low temperature for hints:**
+   - `OllamaLLM.chat(..., temperature: float | None = None)` overrides `options.temperature` when it's given (test it in `test_llm.py`);
+   - `Settings.hint_temperature: float = 0.2` (+ `.env.example`), passed via `Deps.hint_temperature`;
+   - `Session._hint` uses it.
+
+   Feedback and chat stay unchanged (T011 is separate).
+4. **Hint eval** (same pattern as T016): `scripts/hint_cases.json` (new), `backend/kerstin/hint_checks.py` (new, pure, unit-tested in `backend/tests/test_hint_checks.py`), `scripts/hint_eval.py` (new), and `make hint-eval` (`HINT_ARGS`).
+   - **Cases: 20 queries, all with the same neutral context** (Kerstin: „Und, wie war dein Wochenende?“ / Lernende Person: „Ganz gut, aber ich war ziemlich müde.“), so the context never contains the answer. Include the lead's 6 („to get used to something“, „stubborn“, „to give up“, „appointment (doctor)“, „to complain about“, „the thing you plug a phone charger into“) plus: „to apply for a job“, „to be afraid of“, „to depend on“, „reliable“, „to get along with someone“, „receipt“, „to look after children“, „to agree with someone“, „overtime“, „to cancel an appointment“, „to borrow“, „to be interested in“, „sustainable“, „to remind someone of something“.
+   - Each case lists `accept`: lemma strings, any of which counts (e.g. `["sich beschweren über"]`, `["absagen"]`), and `pos`: `noun|verb|adj`.
+   - **Automatic checks:**
+     - format: 2–3 lines, a bold first line, a `Beispiel:` last line with one quoted sentence;
+     - no LaTeX/tables;
+     - the lemma matches `accept`;
+     - noun → article + (`Pl.` or `nur Sg.`);
+     - adj → no forms in brackets that contain *ist/war/hat*;
+     - the example contains the lemma's content words (stem match is enough).
+   - Output: a table plus every raw answer, for lead grading. `cool_down()` (76 → 70 °C, abort 80) runs before every call. 1 run, fixed seed; report p50/p90 latency.
+   - The eval queries must not appear anywhere in `hint.md` (add a unit test that asserts this).
+5. **Run the eval with the new prompt** and paste the table and all 20 answers. The lead will grade every answer. **Target: ≥ 18/20 fully correct, and 0 example sentences with a grammar error.** If it's missed, say so. Don't add case-specific rules to the prompt.
+
+Allowed files (round 1): `backend/prompts/hint.md`, `backend/kerstin/llm.py`, `backend/kerstin/config.py`, `backend/kerstin/session.py` (hint temperature only), `backend/kerstin/main.py` (Deps wiring only), `.env.example`, `backend/kerstin/hint_checks.py` (new), `backend/tests/test_hint_checks.py` (new), `backend/tests/test_llm.py`, `backend/tests/test_session.py`, `scripts/hint_eval.py` (new), `scripts/hint_cases.json` (new), `Makefile` (`hint-eval` only), this task file.
