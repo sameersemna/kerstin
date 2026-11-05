@@ -45,6 +45,7 @@ async def lifespan(app: FastAPI):
         first_clause_min_words=settings.tts_first_clause_min_words,
         stt_min_rms_dbfs=settings.stt_min_rms_dbfs,
         stt_filter=settings.stt_filter,
+        feedback_lang=settings.feedback_lang,
         thermal=(
             ThermalGuard(settings.thermal_hot_c, settings.thermal_resume_c)
             if settings.thermal_guard
@@ -145,7 +146,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
             elif kind == "interrupt" and session:
                 await session.interrupt()
             elif kind == "end" and session:
-                await session.feedback()
+                await session.feedback(data.get("feedback_lang"))
             elif kind == "ping":
                 await send_json({"type": "pong"})
             else:

@@ -11,13 +11,15 @@ Erstelle ein kurzes, ermutigendes, aber ehrliches Feedback **nur zu den Äußeru
 Höchstens 5 Fehler, die wirklich wichtig sind (Kasus, Verbposition, Präpositionen, Adjektivendungen, Wortwahl). Für jeden:
 - ❌ Original (Zitat)
 - ✅ Korrektur
-- 💡 Kurze Erklärung auf Englisch (ein Satz)
+- 💡 Kurze Erklärung auf {explanation_language} (ein Satz)
 
 ### Besser ausdrücken
 2–3 Sätze, die korrekt waren, aber natürlicher oder B2-typischer klingen könnten.
 
 ### Tipp für das nächste Gespräch
 Ein konkreter Fokus (z. B. „Benutze bewusst Nebensätze mit ‚obwohl‘“).
+
+Schreibe alle 💡-Erklärungen auf {explanation_language}; alles andere auf Deutsch.
 
 Keine Einleitung, kein Schlusswort.
 

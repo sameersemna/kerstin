@@ -45,6 +45,7 @@ class Deps:
     first_clause_min_words: int = 4
     stt_min_rms_dbfs: float = -55.0
     stt_filter: bool = True
+    feedback_lang: str = "en"
     thermal: ThermalGuard | None = None
 
 
@@ -109,8 +110,13 @@ class Session:
                 pass
         self._turn_task = None
 
-    async def feedback(self) -> None:
+    async def feedback(self, lang: str | None = None) -> None:
         await self.interrupt()
+
+        if lang not in (None, "en", "de"):
+            log.info("feedback language %r invalid; using %r", lang, self.deps.feedback_lang)
+            lang = None
+        lang = lang or self.deps.feedback_lang
 
         thermal = await self._thermal_check()
         if thermal is not None and thermal.state == "hot":
@@ -127,7 +133,7 @@ class Session:
             for m in self.history
         )
         await self.send_json({"type": "status", "state": "feedback_running"})
-        prompt = self.deps.prompts.feedback_prompt(transcript)
+        prompt = self.deps.prompts.feedback_prompt(transcript, lang)
         text = await self.deps.llm.chat([{"role": "user", "content": prompt}], max_tokens=1200)
         await self.send_json({"type": "feedback", "markdown": strip_think(text).strip()})
 
