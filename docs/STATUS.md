@@ -28,7 +28,7 @@ Since T006: the first clause (≥ 4 words at `,` `;` `:` `–`) is spoken early.
 T015 latency with `gemma4:26b` (fixed seed, `--runs 2`): first audio p50/p90 1384/1661 ms server-side → est. real 2152/2429 ms with the VAD tail. The T002 table above is the `qwen3:14b` baseline.
 
 ## Works (verified in a dev sandbox)
-- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 118 Python + 23 JS (`node --test`: mic gate, Markdown renderer) passed.
+- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 136 Python + 23 JS (`node --test`: mic gate, Markdown renderer) passed.
 - App starts; `/health`, `/api/scenarios`, `/`, static files served; WebSocket `start` → session + opener text.
 
 ## Not yet verified
@@ -39,7 +39,7 @@ T015 latency with `gemma4:26b` (fixed seed, `--runs 2`): first audio p50/p90 138
 - **Latency over target** once the VAD tail is counted (≈1.8–2.9 s vs < 1.5 s).
 - German correctness (T015, lead-graded): `gemma4:26b` makes errors in ≈5 % of replies (3/60), and 1 of 10 correction explanations was wrong ("auf dem Tisch"). Better than `qwen3:14b` (18 %) but not zero; keep checking with `make persona-eval`.
 - STT filter (T013): an utterance consisting *only* of "Vielen Dank", "Tschüss" or "Amen" is dropped as a likely Whisper hallucination (whisper.cpp outputs these for clicks/noise even at speech level). Gate threshold −55 dBFS: tune it against the "Pegel" shown in the UI.
-- Feedback 💡 explanations in English or German (T017, D008): UI selector "Erklärungen", remembered per browser, sent with `end`; server default `KERSTIN_FEEDBACK_LANG=en`. Feedback quality not yet measured (T016); gemma4 sometimes emits LaTeX arrows that show raw.
+- Feedback 💡 explanations in English or German (T017, D008): UI selector "Erklärungen", remembered per browser, sent with `end`; server default `KERSTIN_FEEDBACK_LANG=en`. Feedback quality (T016, `make feedback-eval`, 5 planted-error cases, gemma4:26b, revised prompt): DE 14/15 errors found, 0 wrong corrections; EN 13/15, 1 wrong correction (non-word "gefossen"); 0 false corrections of correct German, 0 ungrounded/Kerstin quotes, 0 LaTeX noise. Fixed preposition verbs (*sich kümmern um*) are the weak spot.
 - Feedback is rendered from a Markdown subset by `frontend/markdown.js` (T004, D017; DOM-only, links/images/HTML show as text).
 - Echo (T014): speaker mode (default) pauses the mic while Kerstin speaks; interrupt with space bar or "Unterbrechen". Headphone mode keeps voice barge-in. Server drops transcripts ≥ 6 words that are ≥ 80 % Kerstin's last reply (`echo`). Not yet verified by ear without headphones (Sameer's manual check).
 - Thermal guard (T030, D016): before each start/turn/feedback the server reads the GPU temperature (cached 2 s, ≈17 ms uncached). At ≥ 80 °C it pauses new GPU work until ≤ 74 °C and the UI shows "GPU zu warm"; a reply already playing finishes. Read-only, fail-open without `nvidia-smi`. `/health` shows `gpu_temp_c` and `thermal`. Verified with a forced threshold, not under real heat.

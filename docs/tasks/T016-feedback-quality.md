@@ -658,7 +658,14 @@ Model: `gemma4:26b` · seed base: 1234 · runs: 1
 The `[WRONG]` marker is EN `arbeit_kollegen`: ✅ `bin danach nach Hause gefossen`. The longer DE `arbeit_kollegen` correction (`weil wir nur zwei Wochen für die Vorbereitung haben`) is now `[FOUND]`; `für die Getränke` remains missed in both languages.
 
 ## Review (Claude Code fills this in)
-- **Verdict:** Changes requested (round 1). The checker only; the prompt revision is accepted as is.
+- **Verdict:** Accepted after round 1 (2026-11-05).
+- **Round 1 check:** scoring now matches the lead's manual grading exactly:
+  - DE: 14/15 found, 0 wrong;
+  - EN: 13/15 found, 1 `[WRONG]` (`gefossen`);
+  - `für die Getränke` missed in both languages.
+
+  The prompt and fixtures are untouched; 136 Python + 23 JS tests and lint pass. Follow-up idea, not a defect of this task: a non-word ✅ like `gefossen` is a sampling slip, so a lower temperature for feedback only was added to T011.
+- **Round 0 notes:**
 - **Notes:**
   - **What's good:** the fixtures are correct German (lead-checked: all Kerstin lines, the 10 `correct_tricky` sentences, and the 15 planted errors with their corrections). The prompt revision removed the false correction and the LaTeX noise (20 → 0) without hurting structure or language. Tests and lint pass.
   - **Lead grading of the after-revision triples:**
