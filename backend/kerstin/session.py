@@ -34,6 +34,13 @@ SendBytes = Callable[[bytes], Awaitable[None]]
 MIN_UTTERANCE_S = 0.35
 
 
+def format_feedback_transcript(history: list[Message]) -> str:
+    return "\n".join(
+        f"{'Lernende Person' if m['role'] == 'user' else 'Kerstin'}: {m['content']}"
+        for m in history
+    )
+
+
 @dataclass
 class Deps:
     stt: STT
@@ -128,10 +135,7 @@ class Session:
         if not learner_lines:
             await self.send_json({"type": "feedback", "markdown": "_Noch keine Äußerungen._"})
             return
-        transcript = "\n".join(
-            f"{'Lernende Person' if m['role'] == 'user' else 'Kerstin'}: {m['content']}"
-            for m in self.history
-        )
+        transcript = format_feedback_transcript(self.history)
         await self.send_json({"type": "status", "state": "feedback_running"})
         prompt = self.deps.prompts.feedback_prompt(transcript, lang)
         text = await self.deps.llm.chat([{"role": "user", "content": prompt}], max_tokens=1200)

@@ -1,10 +1,11 @@
-.PHONY: setup voice certs run test test-js lint check smoke bench persona-eval
+.PHONY: setup voice certs run test test-js lint check smoke bench persona-eval feedback-eval
 
 VENV ?= .venv
 PY := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 BENCH_ARGS ?=
 EVAL_ARGS ?=
+FEEDBACK_ARGS ?=
 
 setup:            ## create venv and install backend + piper + dev deps
 	python3 -m venv $(VENV)
@@ -43,3 +44,6 @@ bench:            ## latency baseline (server must be running)
 
 persona-eval:     ## scripted text-only persona eval (30 turns; needs Ollama)
 	$(PY) scripts/persona_eval.py $(EVAL_ARGS)
+
+feedback-eval:    ## feedback quality eval (5 cases × 2 languages; needs Ollama)
+	$(PY) scripts/feedback_eval.py $(FEEDBACK_ARGS)

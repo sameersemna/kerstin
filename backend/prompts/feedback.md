@@ -21,6 +21,8 @@ Ein konkreter Fokus (z. B. „Benutze bewusst Nebensätze mit ‚obwohl‘“).
 
 Schreibe alle 💡-Erklärungen auf {explanation_language}; alles andere auf Deutsch.
 
+Zitiere bei ❌ nur wörtlich aus einer Zeile „Lernende Person“; zitiere nie Kerstin. Nimm nur Fehler auf, bei denen du sicher bist; wenn eine Formulierung korrekt ist, gehört sie höchstens unter „Besser ausdrücken“. Korrigiere nur die fehlerhafte Stelle und übernimm den Rest wörtlich. Ordne die Fehler nach Wichtigkeit. Kein LaTeX, keine Tabellen; schreibe Pfeile als →.
+
 Keine Einleitung, kein Schlusswort.
 
 ---
