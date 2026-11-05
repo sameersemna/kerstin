@@ -15,11 +15,17 @@ let playing = null;           // current AudioBufferSourceNode
 let herBubble = null;         // current Kerstin message element
 let micGate = null;
 let micMode = "speakers";
+let feedbackLang = "en";
 let pendingDecodes = 0;
 const MIC_MODE_KEY = "kerstin.micMode";
+const FEEDBACK_LANG_KEY = "kerstin.feedbackLang";
 try {
   const savedMode = localStorage.getItem(MIC_MODE_KEY);
   if (savedMode === "speakers" || savedMode === "headphones") micMode = savedMode;
+  const savedFeedbackLang = localStorage.getItem(FEEDBACK_LANG_KEY);
+  if (savedFeedbackLang === "en" || savedFeedbackLang === "de") {
+    feedbackLang = savedFeedbackLang;
+  }
 } catch {}
 
 // ---------- UI helpers ----------
@@ -250,7 +256,9 @@ function end() {
   if (vadInstance) { vadInstance.pause(); vadInstance = null; }
   stopPlayback();
   if (micGate) micGate.userInterrupt();
-  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "end" }));
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: "end", feedback_lang: feedbackLang }));
+  }
   $("endBtn").disabled = true;
   $("startBtn").disabled = false;
 }
@@ -274,6 +282,11 @@ async function loadScenarios() {
 $("startBtn").onclick = () => start().catch((e) => { console.error(e); setState("Start fehlgeschlagen: " + e, "speaking"); $("startBtn").disabled = false; });
 $("endBtn").onclick = end;
 $("interruptBtn").onclick = interruptSpeaking;
+$("feedbackLang").value = feedbackLang;
+$("feedbackLang").onchange = (e) => {
+  feedbackLang = e.target.value === "de" ? "de" : "en";
+  try { localStorage.setItem(FEEDBACK_LANG_KEY, feedbackLang); } catch {}
+};
 $("micMode").value = micMode;
 $("micMode").onchange = (e) => {
   micMode = e.target.value === "headphones" ? "headphones" : "speakers";

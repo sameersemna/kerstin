@@ -35,6 +35,13 @@ class PromptStore:
         persona = (self.dir / "persona.md").read_text(encoding="utf-8")
         return persona.replace("{scenario}", self.scenario(scenario_key).description)
 
-    def feedback_prompt(self, transcript: str) -> str:
+    def feedback_prompt(self, transcript: str, lang: str = "en") -> str:
+        labels = {
+            "en": "Englisch",
+            "de": "Deutsch (einfache Sprache, mit Fachbegriffen wie Akkusativ, Dativ, Perfekt)",
+        }
+        if lang not in labels:
+            raise ValueError(f"Unknown feedback language {lang!r}")
         tpl = (self.dir / "feedback.md").read_text(encoding="utf-8")
+        tpl = tpl.replace("{explanation_language}", labels[lang])
         return tpl.replace("{transcript}", transcript)

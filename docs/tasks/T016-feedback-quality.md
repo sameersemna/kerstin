@@ -36,6 +36,8 @@ We measure this with fixed transcripts that contain known, planted errors. Then 
      - **planted recall:** a planted error counts as found when some ❌ quote contains its `wrong` span (normalized) **and** the ✅ after it contains `right`;
      - **false corrections:** any ❌ whose quote matches a `correct_tricky` sentence;
      - **no-op corrections:** ❌ and ✅ identical after normalization.
+     - **format noise:** count LaTeX (`$…$`, `\rightarrow`), HTML tags and tables (`|---`). Report it as `format_noise`. T017 samples showed `$\rightarrow$` from gemma4, so this must reach 0 after the prompt change (lever: "Kein LaTeX, keine Tabellen; Pfeil als →").
+     - The structure check must accept both layouts seen in real output: ❌/✅/💡 as sibling bullets, and ✅/💡 nested or indented under ❌.
      - **explanation language:** each 💡 line is in the requested language. A simple stop-word heuristic is enough: count hits on `the/is/with/of/to/because/uses` vs `der/die/das/ist/mit/weil/wird`; the majority must match. Report `lang_mismatch`.
    - Output:
      - a summary table per model per model and language (recall %, false corrections, ungrounded, quotes_kerstin, structure failures, lang_mismatch, mean feedback ms);
@@ -43,7 +45,7 @@ We measure this with fixed transcripts that contain known, planted errors. Then 
 
      Print to stdout; `--out PATH` writes the same Markdown to a file. The fixtures are synthetic, so writing to a file is fine; don't write anywhere by default.
 3. **Baseline run:** `gemma4:26b`, `--lang both --runs 1`, all 5 cases (10 feedbacks), pasted into the report.
-4. **Prompt revision** (`backend/prompts/feedback.md`), **only if the baseline shows** recall < 80 %, any false or no-op correction, any ungrounded or Kerstin quote, or structure failures or language mismatches, in either language. Allowed levers:
+4. **Prompt revision** (`backend/prompts/feedback.md`), **only if the baseline shows** recall < 80 %, any false or no-op correction, any ungrounded or Kerstin quote, or structure failures, language mismatches or format noise, in either language. Allowed levers:
    - require exact quotes from „Lernende Person“ lines only;
    - "only flag errors you are certain about; when unsure, leave it out";
    - "don't flag correct alternatives as errors";
@@ -81,7 +83,7 @@ We measure this with fixed transcripts that contain known, planted errors. Then 
 ## Acceptance criteria
 - [ ] `make test` and `make lint` pass; the feedback-check tests listed above exist
 - [ ] `make feedback-eval` runs end-to-end on `gemma4:26b` with the thermal cool-down. The baseline table and all triples are pasted in the report.
-- [ ] If the prompt changed: before/after numbers on the same seeds, plus one full before/after feedback. Target: recall ≥ 80 %, 0 false corrections, 0 Kerstin quotes, 0 structure failures. If a target is missed, say so; don't tune the fixtures to pass.
+- [ ] If the prompt changed: before/after numbers on the same seeds, plus one full before/after feedback. Target: recall ≥ 80 %, 0 false corrections, 0 Kerstin quotes, 0 structure failures, 0 format noise, 0 language mismatches. If a target is missed, say so; don't tune the fixtures to pass.
 - [ ] The fixtures' "correct" lines are really correct German (the lead will check them all)
 - [ ] `git diff main --stat` shows only allowed files
 

@@ -78,6 +78,9 @@ class Settings(BaseSettings):
     prompts_dir: Path = BACKEND_DIR / "prompts"
     default_scenario: str = "freies_gespraech"
 
+    # --- Feedback ---
+    feedback_lang: Literal["en", "de"] = "en"
+
     # --- Frontend ---
     frontend_dir: Path = PROJECT_DIR / "frontend"
 

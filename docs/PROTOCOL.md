@@ -9,7 +9,7 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 | `{"type":"start","scenario":"<key>"}` | Start (or restart) a session. Keys from `GET /api/scenarios`. |
 | **binary** | One complete learner utterance: 16 kHz, mono, signed 16-bit little-endian PCM, no header. Implicitly starts turn `n+1` and cancels any running turn. |
 | `{"type":"interrupt"}` | Learner barged in; cancel the running turn. |
-| `{"type":"end"}` | End the conversation and request feedback. |
+| `{"type":"end","feedback_lang"?:"en"\|"de"}` | End the conversation and request feedback. Invalid values use the server default. |
 | `{"type":"ping"}` | Keepalive → `pong`. |
 
 ## Server → client

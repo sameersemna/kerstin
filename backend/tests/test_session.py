@@ -1,6 +1,7 @@
 """Session pipeline tests with fake STT / LLM / TTS (no GPU, no network)."""
 
 import asyncio
+import logging
 import math
 import struct
 from array import array
@@ -26,6 +27,7 @@ class FakeLLM:
         self.delay = delay
         self.warmup_delay = warmup_delay
         self.last_messages = None
+        self.last_chat_messages = None
         self.warmup_calls = []
         self.chat_calls = 0
 
@@ -38,6 +40,7 @@ class FakeLLM:
 
     async def chat(self, messages, max_tokens=None):
         self.chat_calls += 1
+        self.last_chat_messages = messages
         return "### Was gut war\n- Gute Aussprache"
 
     async def warmup(self, messages):
@@ -72,7 +75,13 @@ class FakeThermalGuard:
 
 
 def make_session(
-    llm, stt=None, llm_warmup=True, stt_min_rms_dbfs=-55.0, stt_filter=True, thermal=None
+    llm,
+    stt=None,
+    llm_warmup=True,
+    stt_min_rms_dbfs=-55.0,
+    stt_filter=True,
+    thermal=None,
+    feedback_lang="en",
 ):
     sent_json, sent_bytes = [], []
 
@@ -91,6 +100,7 @@ def make_session(
         stt_min_rms_dbfs=stt_min_rms_dbfs,
         stt_filter=stt_filter,
         thermal=thermal,
+        feedback_lang=feedback_lang,
     )
     return Session(deps=deps, send_json=sj, send_bytes=sb, scenario_key="freies_gespraech"), sent_json, sent_bytes
 
@@ -306,6 +316,46 @@ async def test_ok_guard_allows_start_and_turn():
     assert any(m["type"] == "reply_done" and m["turn"] == 1 for m in js)
     assert not any(m["type"] == "thermal" for m in js)
     assert thermal.calls == 2
+
+
+async def test_feedback_uses_requested_german_prompt():
+    llm = FakeLLM(["Hallo."])
+    s, _, _ = make_session(llm)
+    s.history.append({"role": "user", "content": "Ich wohne seit zwei Jahre in Berlin."})
+
+    await s.feedback("de")
+
+    prompt = llm.last_chat_messages[0]["content"]
+    assert "Deutsch (einfache Sprache" in prompt
+    assert "Englisch" not in prompt
+
+
+async def test_feedback_uses_server_default_language():
+    llm = FakeLLM(["Hallo."])
+    s, _, _ = make_session(llm, feedback_lang="de")
+    s.history.append({"role": "user", "content": "Ich wohne seit zwei Jahre in Berlin."})
+
+    await s.feedback()
+
+    prompt = llm.last_chat_messages[0]["content"]
+    assert "Deutsch (einfache Sprache" in prompt
+
+
+async def test_feedback_invalid_language_uses_server_default(caplog):
+    llm = FakeLLM(["Hallo."])
+    s, _, _ = make_session(llm, feedback_lang="de")
+    s.history.append({"role": "user", "content": "Ich wohne seit zwei Jahre in Berlin."})
+
+    with caplog.at_level(logging.INFO, logger="kerstin.session"):
+        await s.feedback("fr")
+
+    prompt = llm.last_chat_messages[0]["content"]
+    assert "Deutsch (einfache Sprache" in prompt
+    assert any(
+        "invalid" in record.message and record.levelno == logging.INFO
+        for record in caplog.records
+    )
+    assert "Ich wohne" not in caplog.text
 
 
 async def test_feedback():

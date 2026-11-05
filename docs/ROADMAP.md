@@ -16,7 +16,7 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 ## Phase 2 — Conversation quality
 - [x] T010 **Persona eval + tuning** (2026-11-05): `make persona-eval`, `reply_checks.py`, revised `persona.md` (length fixed; grammar not, see D014).
 - [x] T015 **Model comparison for German correctness** (2026-11-05): gemma4:26b 5 % vs qwen3:14b 18 % errors → default gemma4:26b (D015).
-- [ ] T017 **Feedback language setting** (D008): English/German 💡 explanations, UI selector, `end.feedback_lang`. Task file: `docs/tasks/T017-feedback-language.md`.
+- [x] T017 **Feedback language setting** (D008): English/German 💡 explanations, UI selector, `end.feedback_lang`. Task file: `docs/tasks/T017-feedback-language.md`.
 - [ ] T016 **Feedback quality eval** (after T017, both languages): planted-error fixtures, `make feedback-eval` (recall, false corrections, quote grounding), prompt revision if needed. Task file: `docs/tasks/T016-feedback-quality.md`.
 - [ ] T011 **Separate feedback model** setting (`KERSTIN_FEEDBACK_MODEL`), allow a larger model for the report.
 - [ ] T012 **Kokoro German TTS** via `HttpTTS` (or in-process ONNX); A/B against Piper for naturalness and latency.
