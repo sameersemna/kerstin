@@ -308,6 +308,9 @@ async def run(args: argparse.Namespace) -> None:
         await ws.send(json.dumps(start))
         await wait_for_opener(ws)
         print("Opener complete")
+        if args.first_delay:
+            print(f"Waiting {args.first_delay:.1f} s before turn 1 ...")
+            await asyncio.sleep(args.first_delay)
 
         for turn in range(1, args.turns + 1):
             gpu_before = thermal_guard(f"before turn {turn}")
@@ -347,6 +350,12 @@ def main() -> int:
     parser.add_argument("--cafile", default=default_cafile)
     parser.add_argument("--scenario", default=None, help="scenario key (default: server default)")
     parser.add_argument("--turns", type=int, default=2)
+    parser.add_argument(
+        "--first-delay",
+        type=float,
+        default=0.0,
+        help="seconds to wait after the opener before turn 1 (default: 0)",
+    )
     args = parser.parse_args()
 
     try:

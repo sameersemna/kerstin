@@ -68,12 +68,161 @@ VAD, Piper voice, STT, prompt/persona changes, keeping the model loaded longer, 
 
 ## Worker report (Kilo Code fills this in)
 - **Changed files:**
+  - `backend/kerstin/llm.py` — optional injected `httpx.AsyncClient`; `_payload` now always sends `options.seed` (fixed `llm_seed` or a fresh `random.randrange(1, 2**31)`); new `warmup()` does a non-streaming `/api/chat` with `num_predict: 1` and swallows/logs every error.
+  - `backend/kerstin/config.py` — `llm_seed: int | None = None` and `llm_warmup: bool = True`.
+  - `backend/kerstin/session.py` — `Deps.llm_warmup`, `_warmup_task`; `start()` creates the warm-up (system prompt + opener as assistant) before speaking the opener; `close()` cancels and awaits it.
+  - `backend/kerstin/main.py` — passes `settings.llm_warmup` into `Deps`.
+  - `backend/tests/test_llm.py` (new) — random vs fixed seed, warm-up payload, and warm-up error swallowing (500, ConnectError, ReadTimeout).
+  - `backend/tests/test_session.py` — `FakeLLM.warmup`, three new tests (warm-up args, disabled warm-up, hanging warm-up does not block opener and is cancelled by `close()`).
+  - `scripts/smoke_test.py` — `--first-delay` only (default 0; default behavior unchanged).
+  - `.env.example` — commented `KERSTIN_LLM_WARMUP=true` and `KERSTIN_LLM_SEED=`.
+  - `docs/tasks/T005-warmup-seed.md` — Worker report only.
 - **How tested:**
+  - `make test` → 30 passed; `make lint` → `All checks passed!`.
+  - `make smoke` with no flags still exits 0 (turn 1/2 `llm_first_token_ms` 549/555 ms on a warm model).
+  - **Cold:** confirmed `qwen3:14b` was absent from `ollama ps`, started Kerstin on **8771** (TLS, `KERSTIN_HOST=0.0.0.0`), ran `smoke_test.py --url wss://localhost:8771/ws --first-delay 6`, then checked `ollama ps` again.
+  - **Warm:** two separate `make bench BENCH_ARGS="--runs 1"` invocations against 8771 (10 measured turns each, fresh WS session each) and compared the reply lists. Each run had 0 errors. GPU guard before every turn; max observed 68 °C.
+  - No Whisper `/load`, no Ollama config changes, no model pulls, no forced unload. 8770 was never started or touched.
+  - No audio or result files written; utterances are synthesized in memory.
 - **Measurements (if any):**
+  - **Cold turn 1:** `llm_first_token_ms` **563 ms** (T001 cold: 7400 ms) and `first_audio_ms` **1688 ms** (T001 cold: 8781 ms); `stt_ms=463`, `first_sentence_ms=1155`, `tts_first_ms=528`. The 6 s learner pause was enough for the warm-up load.
+  - **Warm p50 `first_audio_ms`:** run A **1798 ms**, run B **1840 ms** (T002 high p50: 1935 ms) — not slower; both are slightly better.
+  - `ollama ps` after the cold run and at the end: `qwen3:14b`, 9.8 GB, 100% GPU, context 8192, **“9 minutes from now”** (normal `keep_alive` countdown, not “Forever”).
+  - Same utterance, different fresh sessions (run A vs run B):
+    - A: “Ich wohne seit drei Jahren in Berlin.” → “Schön, dass du in Berlin bist! Ich lebe seit zwei Jahren hier und finde die Stadt sehr interessant. Magst du Berlin?”
+    - B: “Ich wohne seit drei Jahren in Berlin.” → “Schön, dass du hier bist! Berlin ist eine tolle Stadt, aber nicht immer leicht zu finden. Wie bist du hierher gekommen? Aus welchem Land?”
+    - All other utterances also differ between A and B.
+  - GPU: cold 62→53 °C; warm A 61→67 °C; warm B 65→68 °C.
 - **Deviations from spec / extra files touched:**
-- **New dependencies (+license):**
+  - **Reply comparison used two separate `--runs 1` bench invocations, not one `--runs 2`.** Within a single session, when the identical user turn is repeated immediately after the model's answer, `qwen3:14b` copies its previous answer despite a new random seed (verified with the exact prompt and several seeds). The user-facing case is a new session, where the seed does change the reply; two fresh sessions show the difference. A single `--runs 2` list therefore still repeats by in-context copying. `scripts/latency_bench.py` is not in T005's allowed files, so I did not change it to restart the session per pass.
+  - The cold run used the TLS URL and the existing `certs/` from T032; the server was on 8771 only.
+  - No other files touched.
+- **New dependencies (+license):** None. `random` is stdlib; no new packages.
 - **Open questions:**
+  - Should a future task make `latency_bench.py --runs N` start a fresh session per pass, so one output can demonstrate cross-pass reply variation? Out of scope here.
+  - Within a session, repeated identical learner turns still produce the same answer because the model copies its previous turn; that is model behaviour, not the seed. Across sessions the seed works as intended.
+
+### Cold-start smoke (turn 1)
+
+```text
+Waiting 6.0 s before turn 1 ...
+GPU before turn 1: 62 °C
+[  2885 ms] {"type": "metrics", "turn": 1, "audio_s": 4.79, "stt_ms": 463, "llm_first_token_ms": 563, "first_sentence_ms": 1155, "tts_first_ms": 528, "first_audio_ms": 1688, "total_ms": 2876, "sentences": 3}
+GPU after turn 1: 53 °C
+Summary
+turn   stt_ms  llm_1st_ms  srv_audio_ms  cli_audio_ms  total_ms  gpu_before  gpu_after
+--------------------------------------------------------------------------------------
+   1      463         563          1688          1696      2876       62 °C      53 °C
+   2      445         546          1567          1578      3139       53 °C      54 °C
+```
+
+### `ollama ps`
+
+Before the cold run (no `qwen3:14b`):
+
+```text
+NAME           ID              SIZE      PROCESSOR    CONTEXT    UNTIL             
+llama3.2:1b    baf6a787fdff    4.5 GB    100% GPU     131072     20 hours from now
+```
+
+After the cold run:
+
+```text
+NAME           ID              SIZE      PROCESSOR    CONTEXT    UNTIL              
+llama3.2:1b    baf6a787fdff    4.5 GB    100% GPU     131072     20 hours from now     
+qwen3:14b      bdbd181c33f2    9.8 GB    100% GPU     8192       9 minutes from now
+```
+
+Final (after both warm benches):
+
+```text
+NAME           ID              SIZE      PROCESSOR    CONTEXT    UNTIL              
+llama3.2:1b    baf6a787fdff    4.5 GB    100% GPU     131072     24 hours from now     
+qwen3:14b      bdbd181c33f2    9.8 GB    100% GPU     8192       9 minutes from now
+```
+
+### Warm bench — run A (`--runs 1`)
+
+```text
+(a) Server metrics (n=10)
+metric                       p50       p90       max
+----------------------------------------------------
+audio_s                     4.66      7.76     10.10
+stt_ms                       495       668       779
+llm_first_token_ms           603       827       905
+first_sentence_ms           1296      2079      2285
+tts_first_ms                 512      1220      1880
+first_audio_ms              1798      3315      4184
+total_ms                    3626      4430      6075
+sentences                      3         3         4
+
+(b) Derived stages (ms)
+stage                        p50       p90
+------------------------------------------
+stt                          495       668
+llm_to_first_token           110       130
+first_sentence_wait          518      1502
+tts_first                    512      1220
+
+(c) Estimated end-of-speech -> first audio (first_audio_ms + 768 ms VAD tail)
+    p50: 2566 ms    p90: 4083 ms    target: 1500 ms
+    vs target: p50 +1066 ms    p90 +2583 ms
+
+(d) Turns: transcript -> reply
+ 1. Ich wohne seit drei Jahren in Berlin. -> Schön, dass du in Berlin bist! Ich lebe seit zwei Jahren hier und finde die Stadt sehr interessant. Magst du Berlin?
+ 2. Am Wochenende fahre ich oft mit dem Fahrrad an der Spree  entlang. -> Das klingt schön! Ich fahre manchmal auch mit dem Fahrrad entlang der Spree – besonders an sonnigen Tagen. Magst du das Wetter am Wochenende?
+ 3. Was machst du eigentlich in deiner Freizeit, wenn du nicht  arbeitest? -> In meiner Freizeit mache ich gern Sport – ich gehe zum Beispiel Bouldern oder laufe im Park. Manchmal koche ich auch gerne. Und du? Hast du bestimmte Hobbys?
+ 4. Meine Lieblingsstadt in Deutschland ist Hamburg, weil sie  direkt am Wasser liegt. -> Hamburg ist wirklich eine schöne Stadt – ich mag besonders die Altstadt und das Hafenamt. Hast du schon mal einen Ausflug nach Hamburg gemacht?
+ 5. Ich habe letzte Woche einen Deutschkurs angefangen, der mir  sehr gut gefällt. -> Das ist toll! Ich mache gerade auch einen Deutschkurs – an der Volkshochschule. Wie findest du den? Ist er schwer oder eher einfach?
+ 6. Wenn ich am Abend nach Hause komme, koche ich meistens  etwas Einfaches und höre dabei Musik. -> Das klingt gemütlich! Ich mache oft dasselbe – etwas Einfaches kochen und dabei einen Podcast hören. Welche Musik magst du am liebsten?
+ 7. Kannst du mir vielleicht ein paar Tipps geben, wie ich  meinen Wortschatz besser erweitern kann? -> Natürlich! Ein guter Tipp ist, viel zu lesen – zum Beispiel Zeitungen, Bücher oder sogar Kurznachrichten. Du kannst auch versuchen, neue Wörter in deinen Alltag zu integrieren, zum Beispiel beim Kochen oder bei Gesprächen. Hast du schon mal versucht, einen Sprachpartner zu finden?
+ 8. Obwohl das Wetter am Sonntag ziemlich schlecht war, sind  wir mit Freunden in den Park gegangen und haben dort ein  Picknick gemacht. -> Das klingt trotzdem sehr nett! Manchmal ist es doch schön, mal im Freien zu sein, auch wenn das Wetter nicht perfekt ist. War das Picknick trotzdem lustig?
+ 9. Ich interessiere mich sehr für Geschichte und würde deshalb  gern einmal nach Dresden fahren, um die alten Gebäude und  Museen zu besichtigen. -> Das klingt sehr interessant! Dresden hat wirklich viele schöne alte Gebäude und beeindruckende Museen. Hast du schon mal eine Reise in den Südosten Deutschlands gemacht?
+10. In meiner Heimastadt gibt es einen großen Markt, auf dem  man frische Produkte kaufen kann und am Wochenende treffen  sich dort viele Menschen, um miteinander zu sprechen oder  etwas zu essen. -> Das klingt sehr lebhaft! In Berlin gibt es auch viele schöne Märkte – besonders an den Wochenenden. Gehst du oft auf Märkte?
+
+(e) GPU: start 61 °C, end 67 °C
+```
+
+### Warm bench — run B (`--runs 1`)
+
+```text
+(a) Server metrics (n=10)
+metric                       p50       p90       max
+----------------------------------------------------
+audio_s                     4.67      7.68      9.91
+stt_ms                       500       720       796
+llm_first_token_ms           611       848       934
+first_sentence_ms           1315      1995      2005
+tts_first_ms                 541      1379      1568
+first_audio_ms              1840      3168      3575
+total_ms                    3754      4623      5064
+sentences                      3         3         4
+
+(b) Derived stages (ms)
+stage                        p50       p90
+------------------------------------------
+stt                          500       720
+llm_to_first_token           116       135
+first_sentence_wait          524      1183
+tts_first                    541      1379
+
+(c) Estimated end-of-speech -> first audio (first_audio_ms + 768 ms VAD tail)
+    p50: 2608 ms    p90: 3936 ms    target: 1500 ms
+    vs target: p50 +1108 ms    p90 +2436 ms
+
+(d) Turns: transcript -> reply
+ 1. Ich wohne seit drei Jahren in Berlin. -> Schön, dass du hier bist! Berlin ist eine tolle Stadt, aber nicht immer leicht zu finden. Wie bist du hierher gekommen? Aus welchem Land?
+ 2. Am Wochenende fahre ich oft mit dem Fahrrad an der Spree  entlang. -> Das klingt schön! Ich fahre manchmal auch mit dem Fahrrad entlang der Spree, besonders am Wochenende. Magst du die Ruhe dort oder die Aussicht?
+ 3. Was machst du eigentlich in deiner Freizeit, wenn du nicht  arbeitest? -> In meiner Freizeit mache ich gerne Sport, zum Beispiel Bouldern oder Yoga. Ich esse auch gern selbstgemachte Pizza und höre oft Podcasts. Was machst du in deiner Freizeit?
+ 4. Meine Lieblingsstadt in Deutschland ist Hamburg, weil sie  direkt am Wasser liegt. -> Hamburg ist wirklich eine schöne Stadt – ich mag besonders den Hafen und die Altstadt. Hast du schon mal einen Ausflug zum Elbtunnel oder aufs Jungfernstieg gemacht?
+ 5. Ich habe letzte Woche einen Deutschkurs angefangen, der mir  sehr gut gefällt. -> Das ist großartig! Ich mache auch gerade einen Deutschkurs, und es ist echt hilfreich. Wie findest du die anderen Teilnehmer?
+ 6. Wenn ich am Abend nach Hause komme, koche ich meistens  etwas Einfaches und höre dabei Musik. -> Das klingt sehr entspannt! Ich koche oft auch etwas Einfaches, besonders nach einem langen Tag. Hast du einen Lieblingskochkanal auf YouTube?
+ 7. Kannst du mir vielleicht ein paar Tipps geben, wie ich  meinen Wortschatz besser erweitern kann? -> Natürlich! Ein guter Tipp ist, viel zu lesen – zum Beispiel Bücher, Nachrichten oder Blogs. Du kannst auch versuchen, neue Wörter in dein Tagebuch zu schreiben und sie im Gespräch zu verwenden. Hast du schon mal mit einem Sprachpartner geübt?
+ 8. Obwohl das Wetter am Sonntag ziemlich schlecht war, sind  wir mit Freunden in den Park gegangen und haben dort ein  Picknick gemacht. -> Das ist sehr mutig! Es ist schön, dass ihr trotz des Wetters Spaß hattet. Habt ihr euch gut amüsiert, oder war es doch etwas schwierig?
+ 9. Ich interessiere mich sehr für Geschichte und würde deshalb  gern einmal nach Dresden fahren, um die alten Gebäude und  Museen zu besichtigen. -> Dresden ist eine wundervolle Stadt mit einer unglaublichen Architektur! Die Altstadt und das Zwinger sind besonders sehenswert. Hast du schon mal einen Ausflug ins Erzgebirge gemacht?
+10. In meiner Heimatstadt gibt es einen großen Markt, auf dem  man frische Produkte kaufen kann  und am Wochenende treffen sich dort viele Menschen, um  miteinander zu sprechen oder etwas zu essen. -> Das klingt sehr gemütlich! In Berlin gibt es auch viele Märkte, besonders in den Bezirken wie Neukölln oder Mitte. Gehst du oft auf Märkte?
+
+(e) GPU: start 65 °C, end 68 °C
+```
 
 ## Review (Claude Code fills this in)
-- **Verdict:**
-- **Notes:**

@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.8
     llm_max_reply_tokens: int = 220  # keeps replies conversational and fast
     llm_think: bool = False  # disable reasoning mode on models that support it
+    llm_seed: int | None = None  # fixed seed for benches; None = fresh random per request
+    llm_warmup: bool = True  # preload the model while the opener is spoken
     history_max_turns: int = 24  # user+assistant messages kept in context
 
     # --- Speech-to-text ---

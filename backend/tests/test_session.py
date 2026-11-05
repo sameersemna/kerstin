@@ -17,10 +17,12 @@ class FakeSTT:
 
 
 class FakeLLM:
-    def __init__(self, pieces, delay=0.0):
+    def __init__(self, pieces, delay=0.0, warmup_delay=0.0):
         self.pieces = pieces
         self.delay = delay
+        self.warmup_delay = warmup_delay
         self.last_messages = None
+        self.warmup_calls = []
 
     async def stream_chat(self, messages):
         self.last_messages = messages
@@ -32,13 +34,18 @@ class FakeLLM:
     async def chat(self, messages, max_tokens=None):
         return "### Was gut war\n- Gute Aussprache"
 
+    async def warmup(self, messages):
+        self.warmup_calls.append(messages)
+        if self.warmup_delay:
+            await asyncio.sleep(self.warmup_delay)
+
 
 class FakeTTS:
     async def synthesize(self, text):
         return b"RIFF" + text.encode()
 
 
-def make_session(llm, stt=None):
+def make_session(llm, stt=None, llm_warmup=True):
     sent_json, sent_bytes = [], []
 
     async def sj(o):
@@ -47,11 +54,54 @@ def make_session(llm, stt=None):
     async def sb(b):
         sent_bytes.append(b)
 
-    deps = Deps(stt=stt or FakeSTT(), llm=llm, tts=FakeTTS(), prompts=PromptStore(BACKEND_DIR / "prompts"))
+    deps = Deps(
+        stt=stt or FakeSTT(),
+        llm=llm,
+        tts=FakeTTS(),
+        prompts=PromptStore(BACKEND_DIR / "prompts"),
+        llm_warmup=llm_warmup,
+    )
     return Session(deps=deps, send_json=sj, send_bytes=sb, scenario_key="freies_gespraech"), sent_json, sent_bytes
 
 
 PCM_1S = b"\x00\x00" * 16000
+
+
+async def test_start_triggers_warmup_with_system_and_opener():
+    llm = FakeLLM(["Hallo."])
+    s, js, _ = make_session(llm)
+    await s.start()
+    assert s._warmup_task is not None
+    await s._warmup_task
+    assert len(llm.warmup_calls) == 1
+    messages = llm.warmup_calls[0]
+    opener = s.deps.prompts.scenario("freies_gespraech").opener
+    assert messages[0]["role"] == "system"
+    assert "Kreuzberg" in messages[0]["content"]
+    assert messages[1] == {"role": "assistant", "content": opener}
+    assert any(m["type"] == "reply_text" and m["turn"] == 0 for m in js)
+
+
+async def test_start_without_warmup():
+    llm = FakeLLM(["Hallo."])
+    s, js, _ = make_session(llm, llm_warmup=False)
+    await s.start()
+    assert s._warmup_task is None
+    assert llm.warmup_calls == []
+    assert any(m["type"] == "reply_text" and m["turn"] == 0 for m in js)
+
+
+async def test_warmup_does_not_delay_opener_and_close_cancels():
+    llm = FakeLLM(["Hallo."], warmup_delay=10)
+    s, js, _ = make_session(llm)
+    await asyncio.wait_for(s.start(), timeout=1.0)
+    assert any(m["type"] == "reply_text" and m["turn"] == 0 for m in js)
+    await asyncio.sleep(0)  # let the warm-up task start and hit its sleep
+    assert s._warmup_task is not None
+    assert not s._warmup_task.done()
+    assert llm.warmup_calls
+    await asyncio.wait_for(s.close(), timeout=1.0)
+    assert s._warmup_task is None
 
 
 async def test_opener_and_turn():
