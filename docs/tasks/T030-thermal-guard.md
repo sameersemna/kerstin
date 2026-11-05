@@ -78,12 +78,32 @@ When the GB10 GPU is hot (from Kerstin or from other projects), Kerstin stops ad
 - [ ] `git diff main --stat` shows only allowed files
 
 ## Worker report (Kilo Code fills this in)
-- **Changed files:**
-- **How tested:**
-- **Measurements (if any):**
-- **Deviations from spec / extra files touched:**
-- **New dependencies (+license):**
-- **Open questions:**
+- **Changed files:** `backend/kerstin/thermal.py` (new), `backend/kerstin/config.py`, `backend/kerstin/session.py`, `backend/kerstin/main.py`, `backend/tests/test_thermal.py` (new), `backend/tests/test_session.py`, `frontend/app.js` (`thermal` message only), `docs/PROTOCOL.md`, `.env.example`, this task file.
+- **How tested:** `make test` → 110 Python tests + 9 Node tests passed; `make lint` passed; `make smoke` on port 8771 with default thresholds passed both turns (turn 2: first audio 1098 ms, total 2284 ms). `grep -nE "nvidia-smi" backend/kerstin/*.py` shows only the read-only temperature query. Thermal tests use fake readers/fake clock; the default-reader test monkeypatches `asyncio.create_subprocess_exec`, so no test runs the real `nvidia-smi`.
+- **Measurements (if any):** `ThermalGuard.check()`: uncached 17.39 ms/check (20 calls) and cached 0.0008 ms/check (1000 calls) on the GB10; sample 45.0 °C. This is below the 30 ms uncached limit.
+  ```text
+  KERSTIN_HOST=127.0.0.1 KERSTIN_PORT=8771 KERSTIN_THERMAL_HOT_C=40 KERSTIN_THERMAL_RESUME_C=30 make run
+
+  GET /health:
+  {
+    "gpu_temp_c": 45.0,
+    "thermal": "hot"
+  }
+
+  WS start:
+  session: {"type": "session", "scenario": "freies_gespraech", "title": "Freies Gespräch"}
+  thermal: {"type": "thermal", "state": "hot", "temp_c": 45.0}
+  extra: none (no opener)
+
+  Default thresholds /health:
+  {
+    "gpu_temp_c": 44.0,
+    "thermal": "ok"
+  }
+  ```
+- **Deviations from spec / extra files touched:** None. The forced-hot check also sets `KERSTIN_THERMAL_RESUME_C=30` because the required validator rejects `resume_c >= hot_c`.
+- **New dependencies (+license):** None.
+- **Open questions:** None.
 
 ## Review (Claude Code fills this in)
 - **Verdict:**

@@ -9,6 +9,7 @@ from kerstin.audio import pcm16_rms_dbfs
 from kerstin.config import BACKEND_DIR
 from kerstin.prompts import PromptStore
 from kerstin.session import Deps, Session
+from kerstin.thermal import ThermalStatus
 
 
 class FakeSTT:
@@ -26,6 +27,7 @@ class FakeLLM:
         self.warmup_delay = warmup_delay
         self.last_messages = None
         self.warmup_calls = []
+        self.chat_calls = 0
 
     async def stream_chat(self, messages):
         self.last_messages = messages
@@ -35,6 +37,7 @@ class FakeLLM:
             yield p
 
     async def chat(self, messages, max_tokens=None):
+        self.chat_calls += 1
         return "### Was gut war\n- Gute Aussprache"
 
     async def warmup(self, messages):
@@ -58,7 +61,19 @@ class CountingSTT:
         return self.text
 
 
-def make_session(llm, stt=None, llm_warmup=True, stt_min_rms_dbfs=-55.0, stt_filter=True):
+class FakeThermalGuard:
+    def __init__(self, status):
+        self.status = status
+        self.calls = 0
+
+    async def check(self):
+        self.calls += 1
+        return self.status
+
+
+def make_session(
+    llm, stt=None, llm_warmup=True, stt_min_rms_dbfs=-55.0, stt_filter=True, thermal=None
+):
     sent_json, sent_bytes = [], []
 
     async def sj(o):
@@ -75,6 +90,7 @@ def make_session(llm, stt=None, llm_warmup=True, stt_min_rms_dbfs=-55.0, stt_fil
         llm_warmup=llm_warmup,
         stt_min_rms_dbfs=stt_min_rms_dbfs,
         stt_filter=stt_filter,
+        thermal=thermal,
     )
     return Session(deps=deps, send_json=sj, send_bytes=sb, scenario_key="freies_gespraech"), sent_json, sent_bytes
 
@@ -229,6 +245,67 @@ async def test_echo_is_dropped_before_llm_and_history():
     assert stt.calls == 1
     assert llm.last_messages is None
     assert not any(m["type"] == "transcript" for m in js)
+
+
+async def test_hot_guard_skips_start_warmup_and_opener():
+    llm = FakeLLM(["Hallo."])
+    thermal = FakeThermalGuard(ThermalStatus("hot", 82))
+    s, js, bs = make_session(llm, thermal=thermal)
+
+    await s.start()
+
+    assert [m["type"] for m in js] == ["session", "thermal"]
+    assert js[1] == {"type": "thermal", "state": "hot", "temp_c": 82}
+    assert s._warmup_task is None
+    assert llm.warmup_calls == []
+    assert bs == []
+    assert s.history == []
+
+
+async def test_hot_guard_blocks_turn_before_stt_and_llm():
+    stt = CountingSTT()
+    llm = FakeLLM(["Hallo."])
+    thermal = FakeThermalGuard(ThermalStatus("hot", 82))
+    s, js, bs = make_session(llm, stt=stt, thermal=thermal)
+
+    await s.handle_audio(PCM_1S)
+    await s._turn_task
+
+    assert js == [{"type": "thermal", "state": "hot", "temp_c": 82, "turn": 1}]
+    assert stt.calls == 0
+    assert llm.last_messages is None
+    assert s.history == []
+    assert bs == []
+    assert thermal.calls == 1
+
+
+async def test_hot_guard_blocks_feedback_llm():
+    llm = FakeLLM(["Hallo."])
+    thermal = FakeThermalGuard(ThermalStatus("hot", 82))
+    s, js, _ = make_session(llm, thermal=thermal)
+    s.history.append({"role": "user", "content": "Ich war im Kino."})
+    history_before = list(s.history)
+
+    await s.feedback()
+
+    assert js == [{"type": "thermal", "state": "hot", "temp_c": 82}]
+    assert llm.chat_calls == 0
+    assert s.history == history_before
+
+
+async def test_ok_guard_allows_start_and_turn():
+    llm = FakeLLM(["Hallo."])
+    thermal = FakeThermalGuard(ThermalStatus("ok", 65))
+    s, js, _ = make_session(llm, thermal=thermal)
+
+    await s.start()
+    await s.handle_audio(PCM_1S)
+    await s._turn_task
+
+    assert any(m["type"] == "reply_text" and m["turn"] == 0 for m in js)
+    assert any(m["type"] == "reply_done" and m["turn"] == 1 for m in js)
+    assert not any(m["type"] == "thermal" for m in js)
+    assert thermal.calls == 2
 
 
 async def test_feedback():

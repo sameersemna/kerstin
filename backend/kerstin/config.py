@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     llm_warmup: bool = True  # preload the model while the opener is spoken
     history_max_turns: int = 24  # user+assistant messages kept in context
 
+    # --- Thermal guard (D016) ---
+    thermal_guard: bool = True
+    thermal_hot_c: float = 80.0
+    thermal_resume_c: float = 74.0
+
     # --- Speech-to-text ---
     # "whispercpp": whisper.cpp server (POST /inference, multipart)
     # "http": OpenAI-compatible /v1/audio/transcriptions endpoint (speaches, faster-whisper-server, ...)
@@ -97,6 +102,14 @@ class Settings(BaseSettings):
         if (self.tls_certfile is None) != (self.tls_keyfile is None):
             raise ValueError(
                 "KERSTIN_TLS_CERTFILE and KERSTIN_TLS_KEYFILE must be set together"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_thermal_thresholds(self) -> Settings:
+        if self.thermal_resume_c >= self.thermal_hot_c:
+            raise ValueError(
+                "KERSTIN_THERMAL_RESUME_C must be lower than KERSTIN_THERMAL_HOT_C"
             )
         return self
 

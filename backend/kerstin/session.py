@@ -23,6 +23,7 @@ from .prompts import PromptStore
 from .stt import STT
 from .stt_filter import clean_transcript, is_echo
 from .text import SentenceSplitter, clean_for_tts, strip_think
+from .thermal import ThermalGuard, ThermalStatus
 from .tts import TTS
 
 log = logging.getLogger(__name__)
@@ -44,6 +45,7 @@ class Deps:
     first_clause_min_words: int = 4
     stt_min_rms_dbfs: float = -55.0
     stt_filter: bool = True
+    thermal: ThermalGuard | None = None
 
 
 @dataclass
@@ -76,6 +78,13 @@ class Session:
         sc = self.deps.prompts.scenario(self.scenario_key)
         self.history.clear()
         await self.send_json({"type": "session", "scenario": sc.key, "title": sc.title})
+
+        thermal = await self._thermal_check()
+        if thermal is not None and thermal.state == "hot":
+            await self._send_thermal(thermal)
+            log.info("session start thermal hot (gpu=%g °C)", thermal.temp_c)
+            return
+
         if self.deps.llm_warmup:
             system = {
                 "role": "system",
@@ -102,6 +111,13 @@ class Session:
 
     async def feedback(self) -> None:
         await self.interrupt()
+
+        thermal = await self._thermal_check()
+        if thermal is not None and thermal.state == "hot":
+            await self._send_thermal(thermal)
+            log.info("feedback thermal hot (gpu=%g °C)", thermal.temp_c)
+            return
+
         learner_lines = [m for m in self.history if m["role"] == "user"]
         if not learner_lines:
             await self.send_json({"type": "feedback", "markdown": "_Noch keine Äußerungen._"})
@@ -131,6 +147,17 @@ class Session:
     def _messages(self) -> list[Message]:
         system = {"role": "system", "content": self.deps.prompts.system_prompt(self.scenario_key)}
         return [system, *self.history[-self.deps.history_max_turns :]]
+
+    async def _thermal_check(self) -> ThermalStatus | None:
+        if self.deps.thermal is None:
+            return None
+        return await self.deps.thermal.check()
+
+    async def _send_thermal(self, status: ThermalStatus, turn_id: int | None = None) -> None:
+        message = {"type": "thermal", "state": status.state, "temp_c": status.temp_c}
+        if turn_id is not None:
+            message["turn"] = turn_id
+        await self.send_json(message)
 
     async def _send_audio(self, turn_id: int, wav: bytes | None) -> None:
         if wav:
@@ -165,6 +192,12 @@ class Session:
                 {"type": "stt_empty", "turn": turn_id, "reason": "too_quiet"}
             )
             log.info("turn %s dropped: too_quiet (audio_dbfs=%s)", turn_id, m.audio_dbfs)
+            return
+
+        thermal = await self._thermal_check()
+        if thermal is not None and thermal.state == "hot":
+            await self._send_thermal(thermal, turn_id)
+            log.info("turn %s thermal hot (gpu=%g °C)", turn_id, thermal.temp_c)
             return
 
         await self.send_json({"type": "status", "state": "transcribing", "turn": turn_id})
