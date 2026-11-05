@@ -40,6 +40,7 @@ class Deps:
     prompts: PromptStore
     history_max_turns: int = 24
     llm_warmup: bool = True
+    first_clause_min_words: int = 4
 
 
 @dataclass
@@ -161,7 +162,9 @@ class Session:
         spoken: list[str] = []
 
         async def produce() -> None:
-            splitter = SentenceSplitter()
+            splitter = SentenceSplitter(
+                first_clause_min_words=self.deps.first_clause_min_words
+            )
             first = True
             try:
                 async for piece in self.deps.llm.stream_chat(self._messages()):

@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     tts_backend: Literal["piper", "http", "none"] = "piper"
     piper_voice_path: Path = PROJECT_DIR / "voices" / "de_DE-thorsten-medium.onnx"
     piper_length_scale: float = 1.0  # >1.0 = slower speech
+    tts_first_clause_min_words: int = 4  # speak the first clause early (0 = off)
     tts_url: str = "http://127.0.0.1:8880"
     tts_model: str = "kokoro"
     tts_voice: str = "martin"
