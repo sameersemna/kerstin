@@ -19,7 +19,7 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 - [ ] T011 **Separate feedback model** setting (`KERSTIN_FEEDBACK_MODEL`), allow a larger model for the report.
 - [ ] T012 **Kokoro German TTS** via `HttpTTS` (or in-process ONNX); A/B against Piper for naturalness and latency.
 - [x] T013 **STT robustness** (2026-11-05): energy gate (−55 dBFS), hallucination filter, `stt_empty` reasons, `audio_dbfs` in the UI.
-- [ ] T014 **Echo handling**: document headphones; optionally pause VAD while Kerstin speaks with a "push-to-interrupt" mode.
+- [ ] T014 **Echo handling**: speaker mode (mic paused while Kerstin speaks, default), headphone mode (voice barge-in), interrupt button/space bar, server echo filter. Task file: `docs/tasks/T014-echo-handling.md`.
 
 ## Phase 3 — Learning features
 - [ ] T020 **Mistake log** (opt-in, local SQLite): store feedback items per session; Kerstin steers future conversations toward weak structures.
