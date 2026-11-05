@@ -14,7 +14,7 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 - [ ] T004 **Render feedback Markdown** in the browser (small vendored renderer, sanitized).
 
 ## Phase 2 — Conversation quality
-- [ ] T010 **Persona tuning**: evaluate replies across scenarios for B2 level, length, peer tone, no mid-conversation correction; adjust `persona.md`. Include 3 before/after samples.
+- [ ] T010 **Persona eval + tuning**: `make persona-eval` (5 scenarios × 6 scripted turns, automatic checks), then a targeted `persona.md` revision with before/after transcripts. Lead judges German correctness. Task file: `docs/tasks/T010-persona-eval.md`.
 - [ ] T011 **Separate feedback model** setting (`KERSTIN_FEEDBACK_MODEL`), allow a larger model for the report.
 - [ ] T012 **Kokoro German TTS** via `HttpTTS` (or in-process ONNX); A/B against Piper for naturalness and latency.
 - [ ] T013 **STT robustness**: German initial prompt / hotwords, handle hallucinated "Untertitel der Amara.org-Community"-style outputs on silence; drop or re-ask.
