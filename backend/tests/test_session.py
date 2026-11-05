@@ -1,8 +1,11 @@
 """Session pipeline tests with fake STT / LLM / TTS (no GPU, no network)."""
 
 import asyncio
+import math
 import struct
+from array import array
 
+from kerstin.audio import pcm16_rms_dbfs
 from kerstin.config import BACKEND_DIR
 from kerstin.prompts import PromptStore
 from kerstin.session import Deps, Session
@@ -45,7 +48,17 @@ class FakeTTS:
         return b"RIFF" + text.encode()
 
 
-def make_session(llm, stt=None, llm_warmup=True):
+class CountingSTT:
+    def __init__(self, text=""):
+        self.text = text
+        self.calls = 0
+
+    async def transcribe(self, pcm16):
+        self.calls += 1
+        return self.text
+
+
+def make_session(llm, stt=None, llm_warmup=True, stt_min_rms_dbfs=-55.0, stt_filter=True):
     sent_json, sent_bytes = [], []
 
     async def sj(o):
@@ -60,11 +73,16 @@ def make_session(llm, stt=None, llm_warmup=True):
         tts=FakeTTS(),
         prompts=PromptStore(BACKEND_DIR / "prompts"),
         llm_warmup=llm_warmup,
+        stt_min_rms_dbfs=stt_min_rms_dbfs,
+        stt_filter=stt_filter,
     )
     return Session(deps=deps, send_json=sj, send_bytes=sb, scenario_key="freies_gespraech"), sent_json, sent_bytes
 
 
-PCM_1S = b"\x00\x00" * 16000
+PCM_1S = array(
+    "h", (int(20000 * math.sin(2 * math.pi * 440 * i / 16000)) for i in range(16000))
+).tobytes()
+PCM_SILENCE = b"\x00\x00" * 16000
 
 
 async def test_start_triggers_warmup_with_system_and_opener():
@@ -119,6 +137,7 @@ async def test_opener_and_turn():
     assert metrics["first_sentence_ms"] >= 0
     assert metrics["tts_first_ms"] >= 0
     assert metrics["first_sentence_ms"] <= metrics["first_audio_ms"]
+    assert metrics["audio_dbfs"] == round(pcm16_rms_dbfs(PCM_1S), 1)
     texts = [m["text"] for m in js if m["type"] == "reply_text" and m["turn"] == 1]
     assert texts == ["Oh, cool! Und wie gefällt dir Berlin bisher?"] or texts == [
         "Oh, cool!", "Und wie gefällt dir Berlin bisher?"
@@ -156,11 +175,42 @@ async def test_barge_in_cancels_turn():
     assert any(m["type"] == "reply_interrupted" for m in js)
 
 
-async def test_short_utterance_ignored():
-    s, js, _ = make_session(FakeLLM(["Hallo."]))
+async def test_short_utterance_reports_too_short():
+    stt = CountingSTT()
+    s, js, _ = make_session(FakeLLM(["Hallo."]), stt=stt)
     await s.start()
     await s.handle_audio(b"\x00\x00" * 1000)  # 0.06 s
     await s._turn_task
+    empty = [m for m in js if m["type"] == "stt_empty"]
+    assert empty and empty[-1]["reason"] == "too_short"
+    assert stt.calls == 0
+    assert not any(m["type"] == "transcript" for m in js)
+
+
+async def test_quiet_utterance_reports_too_quiet_without_stt():
+    stt = CountingSTT()
+    s, js, _ = make_session(FakeLLM(["Hallo."]), stt=stt)
+    await s.start()
+    await s.handle_audio(PCM_SILENCE)
+    await s._turn_task
+    empty = [m for m in js if m["type"] == "stt_empty"]
+    assert empty and empty[-1]["reason"] == "too_quiet"
+    assert stt.calls == 0
+    assert not any(m["type"] == "transcript" for m in js)
+
+
+async def test_hallucination_is_dropped_before_llm_and_history():
+    stt = CountingSTT("Untertitel der Amara.org-Community")
+    llm = FakeLLM(["Hallo."])
+    s, js, _ = make_session(llm, stt=stt)
+    await s.start()
+    history_before = list(s.history)
+    await s.handle_audio(PCM_1S)
+    await s._turn_task
+    empty = [m for m in js if m["type"] == "stt_empty"]
+    assert empty and empty[-1]["reason"] == "hallucination"
+    assert s.history == history_before
+    assert llm.last_messages is None
     assert not any(m["type"] == "transcript" for m in js)
 
 

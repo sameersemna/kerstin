@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     stt_language: str = "de"
     stt_local_device: str = "cuda"  # "cuda" or "cpu" (see docs/STATUS.md re: aarch64 wheels)
     stt_local_compute_type: str = "float16"
+    stt_min_rms_dbfs: float = -55.0  # drop quieter utterances before calling STT
+    stt_filter: bool = True  # drop hallucination/tag output and trim repetition loops
 
     # --- Text-to-speech ---
     # "piper": local Piper voice (.onnx), "http": OpenAI-compatible /v1/audio/speech, "none": text only

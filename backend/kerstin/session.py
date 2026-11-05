@@ -17,10 +17,11 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
-from .audio import pcm16_duration_s
+from .audio import pcm16_duration_s, pcm16_rms_dbfs
 from .llm import Message, OllamaLLM
 from .prompts import PromptStore
 from .stt import STT
+from .stt_filter import clean_transcript
 from .text import SentenceSplitter, clean_for_tts, strip_think
 from .tts import TTS
 
@@ -41,11 +42,14 @@ class Deps:
     history_max_turns: int = 24
     llm_warmup: bool = True
     first_clause_min_words: int = 4
+    stt_min_rms_dbfs: float = -55.0
+    stt_filter: bool = True
 
 
 @dataclass
 class TurnMetrics:
     audio_s: float = 0.0
+    audio_dbfs: float = 0.0
     stt_ms: int = 0
     llm_first_token_ms: int = 0
     first_sentence_ms: int = 0  # t0 until the consumer got the first non-empty sentence
@@ -140,21 +144,52 @@ class Session:
         await self.send_json({"type": "reply_done", "turn": self.turn_id})
 
     async def _turn(self, turn_id: int, pcm16: bytes) -> None:
-        m = TurnMetrics(audio_s=round(pcm16_duration_s(pcm16), 2))
+        m = TurnMetrics(
+            audio_s=round(pcm16_duration_s(pcm16), 2),
+            audio_dbfs=round(pcm16_rms_dbfs(pcm16), 1),
+        )
         t0 = time.perf_counter()
 
         def ms() -> int:
             return int((time.perf_counter() - t0) * 1000)
 
         if m.audio_s < MIN_UTTERANCE_S:
+            await self.send_json(
+                {"type": "stt_empty", "turn": turn_id, "reason": "too_short"}
+            )
+            log.info("turn %s dropped: too_short (audio_dbfs=%s)", turn_id, m.audio_dbfs)
+            return
+
+        if m.audio_dbfs < self.deps.stt_min_rms_dbfs:
+            await self.send_json(
+                {"type": "stt_empty", "turn": turn_id, "reason": "too_quiet"}
+            )
+            log.info("turn %s dropped: too_quiet (audio_dbfs=%s)", turn_id, m.audio_dbfs)
             return
 
         await self.send_json({"type": "status", "state": "transcribing", "turn": turn_id})
         text = await self.deps.stt.transcribe(pcm16)
         m.stt_ms = ms()
+
+        if self.deps.stt_filter:
+            text, reason = clean_transcript(text)
+            if not text:
+                reason = reason or "empty"
+                await self.send_json(
+                    {"type": "stt_empty", "turn": turn_id, "reason": reason}
+                )
+                log.info("turn %s dropped: %s (audio_dbfs=%s)", turn_id, reason, m.audio_dbfs)
+                return
+            if reason:
+                log.info("turn %s %s (audio_dbfs=%s)", turn_id, reason, m.audio_dbfs)
+
         if not text:
-            await self.send_json({"type": "stt_empty", "turn": turn_id})
+            await self.send_json(
+                {"type": "stt_empty", "turn": turn_id, "reason": "empty"}
+            )
+            log.info("turn %s dropped: empty (audio_dbfs=%s)", turn_id, m.audio_dbfs)
             return
+
         await self.send_json({"type": "transcript", "turn": turn_id, "text": text})
         self.history.append({"role": "user", "content": text})
 

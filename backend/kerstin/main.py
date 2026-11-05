@@ -42,6 +42,8 @@ async def lifespan(app: FastAPI):
         history_max_turns=settings.history_max_turns,
         llm_warmup=settings.llm_warmup,
         first_clause_min_words=settings.tts_first_clause_min_words,
+        stt_min_rms_dbfs=settings.stt_min_rms_dbfs,
+        stt_filter=settings.stt_filter,
     )
     log.info(
         "Kerstin %s ready: model=%s stt=%s tts=%s",
