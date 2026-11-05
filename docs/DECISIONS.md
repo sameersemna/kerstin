@@ -49,3 +49,6 @@ Sameer's call after T015 (lead graded 60 replies per model). German errors: 3/60
 
 ## D016 · 2026-11-05 · Accepted — Thermal guard = per-turn admission control, read-only
 Kerstin checks GPU temperature (`nvidia-smi --query-gpu=temperature.gpu`, cached ≤ 2 s, no background polling) before each GPU job (session start/warm-up, STT+LLM turn, feedback). At ≥ 80 °C she refuses new GPU work until ≤ 74 °C (hysteresis) and tells the learner; a running reply is not aborted (80 → 84 °C margin covers one short reply). Fail-open when `nvidia-smi` is unavailable. No model switch when hot (loading a second model adds load and memory on the shared GPU), no clock/power/fan changes, no touching other processes. Supersedes the "switch to smaller model" idea in the old ROADMAP line.
+
+## D017 · 2026-11-05 · Accepted — Feedback Markdown: own subset renderer, DOM-only, no library
+Feedback is rendered by a small in-repo parser (`frontend/markdown.js`) that supports only headings, lists, quotes, rules, paragraphs, bold/italic/code, and builds nodes with `createElement`/`textContent` — never `innerHTML`. Model output can therefore never become HTML, so no sanitizer and no vendored dependency (no license/CDN question). Links, images, tables and raw HTML are shown as plain text by design. Revisit only if feedback needs tables.

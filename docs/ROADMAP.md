@@ -11,11 +11,12 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 - [ ] T003 **Vendor frontend assets** (vad-web, onnxruntime-web, Silero model) into `frontend/vendor/` so it works offline and isn't CDN-dependent.
 - [x] T005 **Warm-up + random seed** (2026-11-05): cold first turn 8.8 s → 1.4 s; replies vary across sessions.
 - [x] T006 **Speak the first clause early** (2026-11-05): paired median −379 ms; fires in ~30–60 % of turns.
-- [ ] T004 **Render feedback Markdown** in the browser (small vendored renderer, sanitized).
+- [ ] T004 **Render feedback Markdown** in the browser (D017: own DOM-only subset renderer, no library). Task file: `docs/tasks/T004-feedback-markdown.md`.
 
 ## Phase 2 — Conversation quality
 - [x] T010 **Persona eval + tuning** (2026-11-05): `make persona-eval`, `reply_checks.py`, revised `persona.md` (length fixed; grammar not, see D014).
 - [x] T015 **Model comparison for German correctness** (2026-11-05): gemma4:26b 5 % vs qwen3:14b 18 % errors → default gemma4:26b (D015).
+- [ ] T016 **Feedback quality eval**: planted-error fixtures, `make feedback-eval` (recall, false corrections, quote grounding), prompt revision if needed. Task file: `docs/tasks/T016-feedback-quality.md`.
 - [ ] T011 **Separate feedback model** setting (`KERSTIN_FEEDBACK_MODEL`), allow a larger model for the report.
 - [ ] T012 **Kokoro German TTS** via `HttpTTS` (or in-process ONNX); A/B against Piper for naturalness and latency.
 - [x] T013 **STT robustness** (2026-11-05): energy gate (−55 dBFS), hallucination filter, `stt_empty` reasons, `audio_dbfs` in the UI.
