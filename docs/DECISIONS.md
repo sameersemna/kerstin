@@ -23,8 +23,8 @@ Fast on CPU, offline, German. Kokoro-German evaluated in T012.
 ## D007 · 2026-11-04 · Open — Kerstin's own "learner flavour"
 Should Kerstin occasionally show B2-learner traits beyond word-searching (e.g. asking the user to explain a word, mixing in a Swedish word)? Sameer to decide after using v0.
 
-## D008 · 2026-11-04 · Open — Feedback language
-Explanations in English (current) vs German vs configurable.
+## D008 · 2026-11-04 · Accepted 2026-11-05 — Feedback language: configurable
+Sameer's call: the 💡 explanations are English or German, chosen in the UI (remembered per browser) and sent with `end`; server default `KERSTIN_FEEDBACK_LANG=en`. Headings, corrections and the tip stay German. Implemented in T017.
 
 ## D009 · 2026-11-04 · Superseded by D015 — Default LLM `qwen3:14b` (supersedes D005)
 Sameer's call after T001: it is already pulled, ~10 GB resident (light on the shared GPU), warm first token ≈0.1 s after STT. `qwen3:30b-a3b` stays an untested alternative. Known risk: one German grammar slip seen in T001 ("haben sie auch geregnet"). T010 watches reply correctness.
