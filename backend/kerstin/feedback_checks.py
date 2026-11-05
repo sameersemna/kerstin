@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from difflib import SequenceMatcher
+from typing import Literal
 
 HEADINGS = (
     "Was gut war",
@@ -164,22 +165,51 @@ def check_quote_grounding(
     return ungrounded, quotes_kerstin
 
 
+PlantedOutcome = Literal["found", "wrong_correction", "missed"]
+
+
+def _contains_words(haystack: list[str], needle: list[str]) -> bool:
+    if not needle:
+        return False
+    width = len(needle)
+    return any(haystack[index : index + width] == needle for index in range(len(haystack)))
+
+
+def _contains_in_order(needle: list[str], haystack: list[str]) -> bool:
+    position = 0
+    for word in haystack:
+        if position < len(needle) and word == needle[position]:
+            position += 1
+    return position == len(needle)
+
+
 def check_planted(
     errors: tuple[FeedbackError, ...], planted: list[dict]
-) -> list[bool]:
-    found = []
+) -> list[PlantedOutcome]:
+    outcomes: list[PlantedOutcome] = []
     for item in planted:
-        wrong = normalize(item.get("wrong", ""))
-        right = normalize(item.get("right", ""))
-        found.append(
-            bool(wrong)
-            and bool(right)
-            and any(
-                wrong in normalize(error.quote) and right in normalize(error.correction)
-                for error in errors
-            )
+        wrong_words = normalize(item.get("wrong", "")).split()
+        right_words = normalize(item.get("right", "")).split()
+        if not wrong_words or not right_words:
+            outcomes.append("missed")
+            continue
+
+        matching = [
+            error
+            for error in errors
+            if _contains_words(normalize(error.quote).split(), wrong_words)
+        ]
+        if not matching:
+            outcomes.append("missed")
+            continue
+
+        found = any(
+            not _contains_words(normalize(error.correction).split(), wrong_words)
+            and _contains_in_order(right_words, normalize(error.correction).split())
+            for error in matching
         )
-    return found
+        outcomes.append("found" if found else "wrong_correction")
+    return outcomes
 
 
 def count_false_corrections(

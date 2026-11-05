@@ -68,7 +68,7 @@ def test_well_formed_feedback_passes_all_checks():
     assert result.noop_corrections == 0
     assert result.format_noise == 0
     assert not result.lang_mismatch
-    assert check_planted(result.errors, planted) == [True, True]
+    assert check_planted(result.errors, planted) == ["found", "found"]
 
 
 def test_structure_accepts_sibling_bullets():
@@ -150,7 +150,7 @@ def test_planted_found_but_wrong_correction():
         }
     ]
 
-    assert check_planted(errors, planted) == [False]
+    assert check_planted(errors, planted) == ["wrong_correction"]
 
 
 def test_planted_found_with_markdown_emphasis_in_correction():
@@ -168,7 +168,7 @@ def test_planted_found_with_markdown_emphasis_in_correction():
         }
     ]
 
-    assert check_planted(errors, planted) == [True]
+    assert check_planted(errors, planted) == ["found"]
 
 
 def test_planted_missed():
@@ -186,7 +186,7 @@ def test_planted_missed():
         }
     ]
 
-    assert check_planted(errors, planted) == [False]
+    assert check_planted(errors, planted) == ["missed"]
 
 
 def test_explanation_language_heuristic():
@@ -223,6 +223,60 @@ def test_noop_correction():
 def test_format_noise():
     noise = "text $x$ and \\rightarrow and <b>\n|---"
     assert count_format_noise(noise) == 4
+
+
+def test_planted_longer_correct_correction_is_found():
+    errors = parse_errors(
+        "- ❌ „weil wir haben nur zwei Wochen für die Vorbereitung“\n"
+        "  ✅ „weil wir nur zwei Wochen für die Vorbereitung haben“\n"
+        "  💡 The verb goes at the end."
+    )
+    planted = [
+        {
+            "utterance_index": 1,
+            "wrong": "weil wir haben nur zwei Wochen",
+            "right": "weil wir nur zwei Wochen haben",
+            "category": "verbposition",
+        }
+    ]
+
+    assert check_planted(errors, planted) == ["found"]
+
+
+def test_planted_gefossen_is_wrong_correction():
+    errors = parse_errors(
+        "- ❌ „und habe danach nach Hause gefahren“\n"
+        "  ✅ „und bin danach nach Hause gefossen“\n"
+        "  💡 Movement verbs use sein."
+    )
+    planted = [
+        {
+            "utterance_index": 1,
+            "wrong": "habe danach nach Hause gefahren",
+            "right": "bin danach nach Hause gefahren",
+            "category": "perfekt-hilfsverb",
+        }
+    ]
+
+    assert check_planted(errors, planted) == ["wrong_correction"]
+
+
+def test_planted_correction_still_contains_wrong_span():
+    errors = parse_errors(
+        "- ❌ „mit ein Freund“\n"
+        "  ✅ „mit ein Freund, aber auch mit einem Freund“\n"
+        "  💡 The dative is required."
+    )
+    planted = [
+        {
+            "utterance_index": 1,
+            "wrong": "mit ein Freund",
+            "right": "mit einem Freund",
+            "category": "kasus",
+        }
+    ]
+
+    assert check_planted(errors, planted) == ["wrong_correction"]
 
 
 def test_best_window_ratio_finds_substring():

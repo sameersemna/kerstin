@@ -89,11 +89,12 @@ We measure this with fixed transcripts that contain known, planted errors. Then 
 
 ## Worker report (Kilo Code fills this in)
 - **Changed files:** `scripts/feedback_eval.py` (new), `scripts/feedback_cases.json` (new), `Makefile` (`feedback-eval`/`FEEDBACK_ARGS` only), `backend/kerstin/feedback_checks.py` (new), `backend/tests/test_feedback_checks.py` (new), `backend/kerstin/session.py` (`format_feedback_transcript` extraction only), `backend/prompts/feedback.md` (spec-4 levers only), this task file.
-- **How tested:** `make test` → 133 Python tests + 23 Node tests passed; `make lint` passed. `make feedback-eval` ran end-to-end on `gemma4:26b` for all 5 fixtures × `en`/`de` × 1 run, twice (before and after the prompt revision) with the same seed base 1234. `cool_down()` ran before every LLM call; it cooled at 76 °C several times (baseline range 57→76 °C, after range 64→76 °C), no 80 °C abort. The checks cover all requested cases (well-formed, missing section, six errors, missing 💡, Kerstin quote, ungrounded quote, found/found-but-wrong/missed, en/de/mismatch, false correction, no-op, Markdown-emphasis correction).
+- **How tested:** `make test` → 136 Python tests + 23 Node tests passed; `make lint` passed. `make feedback-eval` ran end-to-end on `gemma4:26b` for all 5 fixtures × `en`/`de` × 1 run, twice (before and after the prompt revision) with the same seed base 1234. `cool_down()` ran before every LLM call; it cooled at 76 °C several times (baseline range 57→76 °C, after range 64→76 °C), no 80 °C abort. The checks cover all requested cases (well-formed, missing section, six errors, missing 💡, Kerstin quote, ungrounded quote, found/found-but-wrong/missed, en/de/mismatch, false correction, no-op, Markdown-emphasis correction).
 - **Measurements (if any):** Baseline (unchanged prompt): en recall 93%, 1 false, 20 noise; de recall 87%, 1 false, 20 noise. After revision: en recall 87%, 0 false, 0 noise; de recall 87%, 0 false, 0 noise. Full tables and triples are below. Mean feedback: baseline en 10743 ms / de 10957 ms; after en 9919 ms / de 9319 ms.
 - **Deviations from spec / extra files touched:** None beyond the allowed files. Checker details: Markdown emphasis is removed before normalization (so a model writing `ein**em**` still counts as `einem`), and the English stop-word heuristic also counts `and/for/that/this`; without those, a clearly English explanation that lacks the listed stopwords was reported as a false `lang_mismatch`. No fixtures were tuned to pass; the remaining misses are visible below.
 - **New dependencies (+license):** None.
-- **Open questions:** None. The recall target is met in both languages; the remaining misses are the `arbeit_kollegen` perfect-auxiliary/verb-position errors and the `pruefung_planung` preposition in both languages.
+- **Open questions:** None. Round 1 supersedes the earlier scoring: `für die Getränke` remains the only true miss (both languages), while the EN `arbeit_kollegen` perfect correction is now `[WRONG]` (`gefossen`).
+- **Round 1:** Planted scoring is now quote→✅-subsequence with `wrong` rejection; `wrong_corrections` is a table column and `[WRONG]` marker, with tests for the longer DE correction, `gefossen`, and a ✅ that still contains `wrong`. `make feedback-eval` was re-run with the unchanged prompt and seeds; table/markers below. `make test` (136 Python + 23 Node) and `make lint` pass.
 
 ### Baseline — unchanged prompt
 ```markdown
@@ -593,6 +594,68 @@ After:
 ### Tipp für das nächste Gespräch
 Achte besonders auf die Satzstellung (Verbposition) in Nebensätzen mit „weil“, „dass“ oder „obwohl“.
 ```
+
+### Round 1 re-eval — checker fixes, current prompt
+Table and per-case markers from the same seeds (`gemma4:26b`, base 1234):
+
+```markdown
+# Feedback eval
+
+Model: `gemma4:26b` · seed base: 1234 · runs: 1
+
+| language | feedbacks | recall | false_corrections | wrong_corrections | noop_corrections | ungrounded | quotes_kerstin | structure_failures | lang_mismatch | format_noise | mean_feedback_ms |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| en | 5 | 87% | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 12613 |
+| de | 5 | 93% | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 9084 |
+
+## Case `freies_gespraech`
+### EN · run 1 · seed 1234 · 25713 ms
+- [FOUND] `kasus` `mit ein Freund` → `mit einem Freund`
+- [FOUND] `verbposition` `weil ich bin seit zwei Wochen im Team` → `weil ich seit zwei Wochen im Team bin`
+- [FOUND] `praeposition` `für den Sommer` → `auf den Sommer`
+### DE · run 1 · seed 1235 · 9487 ms
+- [FOUND] `kasus` `mit ein Freund` → `mit einem Freund`
+- [FOUND] `verbposition` `weil ich bin seit zwei Wochen im Team` → `weil ich seit zwei Wochen im Team bin`
+- [FOUND] `praeposition` `für den Sommer` → `auf den Sommer`
+## Case `wg_alltag`
+### EN · run 1 · seed 2234 · 10240 ms
+- [FOUND] `kasus` `auf der Tisch` → `auf den Tisch`
+- [FOUND] `verbposition` `weil er ist abends sehr müde` → `weil er abends sehr müde ist`
+- [FOUND] `adjektivendung` `mit klare Regeln` → `mit klaren Regeln`
+### DE · run 1 · seed 2235 · 10577 ms
+- [FOUND] `kasus` `auf der Tisch` → `auf den Tisch`
+- [FOUND] `verbposition` `weil er ist abends sehr müde` → `weil er abends sehr müde ist`
+- [FOUND] `adjektivendung` `mit klare Regeln` → `mit klaren Regeln`
+## Case `arbeit_kollegen`
+### EN · run 1 · seed 3234 · 9086 ms
+- [FOUND] `kasus` `mit mein Chef` → `mit meinem Chef`
+- [FOUND] `verbposition` `weil wir haben nur zwei Wochen` → `weil wir nur zwei Wochen haben`
+- [WRONG] `perfekt-hilfsverb` `habe danach nach Hause gefahren` → `bin danach nach Hause gefahren`
+### DE · run 1 · seed 3235 · 8856 ms
+- [FOUND] `kasus` `mit mein Chef` → `mit meinem Chef`
+- [FOUND] `verbposition` `weil wir haben nur zwei Wochen` → `weil wir nur zwei Wochen haben`
+- [FOUND] `perfekt-hilfsverb` `habe danach nach Hause gefahren` → `bin danach nach Hause gefahren`
+## Case `diskussion`
+### EN · run 1 · seed 4234 · 9187 ms
+- [FOUND] `verbposition` `Meiner Meinung nach, die Autos sind` → `Meiner Meinung nach sind die Autos`
+- [FOUND] `kasus` `mit Fahrräder` → `mit Fahrrädern`
+- [FOUND] `genus` `das öffentliche Verkehr` → `der öffentliche Verkehr`
+### DE · run 1 · seed 4235 · 9136 ms
+- [FOUND] `verbposition` `Meiner Meinung nach, die Autos sind` → `Meiner Meinung nach sind die Autos`
+- [FOUND] `kasus` `mit Fahrräder` → `mit Fahrrädern`
+- [FOUND] `genus` `das öffentliche Verkehr` → `der öffentliche Verkehr`
+## Case `pruefung_planung`
+### EN · run 1 · seed 5234 · 8840 ms
+- [FOUND] `adjektivendung` `im großem Kursraum` → `im großen Kursraum`
+- [FOUND] `verbposition` `weil es ist persönlicher` → `weil es persönlicher ist`
+- [MISSED] `praeposition` `für die Getränke` → `um die Getränke`
+### DE · run 1 · seed 5235 · 7364 ms
+- [FOUND] `adjektivendung` `im großem Kursraum` → `im großen Kursraum`
+- [FOUND] `verbposition` `weil es ist persönlicher` → `weil es persönlicher ist`
+- [MISSED] `praeposition` `für die Getränke` → `um die Getränke`
+```
+
+The `[WRONG]` marker is EN `arbeit_kollegen`: ✅ `bin danach nach Hause gefossen`. The longer DE `arbeit_kollegen` correction (`weil wir nur zwei Wochen für die Vorbereitung haben`) is now `[FOUND]`; `für die Getränke` remains missed in both languages.
 
 ## Review (Claude Code fills this in)
 - **Verdict:** Changes requested (round 1). The checker only; the prompt revision is accepted as is.

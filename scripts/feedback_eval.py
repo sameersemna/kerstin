@@ -33,7 +33,7 @@ class EvalResult:
     markdown: str
     elapsed_ms: int
     check: FeedbackCheck
-    planted_found: list[bool]
+    planted_outcomes: list[str]
 
 
 async def thermal(label: str, cool_at: int, cool_to: int) -> int:
@@ -55,15 +55,17 @@ def summary_table(results: list[EvalResult], model: str, seed: int) -> str:
         "",
         f"Model: `{model}` · seed base: {seed} · runs: {len({r.run for r in results})}",
         "",
-        "| language | feedbacks | recall | false_corrections | noop_corrections | ungrounded | quotes_kerstin | structure_failures | lang_mismatch | format_noise | mean_feedback_ms |",
+        "| language | feedbacks | recall | false_corrections | wrong_corrections | noop_corrections | ungrounded | quotes_kerstin | structure_failures | lang_mismatch | format_noise | mean_feedback_ms |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for lang in ("en", "de"):
         rows = [result for result in results if result.lang == lang]
         if not rows:
             continue
-        planted_total = sum(len(result.planted_found) for result in rows)
-        found_total = sum(sum(result.planted_found) for result in rows)
+        planted_total = sum(len(result.planted_outcomes) for result in rows)
+        found_total = sum(
+            outcome == "found" for result in rows for outcome in result.planted_outcomes
+        )
         recall = 100.0 * found_total / planted_total if planted_total else 0.0
         mean_ms = sum(result.elapsed_ms for result in rows) / len(rows)
         lines.append(
@@ -74,6 +76,13 @@ def summary_table(results: list[EvalResult], model: str, seed: int) -> str:
                     str(len(rows)),
                     f"{recall:.0f}%",
                     str(sum(result.check.false_corrections for result in rows)),
+                    str(
+                        sum(
+                            outcome == "wrong_correction"
+                            for result in rows
+                            for outcome in result.planted_outcomes
+                        )
+                    ),
                     str(sum(result.check.noop_corrections for result in rows)),
                     str(sum(result.check.ungrounded for result in rows)),
                     str(sum(result.check.quotes_kerstin for result in rows)),
@@ -114,6 +123,7 @@ def detail_sections(results: list[EvalResult], cases: list[dict]) -> str:
             (
                 f"structure={'OK' if check.structure_ok else 'FAIL'} · "
                 f"false_corrections={check.false_corrections} · "
+                f"wrong_corrections={sum(outcome == 'wrong_correction' for outcome in result.planted_outcomes)} · "
                 f"noop_corrections={check.noop_corrections} · "
                 f"ungrounded={check.ungrounded} · quotes_kerstin={check.quotes_kerstin} · "
                 f"lang_mismatch={check.lang_mismatch} · format_noise={check.format_noise}"
@@ -133,9 +143,12 @@ def detail_sections(results: list[EvalResult], cases: list[dict]) -> str:
 
         case = cases[result.case_index]
         lines += ["", "Planted errors:"]
-        for item, found in zip(case["planted"], result.planted_found, strict=True):
+        labels = {"found": "FOUND", "wrong_correction": "WRONG", "missed": "MISSED"}
+        for item, outcome in zip(
+            case["planted"], result.planted_outcomes, strict=True
+        ):
             lines.append(
-                f"- [{'FOUND' if found else 'MISSED'}] `{item['category']}` "
+                f"- [{labels[outcome]}] `{item['category']}` "
                 f"`{item['wrong']}` → `{item['right']}`"
             )
         lines.append("")
@@ -175,7 +188,7 @@ async def run(args: argparse.Namespace) -> None:
                     check = check_feedback(
                         markdown, case["messages"], case["correct_tricky"], lang
                     )
-                    found = check_planted(check.errors, case["planted"])
+                    outcomes = check_planted(check.errors, case["planted"])
                     results.append(
                         EvalResult(
                             case_index=case_index,
@@ -186,12 +199,13 @@ async def run(args: argparse.Namespace) -> None:
                             markdown=markdown,
                             elapsed_ms=elapsed_ms,
                             check=check,
-                            planted_found=found,
+                            planted_outcomes=outcomes,
                         )
                     )
                     print(
                         f"{label}: {elapsed_ms} ms, recall "
-                        f"{sum(found)}/{len(found)}, structure={check.structure_ok}",
+                        f"{sum(outcome == 'found' for outcome in outcomes)}"
+                        f"/{len(outcomes)}, structure={check.structure_ok}",
                         file=sys.stderr,
                     )
     finally:
