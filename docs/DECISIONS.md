@@ -40,3 +40,6 @@ Sameer's call. A shorter tail risks cutting learners off mid-sentence; a second 
 
 ## D013 · 2026-11-05 · Open — Latency target vs. these choices
 With D011/D012 the realistic end-of-speech → first audio is ≈2.2–2.4 s p50 (VAD tail 768 + STT ~480 + LLM + TTS), not < 1.5 s as `CLAUDE.md` states. Options: (a) accept and restate the target as "server-side first audio < 1.5 s p50", (b) revisit D012 later. Sameer to decide after trying T006.
+
+## D014 · 2026-11-05 · Open — Revisit the conversation model for German correctness
+T010 shows `qwen3:14b` makes grammar errors in ≈25 % of replies and gives wrong explanations when asked, which prompt changes don't fix. This breaks D002 (correct B2 German). Candidates already pulled (Ollama reports Apache 2.0, to verify upstream): `gemma4:26b`, `qwen3.6:latest` (MoE), `mistral-nemo:12b-instruct-2407-q8_0`. Compare with `make persona-eval` (lead judges German) + paired bench. Sameer decides; D009 stands until then.

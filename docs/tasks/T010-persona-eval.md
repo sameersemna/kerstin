@@ -388,3 +388,20 @@ none
 ```
 
 ## Review (Claude Code fills this in)
+- **Verdict:** accept (2026-11-05). The harness and checks meet the spec; length improved. **But the grammar half of the persona contract is still failing.**
+- **Notes:**
+  - Diff limited to allowed files. `make test` (53) and `make lint` are clean. Prompt +22.8 %. Paired bench +3 ms first token. The `man sagt` cue rule is reasonable (translation ≠ correction).
+  - **Lead's German review of the "after" transcript: grammar/idiom errors in ≈8 of 30 replies**, about the same rate as T002:
+    - "**Das** stimme ich zu" (2×, → Dem/Da)
+    - "**Deine** Satz" (→ Dein)
+    - "dass Satz nicht ganz korrekt ist" (article missing)
+    - "Lieferverkehr **ist** oft übersehen" (→ wird)
+    - "Kopenhagen … **ihre** Fahrradwege" (→ seine)
+    - "**Hast** du … unterwegs gewesen" (→ Bist)
+    - "Was halten wir für einen Betrag?" (incoherent)
+    - "Das klingt schade" (→ Das ist schade)
+  - When asked for a correction, the **explanations are partly wrong**: "Du vergisst das 'sind'" (it was word order), and "warum 'den' und nicht 'die'" (the learner wrote "der"). That's teaching wrong grammar.
+  - The repetition rule had **no effect**: all 5 repeated lines got near-copies of the earlier reply.
+  - Markdown/emoji still appear in correction replies (`**…**`, 😊). `clean_for_tts` strips the asterisks; the emoji goes to Piper.
+  - **Thermal:** the eval runs turns back-to-back and reached **78 °C** with `qwen3:14b` (bench with pauses: ≤ 64 °C). Before any further eval runs, the eval needs a pause between turns and a cool-down wait.
+  - Conclusion: prompt wording doesn't fix `qwen3:14b`'s German. Model choice needs revisiting with this harness (D014).
