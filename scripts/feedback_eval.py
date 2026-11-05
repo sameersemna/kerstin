@@ -7,6 +7,8 @@ import argparse
 import asyncio
 import contextlib
 import json
+import math
+import statistics
 import sys
 import time
 from dataclasses import dataclass
@@ -49,14 +51,21 @@ def fmt(value: str) -> str:
     return value if value else "(missing)"
 
 
-def summary_table(results: list[EvalResult], model: str, seed: int) -> str:
+def p90(values: list[int]) -> int:
+    ordered = sorted(values)
+    return ordered[math.ceil(0.9 * len(ordered)) - 1]
+
+
+def summary_table(
+    results: list[EvalResult], model: str, temperature: float, seed: int
+) -> str:
     lines = [
         "# Feedback eval",
         "",
-        f"Model: `{model}` · seed base: {seed} · runs: {len({r.run for r in results})}",
+        f"Model: `{model}` · temperature: {temperature:g} · seed base: {seed} · runs: {len({r.run for r in results})}",
         "",
-        "| language | feedbacks | recall | false_corrections | wrong_corrections | noop_corrections | ungrounded | quotes_kerstin | structure_failures | lang_mismatch | format_noise | mean_feedback_ms |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| language | feedbacks | recall | false_corrections | wrong_corrections | noop_corrections | ungrounded | quotes_kerstin | structure_failures | lang_mismatch | format_noise | p50_ms | p90_ms | mean_feedback_ms |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for lang in ("en", "de"):
         rows = [result for result in results if result.lang == lang]
@@ -67,7 +76,8 @@ def summary_table(results: list[EvalResult], model: str, seed: int) -> str:
             outcome == "found" for result in rows for outcome in result.planted_outcomes
         )
         recall = 100.0 * found_total / planted_total if planted_total else 0.0
-        mean_ms = sum(result.elapsed_ms for result in rows) / len(rows)
+        latencies = [result.elapsed_ms for result in rows]
+        mean_ms = sum(latencies) / len(latencies)
         lines.append(
             "| "
             + " | ".join(
@@ -89,6 +99,8 @@ def summary_table(results: list[EvalResult], model: str, seed: int) -> str:
                     str(sum(not result.check.structure_ok for result in rows)),
                     str(sum(result.check.lang_mismatch for result in rows)),
                     str(sum(result.check.format_noise for result in rows)),
+                    f"{statistics.median(latencies):.0f}",
+                    str(p90(latencies)),
                     f"{mean_ms:.0f}",
                 ]
             )
@@ -156,15 +168,65 @@ def detail_sections(results: list[EvalResult], cases: list[dict]) -> str:
     return "\n".join(lines)
 
 
+async def ensure_candidate_slot(
+    llm: OllamaLLM,
+    chat_model: str,
+    candidate: str,
+    max_loaded: int,
+    timeout_s: float = 300.0,
+) -> None:
+    """Wait for a candidate slot; never evict a model that isn't ours."""
+    deadline = time.monotonic() + timeout_s
+    while True:
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                f"candidate {candidate} blocked: no safe slot within "
+                f"{timeout_s:.0f} s (max {max_loaded} loaded); refusing to evict"
+            )
+        try:
+            loaded = await llm.loaded_models()
+        except Exception as exc:
+            raise RuntimeError(
+                f"candidate {candidate}: /api/ps failed ({type(exc).__name__})"
+            ) from exc
+
+        others = [name for name in loaded if name not in (chat_model, candidate)]
+        if len(others) + 1 > max_loaded:
+            print(
+                f"candidate {candidate}: {len(others)} other model(s) loaded; "
+                "waiting for a free slot",
+                file=sys.stderr,
+            )
+            await asyncio.sleep(10)
+            continue
+
+        if chat_model in loaded and len(others) + 2 > max_loaded:
+            print(f"unloading {chat_model} for candidate {candidate}", file=sys.stderr)
+            await llm.unload(chat_model)
+            await asyncio.sleep(1)
+            continue
+        return
+
+
 async def run(args: argparse.Namespace) -> None:
     cases = load_cases(args.cases)
-    settings = Settings(ollama_model=args.model)
+    settings = Settings()
+    temperature = (
+        settings.feedback_temperature if args.temperature is None else args.temperature
+    )
+    chat_model = settings.ollama_model
+    candidate = args.model
+    guarded = candidate != chat_model
     llm = OllamaLLM(settings)
     prompts = PromptStore(settings.prompts_dir)
     languages = ["en", "de"] if args.lang == "both" else [args.lang]
     results: list[EvalResult] = []
 
     try:
+        if guarded:
+            before = await llm.loaded_models()
+            print(f"/api/ps before {candidate}: {before}", file=sys.stderr)
+
         for case_index, case in enumerate(cases):
             transcript = format_feedback_transcript(case["messages"])
             for lang in languages:
@@ -177,11 +239,18 @@ async def run(args: argparse.Namespace) -> None:
                     )
                     label = f"{case['scenario']} {lang} run {run_index + 1}"
                     await thermal(f"before {label}", args.cool_at, args.cool_to)
+                    if guarded:
+                        await ensure_candidate_slot(
+                            llm, chat_model, candidate, settings.ollama_max_loaded
+                        )
                     settings.llm_seed = seed
                     prompt = prompts.feedback_prompt(transcript, lang)
                     started = time.perf_counter()
                     text = await llm.chat(
-                        [{"role": "user", "content": prompt}], max_tokens=1200
+                        [{"role": "user", "content": prompt}],
+                        max_tokens=1200,
+                        temperature=temperature,
+                        model=candidate,
                     )
                     elapsed_ms = round((time.perf_counter() - started) * 1000)
                     markdown = strip_think(text).strip()
@@ -209,9 +278,20 @@ async def run(args: argparse.Namespace) -> None:
                         file=sys.stderr,
                     )
     finally:
+        if guarded:
+            await llm.unload(candidate)
+            try:
+                after = await llm.loaded_models()
+            except Exception as exc:  # noqa: BLE001 — report, don't hide the run
+                print(
+                    f"/api/ps after {candidate} failed: {type(exc).__name__}",
+                    file=sys.stderr,
+                )
+            else:
+                print(f"/api/ps after {candidate}: {after}", file=sys.stderr)
         await llm.client.aclose()
 
-    markdown = summary_table(results, settings.ollama_model, args.seed)
+    markdown = summary_table(results, candidate, temperature, args.seed)
     markdown += "\n" + detail_sections(results, cases) + "\n"
     print(markdown, end="")
     if args.out:
@@ -221,6 +301,12 @@ async def run(args: argparse.Namespace) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", default="gemma4:26b", help="Ollama model for the eval")
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=None,
+        help="feedback temperature (default: KERSTIN_FEEDBACK_TEMPERATURE)",
+    )
     parser.add_argument("--runs", type=int, default=1, help="runs per case and language")
     parser.add_argument("--lang", choices=["en", "de", "both"], default="both")
     parser.add_argument("--seed", type=int, default=1234, help="base seed")

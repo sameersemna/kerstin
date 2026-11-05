@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     ollama_url: str = "http://127.0.0.1:11434"
     ollama_model: str = "gemma4:26b"
     ollama_keep_alive: str = "10m"  # unload after idle so the shared GPU is freed
+    ollama_max_loaded: int = 2  # mirrors OLLAMA_MAX_LOADED_MODELS; API cannot read it
     ollama_num_ctx: int = 8192
     llm_temperature: float = 0.8
     hint_temperature: float = 0.2
@@ -81,6 +82,8 @@ class Settings(BaseSettings):
 
     # --- Feedback ---
     feedback_lang: Literal["en", "de"] = "en"
+    feedback_model: str | None = None  # None/empty -> ollama_model
+    feedback_temperature: float = 0.3
 
     # --- Frontend ---
     frontend_dir: Path = PROJECT_DIR / "frontend"

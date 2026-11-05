@@ -42,6 +42,12 @@ class FakeLLM:
         self.warmup_calls = []
         self.chat_calls = 0
         self.last_chat_temperature = None
+        self.last_chat_model = None
+        self.last_chat_keep_alive = None
+        self.loaded = []
+        self.loaded_error = None
+        self.loaded_calls = 0
+        self.unloaded = []
 
     async def stream_chat(self, messages):
         self.last_messages = messages
@@ -50,15 +56,33 @@ class FakeLLM:
                 await asyncio.sleep(self.delay)
             yield p
 
-    async def chat(self, messages, max_tokens=None, temperature=None):
+    async def chat(
+        self,
+        messages,
+        max_tokens=None,
+        temperature=None,
+        model=None,
+        keep_alive=None,
+    ):
         self.chat_calls += 1
         self.last_chat_messages = messages
         self.last_chat_temperature = temperature
+        self.last_chat_model = model
+        self.last_chat_keep_alive = keep_alive
         if self.chat_delay:
             await asyncio.sleep(self.chat_delay)
         if self.chat_error:
             raise self.chat_error
         return self.chat_text
+
+    async def loaded_models(self):
+        self.loaded_calls += 1
+        if self.loaded_error:
+            raise self.loaded_error
+        return list(self.loaded)
+
+    async def unload(self, model):
+        self.unloaded.append(model)
 
     async def warmup(self, messages):
         self.warmup_calls.append(messages)
@@ -99,6 +123,10 @@ def make_session(
     stt_filter=True,
     thermal=None,
     feedback_lang="en",
+    ollama_model="gemma4:26b",
+    feedback_model=None,
+    feedback_temperature=0.3,
+    ollama_max_loaded=2,
 ):
     sent_json, sent_bytes = [], []
 
@@ -118,6 +146,10 @@ def make_session(
         stt_filter=stt_filter,
         thermal=thermal,
         feedback_lang=feedback_lang,
+        ollama_model=ollama_model,
+        feedback_model=feedback_model,
+        feedback_temperature=feedback_temperature,
+        ollama_max_loaded=ollama_max_loaded,
     )
     return Session(deps=deps, send_json=sj, send_bytes=sb, scenario_key="freies_gespraech"), sent_json, sent_bytes
 
@@ -531,4 +563,70 @@ async def test_feedback():
     await s.feedback()
     fb = [m for m in js if m["type"] == "feedback"]
     assert fb and "Was gut war" in fb[0]["markdown"]
-    assert llm.last_chat_temperature is None
+    assert llm.last_chat_temperature == 0.3
+    assert llm.last_chat_model == "gemma4:26b"
+    assert llm.last_chat_keep_alive is None
+    assert llm.loaded_calls == 0
+    assert llm.unloaded == []
+
+
+async def test_feedback_model_unloads_chat_when_slot_needed():
+    llm = FakeLLM(["Gut. Und du?"], chat_text="### Feedback")
+    llm.loaded = ["gemma4:26b", "llama3.2:1b"]
+    s, _, _ = make_session(llm, feedback_model="gemma4:31b")
+    s.history.append({"role": "user", "content": "Ich war im Kino."})
+
+    await s.feedback()
+
+    assert llm.loaded_calls == 1
+    assert llm.unloaded == ["gemma4:26b"]
+    assert llm.last_chat_model == "gemma4:31b"
+    assert llm.last_chat_keep_alive == "0"
+    assert llm.last_chat_temperature == 0.3
+
+
+async def test_feedback_model_falls_back_when_slots_are_busy(caplog):
+    llm = FakeLLM(["Gut. Und du?"], chat_text="### Feedback")
+    llm.loaded = ["llama3.2:1b", "qwen3:14b"]
+    s, _, _ = make_session(llm, feedback_model="gemma4:31b")
+    s.history.append({"role": "user", "content": "Ich war im Kino."})
+
+    with caplog.at_level(logging.INFO, logger="kerstin.session"):
+        await s.feedback()
+
+    assert llm.loaded_calls == 1
+    assert llm.unloaded == []
+    assert llm.last_chat_model == "gemma4:26b"
+    assert llm.last_chat_keep_alive is None
+    assert "feedback model fallback (slots busy)" in caplog.text
+
+
+async def test_feedback_model_falls_back_when_ps_fails(caplog):
+    llm = FakeLLM(["Gut. Und du?"], chat_text="### Feedback")
+    llm.loaded_error = RuntimeError("/api/ps down")
+    s, _, _ = make_session(llm, feedback_model="gemma4:31b")
+    s.history.append({"role": "user", "content": "Ich war im Kino."})
+
+    with caplog.at_level(logging.INFO, logger="kerstin.session"):
+        await s.feedback()
+
+    assert llm.loaded_calls == 1
+    assert llm.unloaded == []
+    assert llm.last_chat_model == "gemma4:26b"
+    assert llm.last_chat_keep_alive is None
+    assert "feedback model fallback (ps failed: RuntimeError)" in caplog.text
+
+
+async def test_feedback_model_needs_no_unload_with_free_slots():
+    llm = FakeLLM(["Gut. Und du?"], chat_text="### Feedback")
+    llm.loaded = ["gemma4:26b"]
+    s, _, _ = make_session(llm, feedback_model="gemma4:31b")
+    s.history.append({"role": "user", "content": "Ich war im Kino."})
+
+    await s.feedback()
+
+    assert llm.loaded_calls == 1
+    assert llm.unloaded == []
+    assert llm.last_chat_model == "gemma4:31b"
+    assert llm.last_chat_keep_alive == "0"
+    assert llm.last_chat_temperature == 0.3
