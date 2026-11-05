@@ -15,7 +15,7 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 
 ## Phase 2 — Conversation quality
 - [x] T010 **Persona eval + tuning** (2026-11-05): `make persona-eval`, `reply_checks.py`, revised `persona.md` (length fixed; grammar not, see D014).
-- [ ] T015 **Model comparison for German correctness** (D014): persona-eval + paired bench across candidates; eval gets pauses + cool-down.
+- [ ] T015 **Model comparison for German correctness** (D014): `qwen3:14b` vs `gemma4:26b` (Sameer-approved), persona-eval × 2 seeds + paired bench; eval gets pauses + cool-down. Task file: `docs/tasks/T015-model-german.md`.
 - [ ] T011 **Separate feedback model** setting (`KERSTIN_FEEDBACK_MODEL`), allow a larger model for the report.
 - [ ] T012 **Kokoro German TTS** via `HttpTTS` (or in-process ONNX); A/B against Piper for naturalness and latency.
 - [ ] T013 **STT robustness**: German initial prompt / hotwords, handle hallucinated "Untertitel der Amara.org-Community"-style outputs on silence; drop or re-ask.
