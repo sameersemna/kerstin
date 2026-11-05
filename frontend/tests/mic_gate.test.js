@@ -38,11 +38,11 @@ function makeGate(options = {}) {
 test("speakers: pauses on start and resumes only after reply-done, idle and tail", () => {
   const { gate, calls, timers, fire } = makeGate();
 
-  gate.playbackStarted();
+  gate.playbackStarted(1);
   assert.equal(calls.pause, 1);
   assert.equal(gate.isListening(), false);
 
-  gate.replyFinished();
+  gate.replyFinished(1);
   assert.equal(calls.resume, 0);
   assert.equal(timers.length, 0);
 
@@ -59,18 +59,17 @@ test("speakers: pauses on start and resumes only after reply-done, idle and tail
 test("speakers: new playback during the tail cancels the resume", () => {
   const { gate, calls, timers, fire } = makeGate();
 
-  gate.playbackStarted();
-  gate.replyFinished();
+  gate.playbackStarted(1);
+  gate.replyFinished(1);
   gate.playbackIdle();
   const tail = timers[0];
 
-  gate.playbackStarted();
+  gate.playbackStarted(1);
   assert.equal(tail.cleared, true);
   assert.equal(timers.length, 0);
   fire(tail);
   assert.equal(calls.resume, 0);
 
-  gate.replyFinished();
   gate.playbackIdle();
   assert.equal(timers.length, 1);
   fire(timers[0]);
@@ -80,8 +79,8 @@ test("speakers: new playback during the tail cancels the resume", () => {
 test("speakers: userInterrupt resumes immediately without the tail", () => {
   const { gate, calls, timers } = makeGate();
 
-  gate.playbackStarted();
-  gate.replyFinished();
+  gate.playbackStarted(1);
+  gate.replyFinished(1);
   gate.playbackIdle();
   assert.equal(timers.length, 1);
 
@@ -94,8 +93,8 @@ test("speakers: userInterrupt resumes immediately without the tail", () => {
 test("headphones: never pauses and has no tail timer", () => {
   const { gate, calls, timers } = makeGate({ mode: "headphones" });
 
-  gate.playbackStarted();
-  gate.replyFinished();
+  gate.playbackStarted(1);
+  gate.replyFinished(1);
   gate.playbackIdle();
   gate.userInterrupt();
 
@@ -108,7 +107,7 @@ test("headphones: never pauses and has no tail timer", () => {
 test("switching to headphones while paused resumes immediately", () => {
   const { gate, calls, timers } = makeGate();
 
-  gate.playbackStarted();
+  gate.playbackStarted(1);
   assert.equal(calls.pause, 1);
   assert.equal(gate.isListening(), false);
 
@@ -121,16 +120,89 @@ test("switching to headphones while paused resumes immediately", () => {
 test("speakers: pauseVad is called only once per reply", () => {
   const { gate, calls, timers, fire } = makeGate();
 
-  gate.playbackStarted();
-  gate.playbackStarted();
-  gate.playbackStarted();
+  gate.playbackStarted(1);
+  gate.playbackStarted(1);
+  gate.playbackStarted(1);
   assert.equal(calls.pause, 1);
 
-  gate.replyFinished();
+  gate.replyFinished(1);
   gate.playbackIdle();
   fire(timers[0]);
   assert.equal(calls.resume, 1);
 
-  gate.playbackStarted();
+  gate.playbackStarted(2);
   assert.equal(calls.pause, 2);
+});
+
+test("replyFinished before playbackStarted still resumes after idle and tail", () => {
+  const { gate, calls, timers, fire } = makeGate();
+
+  gate.replyFinished(1);
+  assert.equal(calls.pause, 0);
+  assert.equal(timers.length, 0);
+
+  gate.playbackStarted(1);
+  assert.equal(calls.pause, 1);
+  gate.playbackIdle();
+  assert.equal(timers.length, 1);
+  fire(timers[0]);
+  assert.equal(calls.resume, 1);
+  assert.equal(gate.isListening(), true);
+});
+
+test("same turn starting during the tail cancels and reschedules", () => {
+  const { gate, calls, timers, fire } = makeGate();
+
+  gate.playbackStarted(1);
+  gate.playbackIdle();
+  assert.equal(timers.length, 0);
+
+  gate.replyFinished(1);
+  const tail = timers[0];
+  assert.equal(tail.ms, 350);
+
+  gate.playbackStarted(1);
+  assert.equal(tail.cleared, true);
+  assert.equal(calls.resume, 0);
+
+  gate.playbackIdle();
+  assert.equal(timers.length, 1);
+  fire(timers[0]);
+  assert.equal(calls.resume, 1);
+  assert.equal(gate.isListening(), true);
+});
+
+test("never stuck: finished plus idle resumes after the tail in any order", () => {
+  const sequences = [
+    (gate) => {
+      gate.replyFinished(1);
+      gate.playbackStarted(1);
+      gate.playbackIdle();
+    },
+    (gate) => {
+      gate.playbackStarted(1);
+      gate.replyFinished(1);
+      gate.playbackIdle();
+    },
+    (gate) => {
+      gate.playbackStarted(1);
+      gate.playbackIdle();
+      gate.replyFinished(1);
+    },
+    (gate) => {
+      gate.playbackStarted(1);
+      gate.playbackIdle();
+      gate.replyFinished();
+    },
+  ];
+
+  for (const sequence of sequences) {
+    const { gate, calls, timers, fire } = makeGate();
+    sequence(gate);
+    assert.equal(gate.isListening(), false);
+    assert.equal(timers.length, 1);
+    fire(timers[0]);
+    assert.equal(calls.resume, 1);
+    assert.equal(gate.isListening(), true);
+  }
 });

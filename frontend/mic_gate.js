@@ -15,8 +15,8 @@
     let paused = false;
     let playing = false;
     let idle = true;
-    let activeReply = false;
-    let replyDone = false;
+    let playedTurn = -1;
+    let doneTurn = -1;
     let timer = null;
 
     function cancelTimer() {
@@ -27,8 +27,6 @@
     }
 
     function finishResume() {
-      replyDone = false;
-      activeReply = false;
       if (!paused) return;
       paused = false;
       resumeVad();
@@ -41,39 +39,31 @@
     }
 
     function maybeResume() {
-      if (currentMode !== "speakers" || !paused || !activeReply || !replyDone || !idle) return;
-      if (timer !== null) return;
+      if (currentMode !== "speakers" || !paused || !idle || timer !== null) return;
+      if (doneTurn < playedTurn) return;
       timer = setTimer(() => {
         timer = null;
         finishResume();
       }, tailMs);
     }
 
-    function playbackStarted() {
+    function playbackStarted(turn) {
       if (timer !== null) cancelTimer();
-      if (!activeReply || idle) {
-        replyDone = false;
-        activeReply = true;
-      }
+      const turnId = Number.isFinite(turn) ? turn : 0;
+      playedTurn = Math.max(playedTurn, turnId);
       playing = true;
       idle = false;
       pauseForPlayback();
     }
 
-    function replyFinished() {
-      if (currentMode === "headphones" || !activeReply) return;
-      replyDone = true;
+    function replyFinished(turn) {
+      doneTurn = Math.max(doneTurn, turn == null ? playedTurn : turn);
       maybeResume();
     }
 
     function playbackIdle() {
       playing = false;
       idle = true;
-      if (currentMode === "headphones") {
-        activeReply = false;
-        replyDone = false;
-        return;
-      }
       maybeResume();
     }
 
@@ -91,8 +81,6 @@
 
       if (currentMode === "headphones") {
         cancelTimer();
-        replyDone = false;
-        activeReply = false;
         if (paused) {
           paused = false;
           resumeVad();
@@ -101,8 +89,6 @@
       }
 
       if (playing) {
-        activeReply = true;
-        replyDone = false;
         idle = false;
         pauseForPlayback();
       }

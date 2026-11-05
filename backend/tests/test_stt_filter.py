@@ -91,6 +91,7 @@ REPLY = (
         REPLY,
         "Ich habe gerade einen Flat White bestellt",
         "hey schön dass es heute klappt ich habe gerade einen flat white bestellt",
+        "ich habe gerade einen flat weiß bestellt",
     ],
 )
 def test_echo_variants_are_detected(transcript):
@@ -100,11 +101,12 @@ def test_echo_variants_are_detected(transcript):
 @pytest.mark.parametrize(
     "transcript",
     [
-        "Ich trinke heute lieber einen Tee.",
-        "Flat White ist lecker.",
+        "Ich habe gerade einen Kaffee getrunken, weil ich müde war.",
+        "Am Wochenende etwas vor? Ja, ich gehe wandern.",
+        "Und wie war deine Woche bisher?",
     ],
 )
-def test_small_word_overlap_is_not_echo(transcript):
+def test_reused_phrasing_is_not_echo(transcript):
     assert not is_echo(transcript, REPLY)
 
 

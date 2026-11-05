@@ -15,6 +15,7 @@ let playing = null;           // current AudioBufferSourceNode
 let herBubble = null;         // current Kerstin message element
 let micGate = null;
 let micMode = "speakers";
+let pendingDecodes = 0;
 const MIC_MODE_KEY = "kerstin.micMode";
 try {
   const savedMode = localStorage.getItem(MIC_MODE_KEY);
@@ -54,24 +55,39 @@ function appendHer(text) {
 }
 
 // ---------- audio playback ----------
+function maybePlaybackIdle() {
+  if (playing || playQueue.length || pendingDecodes > 0) return;
+  setInterruptEnabled(false);
+  if (micGate) micGate.playbackIdle();
+  if (vadInstance && (!micGate || micGate.isListening())) {
+    setState("hört zu …", "listening");
+  }
+}
 async function enqueueAudio(arrayBuf) {
   const view = new DataView(arrayBuf);
   const turn = view.getUint32(0, false);
-  if (turn < currentTurn) return; // stale (interrupted) audio
-  const wav = arrayBuf.slice(4);
-  const buffer = await audioCtx.decodeAudioData(wav);
-  playQueue.push({ turn, buffer });
-  if (!playing) playNext();
+  if (turn < currentTurn) { // stale (interrupted) audio
+    maybePlaybackIdle();
+    return;
+  }
+  pendingDecodes += 1;
+  try {
+    const wav = arrayBuf.slice(4);
+    const buffer = await audioCtx.decodeAudioData(wav);
+    if (turn < currentTurn) return;
+    playQueue.push({ turn, buffer });
+    if (!playing) playNext();
+  } finally {
+    pendingDecodes -= 1;
+    maybePlaybackIdle();
+  }
 }
 function playNext() {
   const item = playQueue.shift();
   if (!item) {
     playing = null;
     setInterruptEnabled(false);
-    if (micGate) micGate.playbackIdle();
-    if (vadInstance && (!micGate || micGate.isListening())) {
-      setState("hört zu …", "listening");
-    }
+    maybePlaybackIdle();
     return;
   }
   if (item.turn < currentTurn) return playNext();
@@ -80,7 +96,7 @@ function playNext() {
   src.connect(audioCtx.destination);
   src.onended = () => { if (playing === src) playNext(); };
   playing = src;
-  if (micGate) micGate.playbackStarted();
+  if (micGate) micGate.playbackStarted(item.turn);
   setInterruptEnabled(true);
   updateSpeakingState();
   src.start();
@@ -89,7 +105,7 @@ function stopPlayback() {
   playQueue = [];
   if (playing) { try { playing.stop(); } catch {} playing = null; }
   setInterruptEnabled(false);
-  if (micGate) micGate.playbackIdle();
+  maybePlaybackIdle();
 }
 
 // ---------- PCM conversion ----------
@@ -138,7 +154,7 @@ function handle(msg) {
       herBubble = null;
       break;
     case "stt_empty":
-      if (micGate && !micGate.isListening()) micGate.replyFinished();
+      if (micGate && !micGate.isListening()) micGate.replyFinished(msg.turn);
       if (!micGate || micGate.isListening()) {
         setState("nicht verstanden – bitte wiederholen", "listening");
       }
@@ -147,11 +163,11 @@ function handle(msg) {
       if (msg.turn >= currentTurn) { currentTurn = msg.turn; appendHer(msg.text); }
       break;
     case "reply_done":
-      if (micGate) micGate.replyFinished();
+      if (micGate) micGate.replyFinished(msg.turn);
       herBubble = null;
       break;
     case "reply_interrupted":
-      if (micGate) micGate.replyFinished();
+      if (micGate) micGate.replyFinished(msg.turn);
       if (herBubble) herBubble.classList.add("interrupted");
       herBubble = null;
       break;
@@ -167,7 +183,7 @@ function handle(msg) {
       setState("fertig", "idle");
       break;
     case "error":
-      if (micGate) micGate.replyFinished();
+      if (micGate) micGate.replyFinished(msg.turn);
       setState("Fehler: " + msg.message, "speaking");
       console.error(msg);
       break;

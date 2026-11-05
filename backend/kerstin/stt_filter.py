@@ -99,7 +99,7 @@ def _trim_repetitions(text: str) -> str:
 
 
 def is_echo(
-    transcript: str, last_reply: str, min_words: int = 4, threshold: float = 0.7
+    transcript: str, last_reply: str, min_words: int = 6, threshold: float = 0.8
 ) -> bool:
     """Return True when a transcript is mostly Kerstin's own last reply."""
     transcript_words = _normalize(transcript).split()
@@ -107,15 +107,11 @@ def is_echo(
     if len(transcript_words) < min_words or not reply_words:
         return False
 
-    if SequenceMatcher(None, transcript_words, reply_words).ratio() >= threshold:
-        return True
-
-    for start in range(len(transcript_words) - min_words + 1):
-        needle = transcript_words[start : start + min_words]
-        for reply_start in range(len(reply_words) - min_words + 1):
-            if reply_words[reply_start : reply_start + min_words] == needle:
-                return True
-    return False
+    matcher = SequenceMatcher(None, transcript_words, reply_words, autojunk=False)
+    covered_words = sum(block.size for block in matcher.get_matching_blocks())
+    if covered_words < min_words:
+        return False
+    return covered_words / len(transcript_words) >= threshold
 
 
 def clean_transcript(text: str) -> tuple[str, str | None]:

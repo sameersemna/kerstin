@@ -184,7 +184,11 @@ class Session:
                 log.info("turn %s %s (audio_dbfs=%s)", turn_id, reason, m.audio_dbfs)
 
             last_reply = next(
-                (m["content"] for m in reversed(self.history) if m["role"] == "assistant"),
+                (
+                    message["content"]
+                    for message in reversed(self.history)
+                    if message["role"] == "assistant"
+                ),
                 "",
             )
             if is_echo(text, last_reply):
