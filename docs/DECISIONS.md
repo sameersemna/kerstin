@@ -52,3 +52,6 @@ Kerstin checks GPU temperature (`nvidia-smi --query-gpu=temperature.gpu`, cached
 
 ## D017 · 2026-11-05 · Accepted — Feedback Markdown: own subset renderer, DOM-only, no library
 Feedback is rendered by a small in-repo parser (`frontend/markdown.js`) that supports only headings, lists, quotes, rules, paragraphs, bold/italic/code, and builds nodes with `createElement`/`textContent` — never `innerHTML`. Model output can therefore never become HTML, so no sanitizer and no vendored dependency (no license/CDN question). Links, images, tables and raw HTML are shown as plain text by design. Revisit only if feedback needs tables.
+
+## D018 · 2026-11-05 · Accepted — Hints are typed, text-only, outside the conversation
+"Wie sagt man …?" hints (T022) are typed (STT is German-only), answered as text in a side panel (not spoken, so the playback queue and mic gate are untouched), and never added to `history` (so they don't appear as learner lines in the feedback). Same model as the conversation; with Ollama's shared `OLLAMA_NUM_PARALLEL=1` a hint can delay a concurrent turn by ≈1 s, which is accepted and bounded by `max_tokens=120`. Ollama's config is not changed (shared with other projects).

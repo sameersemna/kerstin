@@ -26,7 +26,7 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 ## Phase 3 — Learning features
 - [ ] T020 **Mistake log** (opt-in, local SQLite): store feedback items per session; Kerstin steers future conversations toward weak structures.
 - [ ] T021 **Exam mode** (telc / Goethe B2 mündlich formats): timed parts, Vortrag + Diskussion + Planung, rubric-based scoring.
-- [ ] T022 **Hint button**: learner asks "Wie sagt man …?" in English → Kerstin answers in German, short.
+- [ ] T022 **Hint box** (D018): learner types "Wie sagt man …?" (English or German paraphrase) → short German answer with article/forms + example in a side panel; not spoken, not in history. Task file: `docs/tasks/T022-hint-button.md`.
 - [ ] T023 **Session history page** (transcripts + feedback, local only).
 
 ## Phase 4 — Ops on the shared GB10
