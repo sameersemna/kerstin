@@ -92,12 +92,94 @@ This is 11 files. The prompt, server and UI form one small feature (lead-approve
 During a conversation, type "landlord" and press Enter. A German answer with article and example appears in the side panel. Kerstin keeps talking or listening as before, and the space bar still interrupts her when the focus isn't in the input.
 
 ## Worker report (Kilo Code fills this in)
-- **Changed files:**
-- **How tested:**
-- **Measurements (if any):**
-- **Deviations from spec / extra files touched:**
-- **New dependencies (+license):**
-- **Open questions:**
+- **Changed files:** `backend/prompts/hint.md` (new), `backend/kerstin/prompts.py`, `backend/kerstin/session.py`, `backend/kerstin/main.py`, `backend/tests/test_prompts.py`, `backend/tests/test_session.py`, `frontend/index.html`, `frontend/app.js` (hint only), `frontend/style.css` (hint box only), `docs/PROTOCOL.md` (hint rows only), this task file.
+- **How tested:** `make test` → 149 Python tests + 23 Node tests passed; `make lint` passed. Tests cover hint placeholders and injection in both directions, hint markdown/history isolation, hint during a running turn, audio during a running hint, second-hint cancellation, `too_long`, thermal, LLM failure, empty query, close cancellation, and feedback containing no hint text. The 10 real hints and the 3 delay pairs below used a throwaway heredoc on `gemma4:26b`; no sample script or hint text was committed.
+- **Measurements (if any):** Hint latency p50 (median) = **925 ms**, mean 914 ms, range 726–1120 ms. Concurrent-turn delay: mean **+673 ms**, worst **+715 ms** (target ≤ 1200 ms). `nvidia-smi` was checked before every hint call; GPU temps were 58, 64, 66, 67, 67, 67, 67, 67, 68, 68 °C, no abort at 76 °C. The delay runs stayed at 59–68 °C.
+- **Deviations from spec / extra files touched:** None beyond the allowed files. `hint_prompt()` uses a single-pass placeholder replacement (safer than two sequential replacements): neither a query containing `{context}` nor a context containing `{query}` is re-expanded. The final samples are the final prompt's raw answers; all are two lines, German, bold lemma with forms, and a `Beispiel:` line.
+- **New dependencies (+license):** None.
+- **Open questions:** None. The manual browser check remains for Sameer after merge.
+
+### Real hint samples (final prompt, `gemma4:26b`, seeds 14001–14010)
+
+**1. notice period** — 1120 ms
+Context: Lernende Person: Ich möchte meinen Mietvertrag kündigen. / Kerstin: Weißt du schon, wie lange deine Kündigungsfrist ist?
+```text
+**die Kündigungsfrist** (Pl. die Kündigungsfristen)
+Beispiel: „Du musst den Mietvertrag drei Monate im Voraus kündigen, also beachte die Kündigungsfrist.“
+```
+
+**2. to procrastinate** — 1010 ms
+Context: Lernende Person: Ich schiebe meine Hausarbeit schon seit Tagen auf. / Kerstin: Warum fängst du nicht einfach heute an?
+```text
+**aufschieben** (schob auf, hat aufgeschoben)
+Beispiel: „Ich nehme mir vor, die Hausarbeit zu erledigen, aber ich schiebe sie ständig auf.“
+```
+
+**3. landlord** — 955 ms
+Context: Lernende Person: Die Heizung in meiner Wohnung ist kaputt. / Kerstin: Hast du schon deinen Vermieter angerufen?
+```text
+**der Vermieter** (Pl. die Vermieter)
+Beispiel: „Ich muss heute meinen Vermieter anrufen, um die Reparatur der Heizung zu besprechen.“
+```
+
+**4. I'm looking forward to it** — 875 ms
+Context: Lernende Person: Nächste Woche fahren wir nach Hamburg. / Kerstin: Freust du dich schon auf die Reise?
+```text
+**sich freuen auf** + Akk. (freute sich, hat sich gefreut)
+Beispiel: „Ich freue mich schon sehr auf unseren gemeinsamen Urlaub.“
+```
+
+**5. deposit (for a flat)** — 957 ms
+Context: Lernende Person: Ich muss für die neue Wohnung noch eine Kaution zahlen. / Kerstin: Wie hoch ist die Kaution?
+```text
+**die Kaution** (Pl. die Kautionen)
+Beispiel: „Vor der Schlüsselübergabe muss ich die Kaution auf das Konto des Vermieters überweisen.“
+```
+
+**6. to run out of milk** — 726 ms
+Context: Lernende Person: Wir haben keine Milch mehr für den Kaffee. / Kerstin: Kannst du schnell noch welche kaufen?
+```text
+**ausgehen** (ging aus, ist ausgegangen)
+Beispiel: „Die Milch ist uns leider mitten am Morgen ausgegangen.“
+```
+
+**7. to take something for granted** — 988 ms
+Context: Lernende Person: Meine Freundin hilft mir immer, aber ich habe mich nie bedankt. / Kerstin: Vielleicht solltest du ihr sagen, dass du das schätzt.
+```text
+**etwas als selbstverständlich ansehen** (sah als selbstverständlich an, hat als selbstverständlich angesehen)
+Beispiel: „Man sollte die Unterstützung seiner Freunde nicht als selbstverständlich ansehen.“
+```
+
+**8. awkward** — 729 ms
+Context: Lernende Person: Ich habe den Namen von ihrem Freund vergessen und wusste nicht, was ich sagen soll. / Kerstin: Das ist mir auch schon passiert.
+```text
+**unangenehm**
+Beispiel: „Die Stille im Raum war nach der peinlichen Antwort sehr unangenehm.“
+```
+
+**9. commute** — 887 ms
+Context: Lernende Person: Ich fahre jeden Tag eine Stunde mit dem Zug zur Arbeit. / Kerstin: Das klingt anstrengend. Hast du einen langen Arbeitsweg?
+```text
+**der Arbeitsweg** (Pl. die Arbeitswege)
+Beispiel: „Mein täglicher Arbeitsweg dauert aufgrund der vielen Verspätungen leider sehr lange.“
+```
+
+**10. das Ding, mit dem man Dosen öffnet** — 895 ms
+Context: Lernende Person: Ich finde den Dosenöffner in der Küche nicht. / Kerstin: Womit öffnest du sonst die Dosen?
+```text
+**der Dosenöffner** (Pl. die Dosenöffner)
+Beispiel: „Ich kann die Dose ohne einen funktionierenden Dosenöffner nicht öffnen.“
+```
+
+### Concurrent hint → turn delay (fixed seed, three pairs)
+
+| pair | seed | no hint, first token | with hint, first token | delta |
+|---|---:|---:|---:|---:|
+| 1 | 20000 | 338 | 945 | +607 |
+| 2 | 20001 | 105 | 820 | +715 |
+| 3 | 20002 | 99 | 797 | +698 |
+
+Each pair used the same fixed history and turn text, differing only by the concurrent hint. The with-hint runs show the expected queueing delay from `OLLAMA_NUM_PARALLEL=1`. No Ollama configuration was changed.
 
 ## Review (Claude Code fills this in)
 - **Verdict:**

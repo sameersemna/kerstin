@@ -36,3 +36,30 @@ def test_transcript_placeholder_is_not_replaced():
 
     assert "Ich sage {explanation_language}." in prompt
     assert prompt.count("{explanation_language}") == 1
+
+
+def test_hint_prompt_replaces_query_and_context():
+    prompt = store().hint_prompt(
+        "notice period", "Lernende Person: Ich kündige.\nKerstin: Warum?"
+    )
+
+    assert "notice period" in prompt
+    assert "Lernende Person: Ich kündige." in prompt
+    assert "{query}" not in prompt
+    assert "{context}" not in prompt
+
+
+def test_hint_query_cannot_inject_context_placeholder():
+    query = "Was heißt {context}?"
+    prompt = store().hint_prompt(query, "KONTEXT")
+
+    assert query in prompt
+    assert "KONTEXT" in prompt
+
+
+def test_hint_context_cannot_inject_query_placeholder():
+    context = "Lernende Person: Ich sage {query}."
+    prompt = store().hint_prompt("landlord", context)
+
+    assert context in prompt
+    assert prompt.count("{query}") == 1

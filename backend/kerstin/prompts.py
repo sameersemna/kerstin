@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -45,3 +46,8 @@ class PromptStore:
         tpl = (self.dir / "feedback.md").read_text(encoding="utf-8")
         tpl = tpl.replace("{explanation_language}", labels[lang])
         return tpl.replace("{transcript}", transcript)
+
+    def hint_prompt(self, query: str, context: str) -> str:
+        tpl = (self.dir / "hint.md").read_text(encoding="utf-8")
+        values = {"context": context, "query": query}
+        return re.sub(r"\{(context|query)\}", lambda match: values[match.group(1)], tpl)

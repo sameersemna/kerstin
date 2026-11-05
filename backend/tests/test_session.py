@@ -22,10 +22,21 @@ class FakeSTT:
 
 
 class FakeLLM:
-    def __init__(self, pieces, delay=0.0, warmup_delay=0.0):
+    def __init__(
+        self,
+        pieces,
+        delay=0.0,
+        warmup_delay=0.0,
+        chat_delay=0.0,
+        chat_text="### Was gut war\n- Gute Aussprache",
+        chat_error=None,
+    ):
         self.pieces = pieces
         self.delay = delay
         self.warmup_delay = warmup_delay
+        self.chat_delay = chat_delay
+        self.chat_text = chat_text
+        self.chat_error = chat_error
         self.last_messages = None
         self.last_chat_messages = None
         self.warmup_calls = []
@@ -41,7 +52,11 @@ class FakeLLM:
     async def chat(self, messages, max_tokens=None):
         self.chat_calls += 1
         self.last_chat_messages = messages
-        return "### Was gut war\n- Gute Aussprache"
+        if self.chat_delay:
+            await asyncio.sleep(self.chat_delay)
+        if self.chat_error:
+            raise self.chat_error
+        return self.chat_text
 
     async def warmup(self, messages):
         self.warmup_calls.append(messages)
@@ -316,6 +331,152 @@ async def test_ok_guard_allows_start_and_turn():
     assert any(m["type"] == "reply_done" and m["turn"] == 1 for m in js)
     assert not any(m["type"] == "thermal" for m in js)
     assert thermal.calls == 2
+
+
+async def test_hint_returns_markdown_without_touching_history():
+    llm = FakeLLM(
+        ["Hallo."],
+        chat_text="**der Vermieter** (Pl. die Vermieter)\nBeispiel: „Mein Vermieter repariert die Heizung nicht.“",
+    )
+    s, js, _ = make_session(llm)
+
+    await s.hint("  landlord  ")
+    await s._hint_task
+
+    hints = [m for m in js if m["type"] == "hint"]
+    assert hints == [
+        {
+            "type": "hint",
+            "query": "landlord",
+            "markdown": "**der Vermieter** (Pl. die Vermieter)\n"
+            "Beispiel: „Mein Vermieter repariert die Heizung nicht.“",
+        }
+    ]
+    assert s.history == []
+    assert "landlord" in llm.last_chat_messages[0]["content"]
+
+
+async def test_hint_during_turn_does_not_cancel_turn():
+    llm = FakeLLM(["Hallo."], delay=0.03)
+    s, js, _ = make_session(llm)
+
+    await s.handle_audio(PCM_1S)
+    await s.hint("landlord")
+    await asyncio.gather(s._turn_task, s._hint_task)
+
+    assert any(m["type"] == "reply_done" and m["turn"] == 1 for m in js)
+    assert any(m["type"] == "hint" and m["query"] == "landlord" for m in js)
+    assert not any(m["type"] == "reply_interrupted" for m in js)
+    assert all("landlord" not in m["content"] for m in s.history)
+
+
+async def test_audio_during_hint_does_not_cancel_hint():
+    llm = FakeLLM(["Hallo."], chat_delay=0.05)
+    s, js, _ = make_session(llm)
+
+    await s.hint("landlord")
+    await s.handle_audio(PCM_1S)
+    await asyncio.gather(s._hint_task, s._turn_task)
+
+    assert any(m["type"] == "hint" and m["query"] == "landlord" for m in js)
+    assert any(m["type"] == "reply_done" and m["turn"] == 1 for m in js)
+
+
+async def test_second_hint_cancels_first():
+    llm = FakeLLM(["Hallo."], chat_delay=0.05)
+    s, js, _ = make_session(llm)
+
+    await s.hint("first")
+    await s.hint("second")
+    await s._hint_task
+
+    hints = [m for m in js if m["type"] == "hint"]
+    assert len(hints) == 1
+    assert hints[0]["query"] == "second"
+
+
+async def test_hint_too_long():
+    llm = FakeLLM(["Hallo."])
+    s, js, _ = make_session(llm)
+    query = "x" * 121
+
+    await s.hint(query)
+
+    assert js == [{"type": "hint", "query": query[:120], "error": "too_long"}]
+    assert llm.chat_calls == 0
+
+
+async def test_hint_thermal_hot_skips_llm():
+    llm = FakeLLM(["Hallo."])
+    thermal = FakeThermalGuard(ThermalStatus("hot", 82))
+    s, js, _ = make_session(llm, thermal=thermal)
+
+    await s.hint("landlord")
+
+    assert js == [
+        {
+            "type": "hint",
+            "query": "landlord",
+            "error": "thermal",
+            "temp_c": 82,
+        }
+    ]
+    assert llm.chat_calls == 0
+
+
+async def test_hint_llm_exception_logs_type_only(caplog):
+    llm = FakeLLM(["Hallo."], chat_error=RuntimeError("boom"))
+    s, js, _ = make_session(llm)
+
+    with caplog.at_level(logging.INFO, logger="kerstin.session"):
+        await s.hint("landlord")
+        await s._hint_task
+
+    assert js == [{"type": "hint", "query": "landlord", "error": "failed"}]
+    assert "RuntimeError" in caplog.text
+    assert "landlord" not in caplog.text
+
+
+async def test_empty_hint_is_ignored():
+    llm = FakeLLM(["Hallo."])
+    s, js, _ = make_session(llm)
+
+    await s.hint("   ")
+
+    assert js == []
+    assert s._hint_task is None
+    assert llm.chat_calls == 0
+
+
+async def test_feedback_after_hint_contains_no_hint_text():
+    llm = FakeLLM(["Hallo."], chat_text="**der Vermieter**")
+    s, _js, _ = make_session(llm)
+    s.history.extend(
+        [
+            {"role": "assistant", "content": "Hallo!"},
+            {"role": "user", "content": "Ich suche eine Wohnung."},
+        ]
+    )
+
+    await s.hint("GEHEIMER_HINT_TEXT")
+    await s._hint_task
+    history_before = list(s.history)
+    await s.feedback()
+
+    assert s.history == history_before
+    prompt = llm.last_chat_messages[0]["content"]
+    assert "GEHEIMER_HINT_TEXT" not in prompt
+
+
+async def test_close_cancels_running_hint():
+    llm = FakeLLM(["Hallo."], chat_delay=10)
+    s, js, _ = make_session(llm)
+
+    await s.hint("landlord")
+    await s.close()
+
+    assert s._hint_task is None
+    assert not any(m["type"] == "hint" for m in js)
 
 
 async def test_feedback_uses_requested_german_prompt():
