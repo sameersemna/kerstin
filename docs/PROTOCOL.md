@@ -19,12 +19,12 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 | `{"type":"session","scenario","title"}` | Session started; reset UI, `turn = 0`. |
 | `{"type":"status","state":"transcribing"\|"thinking"\|"feedback_running","turn"}` | Progress hints. |
 | `{"type":"transcript","turn","text"}` | What STT heard. |
-| `{"type":"stt_empty","turn"}` | Nothing recognized. |
+| `{"type":"stt_empty","turn","reason"?}` | Nothing recognized. Optional `reason`: `too_short`, `too_quiet`, `tags_only`, `hallucination` or `empty`. |
 | `{"type":"reply_text","turn","text"}` | One sentence of Kerstin's reply (sent just before its audio). Turn 0 = opener. |
 | **binary** | `[4-byte big-endian uint32 turn id][WAV file]` — one sentence of audio. Drop if turn id < current turn. |
 | `{"type":"reply_done","turn"}` | Reply finished. |
 | `{"type":"reply_interrupted","turn"}` | Reply cancelled by barge-in. |
-| `{"type":"metrics","turn","audio_s","stt_ms","llm_first_token_ms","first_sentence_ms","tts_first_ms","first_audio_ms","total_ms","sentences"}` | Timings (ms measured from server receiving the utterance). `first_sentence_ms` = first spoken chunk (early clause or sentence) available to the consumer; `tts_first_ms` = duration of that first chunk's TTS call. |
+| `{"type":"metrics","turn","audio_s","audio_dbfs","stt_ms","llm_first_token_ms","first_sentence_ms","tts_first_ms","first_audio_ms","total_ms","sentences"}` | Timings (ms measured from server receiving the utterance). `audio_dbfs` = input RMS level (dBFS, one decimal). `first_sentence_ms` = first spoken chunk (early clause or sentence) available to the consumer; `tts_first_ms` = duration of that first chunk's TTS call. |
 | `{"type":"feedback","markdown"}` | End-of-session report. |
 | `{"type":"error","message","turn"?}` | Error. |
 | `{"type":"pong"}` | Reply to ping. |

@@ -110,7 +110,7 @@ function handle(msg) {
       break;
     case "metrics":
       metricsEl.textContent =
-        `Turn ${msg.turn}\nAudio: ${msg.audio_s}s\nSTT: ${msg.stt_ms} ms\n` +
+        `Turn ${msg.turn}\nAudio: ${msg.audio_s}s\nPegel: ${msg.audio_dbfs.toFixed(1)} dBFS\nSTT: ${msg.stt_ms} ms\n` +
         `LLM 1. Token: ${msg.llm_first_token_ms} ms\nErste Audio: ${msg.first_audio_ms} ms\n` +
         `Gesamt: ${msg.total_ms} ms (${msg.sentences} Sätze)`;
       break;
