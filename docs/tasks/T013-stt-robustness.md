@@ -142,8 +142,6 @@ A Whisper initial prompt, changing VAD settings, server-side VAD, re-ask/voice p
   - The UI shows `Pegel: <value> dBFS` for kept turns; dropped turns show the existing “nicht verstanden – bitte wiederholen” path.
 
 ## Review (Claude Code fills this in)
-- **Verdict:**
-- **Notes:**
 - **Verdict:** accept (2026-11-05)
 - **Notes:**
   - Diff limited to allowed files. `make test` (89) and `make lint` are clean. No silent returns remain in `_turn`. INFO logs carry reason + dBFS only. Tests were strengthened, not weakened (`PCM_1S` is now a 440 Hz sine; the STT call count is asserted for the gate).
