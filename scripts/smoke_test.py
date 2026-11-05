@@ -89,6 +89,48 @@ def thermal_guard(label: str) -> int | None:
     return temp
 
 
+COOL_AT_C = 76
+COOL_TO_C = 70
+COOL_POLL_S = 5.0
+COOL_TIMEOUT_S = 300.0
+
+
+async def cool_down(
+    label: str,
+    cool_at: int = COOL_AT_C,
+    cool_to: int = COOL_TO_C,
+) -> int | None:
+    """Print the GPU temp; above cool_at, wait until cool_to (5 min max)."""
+    temp = gpu_temperature()
+    if temp is None:
+        print(f"GPU {label}: n/a")
+        return None
+    print(f"GPU {label}: {temp} °C")
+    if temp >= MAX_GPU_TEMP_C:
+        raise ThermalAbort(f"GPU at {temp} °C (limit {MAX_GPU_TEMP_C} °C)")
+    if temp < cool_at:
+        return temp
+    print(f"GPU {label}: {temp} °C >= {cool_at} °C, cooling to {cool_to} °C ...")
+    deadline = time.monotonic() + COOL_TIMEOUT_S
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise ThermalAbort(
+                f"GPU did not cool to {cool_to} °C within {COOL_TIMEOUT_S:.0f} s"
+            )
+        await asyncio.sleep(min(COOL_POLL_S, remaining))
+        temp = gpu_temperature()
+        if temp is None:
+            print(f"GPU {label}: n/a during cool-down")
+            continue
+        print(f"GPU {label}: {temp} °C")
+        if temp >= MAX_GPU_TEMP_C:
+            raise ThermalAbort(f"GPU at {temp} °C (limit {MAX_GPU_TEMP_C} °C)")
+        if temp <= cool_to:
+            print(f"GPU {label}: cooled to {temp} °C, continuing")
+            return temp
+
+
 def resample_linear(samples: np.ndarray, sr_in: int, sr_out: int) -> np.ndarray:
     if sr_in == sr_out or len(samples) == 0:
         return samples

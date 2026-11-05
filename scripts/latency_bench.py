@@ -19,6 +19,8 @@ import numpy as np
 import websockets
 from kerstin.config import Settings
 from smoke_test import (
+    COOL_AT_C,
+    COOL_TO_C,
     TIMEOUT_FIRST_TURN_S,
     TIMEOUT_LATER_TURN_S,
     SmokeError,
@@ -26,10 +28,10 @@ from smoke_test import (
     build_ssl_context,
     check_error,
     check_reply_text,
+    cool_down,
     health_url_for,
     parse_text_message,
     synthesize_utterance,
-    thermal_guard,
     wait_for_opener,
 )
 
@@ -201,7 +203,7 @@ async def run(args: argparse.Namespace) -> None:
     print("Utterance durations (s): " + ", ".join(f"{d:.2f}" for d in durations))
 
     pause = max(1.0, args.pause)
-    gpu_start = thermal_guard("at start")
+    gpu_start = await cool_down("at start", args.cool_at, args.cool_to)
     measured: list[dict] = []
     turn = 0
     total_turns = args.warmup + args.runs * len(UTTERANCES)
@@ -213,14 +215,22 @@ async def run(args: argparse.Namespace) -> None:
 
         for index in range(args.warmup):
             turn += 1
-            thermal_guard(f"before warmup {index + 1}/{args.warmup}")
+            await cool_down(
+                f"before warmup {index + 1}/{args.warmup}",
+                args.cool_at,
+                args.cool_to,
+            )
             await run_turn(ws, turn, pcms[0], TIMEOUT_FIRST_TURN_S)
             await asyncio.sleep(pause)
 
         for _ in range(args.runs):
             for text_index, pcm in enumerate(pcms):
                 turn += 1
-                thermal_guard(f"before turn {turn}/{total_turns}")
+                await cool_down(
+                    f"before turn {turn}/{total_turns}",
+                    args.cool_at,
+                    args.cool_to,
+                )
                 timeout = TIMEOUT_FIRST_TURN_S if turn == 1 else TIMEOUT_LATER_TURN_S
                 row = await run_turn(ws, turn, pcm, timeout)
                 measured.append(row)
@@ -230,7 +240,7 @@ async def run(args: argparse.Namespace) -> None:
                 )
                 await asyncio.sleep(pause)
 
-    gpu_end = thermal_guard("at end")
+    gpu_end = await cool_down("at end", args.cool_at, args.cool_to)
     print_metric_table(measured)
     print_stage_table(measured)
     print_estimate(measured, args.vad_tail_ms)
@@ -249,6 +259,8 @@ def main() -> int:
     parser.add_argument("--runs", type=int, default=2, help="passes over the utterance list")
     parser.add_argument("--warmup", type=int, default=1, help="unmeasured turns before measuring")
     parser.add_argument("--pause", type=float, default=1.5, help="seconds between turns (>= 1)")
+    parser.add_argument("--cool-at", type=int, default=COOL_AT_C)
+    parser.add_argument("--cool-to", type=int, default=COOL_TO_C)
     parser.add_argument("--vad-tail-ms", type=int, default=VAD_TAIL_MS)
     args = parser.parse_args()
 

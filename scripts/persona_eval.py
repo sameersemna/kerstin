@@ -25,7 +25,7 @@ from kerstin.prompts import PromptStore
 from kerstin.reply_checks import check_reply, count_sentences
 from kerstin.session import Deps, Session
 from kerstin.tts import NoTTS
-from smoke_test import ThermalAbort, thermal_guard
+from smoke_test import COOL_AT_C, COOL_TO_C, ThermalAbort, cool_down
 
 PCM_1S = b"\x00\x00" * 16000
 TURN_TIMEOUT_S = 180.0
@@ -183,6 +183,8 @@ async def run_scenario(
     settings: Settings,
     llm: OllamaLLM,
     prompts: PromptStore,
+    args: argparse.Namespace,
+    scenario_index: int,
 ) -> list[TurnResult]:
     stt = ScriptedSTT()
     messages: list[dict] = []
@@ -221,10 +223,11 @@ async def run_scenario(
             "",
         )
         if opener:
-            print(f"Kerstin (Opener): {opener}")
+            print(f"Kerstin [S{scenario_index}-T0]: {opener}")
 
         for index, line in enumerate(lines, 1):
-            thermal_guard(f"before {scenario_key} turn {index}")
+            reply_id = f"S{scenario_index}-T{index}"
+            await cool_down(f"before {reply_id}", args.cool_at, args.cool_to)
             stt.text = line.text
             start = len(messages)
             await session.handle_audio(PCM_1S)
@@ -255,16 +258,23 @@ async def run_scenario(
             codes = check_reply(reply)
             allowed = " [Korrektur erlaubt]" if line.correction_allowed else ""
             inline = ", ".join(codes) if codes else "-"
-            print(f"Lernende{allowed}: {line.text}")
-            print(f"Kerstin: {reply}  [codes: {inline}]")
+            print(f"Lernende [{reply_id}]{allowed}: {line.text}")
+            print(f"Kerstin [{reply_id}]: {reply}  [codes: {inline}]")
             results.append(TurnResult(scenario_key, line, reply, codes))
+            if args.pause > 0:
+                await asyncio.sleep(args.pause)
     finally:
         await session.close()
 
     return results
 
 
-def print_summary(results: list[TurnResult], gpu_start: int | None, gpu_end: int | None) -> None:
+def print_summary(
+    results: list[TurnResult],
+    gpu_start: int | None,
+    gpu_end: int | None,
+    model: str,
+) -> None:
     code_counts = Counter(code for result in results for code in result.codes)
     total = len(results)
     mean_sentences = (
@@ -273,6 +283,7 @@ def print_summary(results: list[TurnResult], gpu_start: int | None, gpu_end: int
     mean_words = sum(len(result.reply.split()) for result in results) / total if total else 0.0
 
     print("\n(b) Summary")
+    print(f"model: {model}")
     print(f"{'code':<20}{'count':>6}")
     print("-" * 26)
     for code in (
@@ -307,18 +318,30 @@ def print_corrections(results: list[TurnResult]) -> None:
 
 async def run(args: argparse.Namespace) -> None:
     os.environ["KERSTIN_LLM_SEED"] = str(args.seed)
-    settings = Settings()
+    overrides = {"ollama_model": args.model} if args.model else {}
+    settings = Settings(**overrides)
     llm = OllamaLLM(settings)
+    print(f"\nModel: {settings.ollama_model} | seed: {args.seed}")
     try:
         with prompt_store(settings, args.persona) as prompts:
             scenario_keys = list(SCRIPT) if args.scenario is None else [args.scenario]
-            gpu_start = thermal_guard("at start")
+            scenario_order = list(SCRIPT)
+            gpu_start = await cool_down("at start", args.cool_at, args.cool_to)
             results: list[TurnResult] = []
             for scenario_key in scenario_keys:
                 prompts.scenario(scenario_key)
-                results += await run_scenario(scenario_key, SCRIPT[scenario_key], settings, llm, prompts)
-            gpu_end = thermal_guard("at end")
-        print_summary(results, gpu_start, gpu_end)
+                scenario_index = scenario_order.index(scenario_key) + 1
+                results += await run_scenario(
+                    scenario_key,
+                    SCRIPT[scenario_key],
+                    settings,
+                    llm,
+                    prompts,
+                    args,
+                    scenario_index,
+                )
+            gpu_end = await cool_down("at end", args.cool_at, args.cool_to)
+        print_summary(results, gpu_start, gpu_end, settings.ollama_model)
         print_corrections(results)
     finally:
         await llm.client.aclose()
@@ -328,6 +351,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument("--scenario", choices=list(SCRIPT), default=None)
+    parser.add_argument("--model", default=None, help="override ollama_model for this run")
+    parser.add_argument("--pause", type=float, default=2.0, help="seconds between turns")
+    parser.add_argument("--cool-at", type=int, default=COOL_AT_C)
+    parser.add_argument("--cool-to", type=int, default=COOL_TO_C)
     parser.add_argument(
         "--persona",
         type=Path,
