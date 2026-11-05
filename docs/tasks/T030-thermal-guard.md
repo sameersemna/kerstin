@@ -106,5 +106,5 @@ When the GB10 GPU is hot (from Kerstin or from other projects), Kerstin stops ad
 - **Open questions:** None.
 
 ## Review (Claude Code fills this in)
-- **Verdict:**
-- **Notes:**
+- **Verdict:** Accepted (2026-11-05).
+- **Notes:** Diff limited to allowed files; 110 Python + 9 JS tests, lint, smoke pass. The only `nvidia-smi` call is the read-only temperature query, there's no background task, and the guard fails open on every error path, with a single warning. Hysteresis, cache and admission at start/turn/feedback match the spec, and the frontend releases the mic gate on `thermal`. The forced-hot output is pasted, and the extra `RESUME_C=30` is correct given the validator. Cost: ≈17 ms per turn when the cache is stale (normal, because turns are > 2 s apart), well under 30 ms. Minor, accepted: after a hot `start` the session exists without an opener; if the learner talks once the GPU has cooled, the first turn runs without warm-up (cold). Pressing Start again gives the normal flow.

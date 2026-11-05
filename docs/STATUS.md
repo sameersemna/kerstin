@@ -28,7 +28,7 @@ Since T006: the first clause (≥ 4 words at `,` `;` `:` `–`) is spoken early.
 T015 latency with `gemma4:26b` (fixed seed, `--runs 2`): first audio p50/p90 1384/1661 ms server-side → est. real 2152/2429 ms with the VAD tail. The T002 table above is the `qwen3:14b` baseline.
 
 ## Works (verified in a dev sandbox)
-- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 99 Python + 9 JS (`node --test`, mic gate) passed.
+- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 110 Python + 9 JS (`node --test`, mic gate) passed.
 - App starts; `/health`, `/api/scenarios`, `/`, static files served; WebSocket `start` → session + opener text.
 
 ## Not yet verified
@@ -41,4 +41,5 @@ T015 latency with `gemma4:26b` (fixed seed, `--runs 2`): first audio p50/p90 138
 - STT filter (T013): an utterance consisting *only* of "Vielen Dank", "Tschüss" or "Amen" is dropped as a likely Whisper hallucination (whisper.cpp outputs these for clicks/noise even at speech level). Gate threshold −55 dBFS: tune it against the "Pegel" shown in the UI.
 - Feedback is shown as raw Markdown text.
 - Echo (T014): speaker mode (default) pauses the mic while Kerstin speaks; interrupt with space bar or "Unterbrechen". Headphone mode keeps voice barge-in. Server drops transcripts ≥ 6 words that are ≥ 80 % Kerstin's last reply (`echo`). Not yet verified by ear without headphones (Sameer's manual check).
+- Thermal guard (T030, D016): before each start/turn/feedback the server reads the GPU temperature (cached 2 s, ≈17 ms uncached). At ≥ 80 °C it pauses new GPU work until ≤ 74 °C and the UI shows "GPU zu warm"; a reply already playing finishes. Read-only, fail-open without `nvidia-smi`. `/health` shows `gpu_temp_c` and `thermal`. Verified with a forced threshold, not under real heat.
 - Single-user, no auth. Default bind is 127.0.0.1; with `KERSTIN_HOST=0.0.0.0` anyone on the LAN or NordVPN Meshnet can use it (D010, auth comes with T040).
