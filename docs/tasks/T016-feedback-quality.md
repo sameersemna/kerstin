@@ -595,5 +595,27 @@ Achte besonders auf die Satzstellung (Verbposition) in Nebensätzen mit „weil�
 ```
 
 ## Review (Claude Code fills this in)
-- **Verdict:**
+- **Verdict:** Changes requested (round 1). The checker only; the prompt revision is accepted as is.
 - **Notes:**
+  - **What's good:** the fixtures are correct German (lead-checked: all Kerstin lines, the 10 `correct_tricky` sentences, and the 15 planted errors with their corrections). The prompt revision removed the false correction and the LaTeX noise (20 → 0) without hurting structure or language. Tests and lint pass.
+  - **Lead grading of the after-revision triples:**
+    - all ✅/💡 are correct except one;
+    - real misses: `für die Getränke` (both languages);
+    - two checker defects:
+  1. **False negative.** DE `arbeit_kollegen`: ❌ "weil wir haben nur zwei Wochen für die Vorbereitung" → ✅ "weil wir nur zwei Wochen für die Vorbereitung haben" is a correct fix, but it's scored MISSED because the ✅ contains extra words between the `right` span's words. True DE recall is 14/15.
+  2. **Wrong corrections are hidden.** EN `arbeit_kollegen`: ✅ "bin danach nach Hause **gefossen**" (not a word) is scored as a plain MISSED. A wrong ✅ is worse than a miss, because the learner learns it, and the table must show it.
+
+### Follow-up (round 1) — required changes
+1. **Planted-error scoring** in `feedback_checks.py`. For each planted error, find the ❌ item whose quote contains `wrong` (normalized). Then:
+   - **found:** the ✅ after it contains the normalized words of `right` **as an in-order subsequence** (gaps allowed) **and** doesn't contain the `wrong` span;
+   - **wrong_correction:** a ❌ quotes it, but the ✅ fails the rule above;
+   - **missed:** no ❌ quotes it.
+
+   Recall = found / planted.
+2. Add a `wrong_corrections` column to the summary table, and mark `[WRONG]` in the per-case list, next to `[FOUND]`/`[MISSED]`.
+3. **Tests:**
+   - the two real cases above as fixtures-in-test: the longer correct ✅ → found; `gefossen` → wrong_correction;
+   - a ✅ that still contains the `wrong` span → wrong_correction.
+4. Re-run `make feedback-eval` with the **current** prompt and the same seeds, and paste the new table and the per-case markers. Don't change `feedback.md` or the fixtures in this round.
+
+Allowed files: `backend/kerstin/feedback_checks.py`, `backend/tests/test_feedback_checks.py`, `scripts/feedback_eval.py` (table/markers only), this task file.
