@@ -5,6 +5,7 @@
 
 const $ = (id) => document.getElementById(id);
 const logEl = $("log"), stateEl = $("state"), metricsEl = $("metrics"), feedbackEl = $("feedback");
+const hintListEl = $("hintList"), hintInputEl = $("hintInput"), hintBtn = $("hintBtn");
 
 let ws = null;
 let vadInstance = null;
@@ -17,6 +18,13 @@ let micGate = null;
 let micMode = "speakers";
 let feedbackLang = "en";
 let pendingDecodes = 0;
+let hintEntries = [];
+const MAX_HINTS = 5;
+const HINT_ERRORS = {
+  too_long: "zu lang (max. 120 Zeichen)",
+  thermal: "GPU zu warm – gleich nochmal",
+  failed: "hat nicht geklappt",
+};
 const MIC_MODE_KEY = "kerstin.micMode";
 const FEEDBACK_LANG_KEY = "kerstin.feedbackLang";
 try {
@@ -58,6 +66,72 @@ function addMsg(who, text) {
 function appendHer(text) {
   if (!herBubble) herBubble = addMsg("her", text);
   else herBubble.querySelector(".t").textContent += " " + text;
+}
+
+// ---------- hint panel ----------
+function setHintEnabled(enabled) {
+  hintInputEl.disabled = !enabled;
+  hintBtn.disabled = !enabled;
+}
+function renderHints() {
+  const nodes = [];
+  for (const entry of hintEntries) {
+    const item = document.createElement("div");
+    item.className = "hint-item";
+
+    const query = document.createElement("div");
+    query.className = "hint-query";
+    const term = document.createElement("strong");
+    term.textContent = entry.query;
+    query.appendChild(term);
+    if (entry.pending) query.appendChild(document.createTextNode(" … frage nach"));
+    item.appendChild(query);
+
+    if (entry.error) {
+      const error = document.createElement("div");
+      error.className = "hint-error";
+      error.textContent = HINT_ERRORS[entry.error] || "hat nicht geklappt";
+      item.appendChild(error);
+    } else if (entry.markdown !== undefined) {
+      const answer = document.createElement("div");
+      answer.className = "hint-answer";
+      try {
+        answer.replaceChildren(renderMarkdown(entry.markdown));
+      } catch {
+        answer.textContent = entry.markdown;
+      }
+      item.appendChild(answer);
+    }
+    nodes.push(item);
+  }
+  hintListEl.replaceChildren(...nodes);
+}
+function submitHint() {
+  const query = hintInputEl.value.trim();
+  if (!query || !ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ type: "hint", query }));
+  hintEntries.unshift({ query, pending: true });
+  hintEntries = hintEntries.slice(0, MAX_HINTS);
+  renderHints();
+  hintInputEl.value = "";
+  hintInputEl.focus();
+}
+function resolveHint(msg) {
+  const index = hintEntries.findIndex((entry) => entry.pending && entry.query === msg.query);
+  if (index === -1) {
+    hintEntries.unshift({
+      query: msg.query,
+      markdown: msg.markdown,
+      error: msg.error,
+    });
+    hintEntries = hintEntries.slice(0, MAX_HINTS);
+  } else {
+    const entry = hintEntries[index];
+    entry.pending = false;
+    if (msg.error) entry.error = msg.error;
+    else entry.markdown = msg.markdown ?? "";
+  }
+  renderHints();
 }
 
 // ---------- audio playback ----------
@@ -132,7 +206,10 @@ function connect() {
     ws.binaryType = "arraybuffer";
     ws.onopen = () => resolve();
     ws.onerror = (e) => reject(e);
-    ws.onclose = () => { setState("Verbindung getrennt", "idle"); };
+    ws.onclose = () => {
+      setState("Verbindung getrennt", "idle");
+      setHintEnabled(false);
+    };
     ws.onmessage = (ev) => {
       if (ev.data instanceof ArrayBuffer) { enqueueAudio(ev.data); return; }
       handle(JSON.parse(ev.data));
@@ -148,6 +225,12 @@ function handle(msg) {
       currentTurn = 0;
       setInterruptEnabled(false);
       if (micGate) micGate.userInterrupt();
+      hintEntries = [];
+      renderHints();
+      setHintEnabled(true);
+      break;
+    case "hint":
+      resolveHint(msg);
       break;
     case "status":
       if (msg.state === "transcribing") setState("verstehe …", "idle");
@@ -211,6 +294,7 @@ function handle(msg) {
 // ---------- start / stop ----------
 async function start() {
   $("startBtn").disabled = true;
+  setHintEnabled(false);
   audioCtx = audioCtx || new AudioContext();
   await audioCtx.resume();
   feedbackEl.hidden = true;
@@ -261,6 +345,7 @@ function end() {
   }
   $("endBtn").disabled = true;
   $("startBtn").disabled = false;
+  setHintEnabled(false);
 }
 
 function interruptSpeaking() {
@@ -282,6 +367,12 @@ async function loadScenarios() {
 $("startBtn").onclick = () => start().catch((e) => { console.error(e); setState("Start fehlgeschlagen: " + e, "speaking"); $("startBtn").disabled = false; });
 $("endBtn").onclick = end;
 $("interruptBtn").onclick = interruptSpeaking;
+$("hintBtn").onclick = submitHint;
+$("hintInput").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  submitHint();
+});
 $("feedbackLang").value = feedbackLang;
 $("feedbackLang").onchange = (e) => {
   feedbackLang = e.target.value === "de" ? "de" : "en";

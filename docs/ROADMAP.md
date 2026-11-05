@@ -18,7 +18,7 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 - [x] T015 **Model comparison for German correctness** (2026-11-05): gemma4:26b 5 % vs qwen3:14b 18 % errors → default gemma4:26b (D015).
 - [x] T017 **Feedback language setting** (D008): English/German 💡 explanations, UI selector, `end.feedback_lang`. Task file: `docs/tasks/T017-feedback-language.md`.
 - [x] T016 **Feedback quality eval** (after T017, both languages): planted-error fixtures, `make feedback-eval` (recall, false corrections, quote grounding), prompt revision if needed. Task file: `docs/tasks/T016-feedback-quality.md`.
-- [ ] T011 **Separate feedback model** setting (`KERSTIN_FEEDBACK_MODEL`), allow a larger model for the report; also `KERSTIN_FEEDBACK_TEMPERATURE` (lower than chat; T016 saw a non-word ✅ "gefossen" at 0.8). Judge with `make feedback-eval`.
+- [ ] T011 **Separate feedback model** setting (`KERSTIN_FEEDBACK_MODEL`), allow a larger model for the report; also `KERSTIN_FEEDBACK_TEMPERATURE` (lower than chat; T016 saw a non-word ✅ "gefossen" at 0.8). Judge with `make feedback-eval` and `make hint-eval`.
 - [ ] T012 **Kokoro German TTS** via `HttpTTS` (or in-process ONNX); A/B against Piper for naturalness and latency.
 - [x] T013 **STT robustness** (2026-11-05): energy gate (−55 dBFS), hallucination filter, `stt_empty` reasons, `audio_dbfs` in the UI.
 - [x] T014 **Echo handling**: speaker mode (mic paused while Kerstin speaks, default), headphone mode (voice barge-in), interrupt button/space bar, server echo filter. Task file: `docs/tasks/T014-echo-handling.md`.
@@ -26,7 +26,7 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 ## Phase 3 — Learning features
 - [ ] T020 **Mistake log** (opt-in, local SQLite): store feedback items per session; Kerstin steers future conversations toward weak structures.
 - [ ] T021 **Exam mode** (telc / Goethe B2 mündlich formats): timed parts, Vortrag + Diskussion + Planung, rubric-based scoring.
-- [ ] T022 **Hint box** (D018): learner types "Wie sagt man …?" (English or German paraphrase) → short German answer with article/forms + example in a side panel; not spoken, not in history. Task file: `docs/tasks/T022-hint-button.md`.
+- [x] T022 **Hint box** (D018): learner types "Wie sagt man …?" (English or German paraphrase) → short German answer with article/forms + example in a side panel; not spoken, not in history. Task file: `docs/tasks/T022-hint-button.md`.
 - [ ] T023 **Session history page** (transcripts + feedback, local only).
 
 ## Phase 4 — Ops on the shared GB10

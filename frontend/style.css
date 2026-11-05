@@ -58,6 +58,18 @@ aside { display: flex; flex-direction: column; gap: 12px; }
 .state.listening { border-color: var(--accent); color: var(--accent); }
 .state.speaking { border-color: var(--warn); color: var(--warn); }
 .metrics { font: 12px/1.4 ui-monospace, monospace; color: var(--muted); white-space: pre-wrap; }
+.hint-box { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.hint-box h2 { margin: 0 0 8px; font-size: 1rem; }
+.hint-form { display: flex; gap: 6px; }
+.hint-form input { flex: 1; min-width: 0; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: var(--ink); }
+.hint-form button { padding: 8px 10px; }
+.hint-item { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: .9rem; }
+.hint-item:first-child { margin-top: 10px; padding-top: 0; border-top: 0; }
+.hint-query { color: var(--muted); font-size: .8rem; }
+.hint-query strong { color: var(--ink); }
+.hint-answer p { margin: 4px 0; }
+.hint-note { margin: 8px 0 0; color: var(--muted); font-size: .75rem; }
+.hint-error { color: var(--warn); margin-top: 4px; }
 .feedback { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: .92rem; }
 .feedback h3, .feedback h4 { margin: 0 0 6px; line-height: 1.3; }
 .feedback h3 { font-size: 1.08rem; }

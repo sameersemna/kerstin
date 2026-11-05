@@ -60,6 +60,24 @@ async def test_fixed_seed_is_sent() -> None:
     assert payloads[0]["options"]["seed"] == 42
 
 
+async def test_chat_temperature_override() -> None:
+    payloads: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": "ok"}})
+
+    llm = make_llm(handler, llm_temperature=0.8)
+    try:
+        await llm.chat([{"role": "user", "content": "Hallo"}], temperature=0.2)
+        await llm.chat([{"role": "user", "content": "Hallo"}])
+    finally:
+        await llm.client.aclose()
+
+    assert payloads[0]["options"]["temperature"] == 0.2
+    assert payloads[1]["options"]["temperature"] == 0.8
+
+
 async def test_warmup_payload() -> None:
     seen: dict = {}
 

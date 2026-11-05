@@ -9,6 +9,7 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 | `{"type":"start","scenario":"<key>"}` | Start (or restart) a session. Keys from `GET /api/scenarios`. |
 | **binary** | One complete learner utterance: 16 kHz, mono, signed 16-bit little-endian PCM, no header. Implicitly starts turn `n+1` and cancels any running turn. |
 | `{"type":"interrupt"}` | Learner barged in; cancel the running turn. |
+| `{"type":"hint","query"}` | Typed word/phrase lookup; text only, outside the conversation. |
 | `{"type":"end","feedback_lang"?:"en"\|"de"}` | End the conversation and request feedback. Invalid values use the server default. |
 | `{"type":"ping"}` | Keepalive → `pong`. |
 
@@ -27,6 +28,7 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 | `{"type":"reply_interrupted","turn"}` | Reply cancelled by barge-in. |
 | `{"type":"metrics","turn","audio_s","audio_dbfs","stt_ms","llm_first_token_ms","first_sentence_ms","tts_first_ms","first_audio_ms","total_ms","sentences"}` | Timings (ms measured from server receiving the utterance). `audio_dbfs` = input RMS level (dBFS, one decimal). `first_sentence_ms` = first spoken chunk (early clause or sentence) available to the consumer; `tts_first_ms` = duration of that first chunk's TTS call. |
 | `{"type":"feedback","markdown"}` | End-of-session report. |
+| `{"type":"hint","query","markdown"}` or `{"type":"hint","query","error":"too_long"\|"thermal"\|"failed","temp_c"?}` | Hint answer or short error. No `turn`; never affects turn state, history or feedback. |
 | `{"type":"error","message","turn"?}` | Error. |
 | `{"type":"pong"}` | Reply to ping. |
 

@@ -46,6 +46,7 @@ async def lifespan(app: FastAPI):
         stt_min_rms_dbfs=settings.stt_min_rms_dbfs,
         stt_filter=settings.stt_filter,
         feedback_lang=settings.feedback_lang,
+        hint_temperature=settings.hint_temperature,
         thermal=(
             ThermalGuard(settings.thermal_hot_c, settings.thermal_resume_c)
             if settings.thermal_guard
@@ -145,6 +146,11 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 await session.start()
             elif kind == "interrupt" and session:
                 await session.interrupt()
+            elif kind == "hint":
+                if session:
+                    await session.hint(str(data.get("query") or ""))
+                else:
+                    await send_json({"type": "error", "message": "send 'start' first"})
             elif kind == "end" and session:
                 await session.feedback(data.get("feedback_lang"))
             elif kind == "ping":

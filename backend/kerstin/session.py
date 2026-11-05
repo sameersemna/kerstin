@@ -53,6 +53,7 @@ class Deps:
     stt_min_rms_dbfs: float = -55.0
     stt_filter: bool = True
     feedback_lang: str = "en"
+    hint_temperature: float = 0.2
     thermal: ThermalGuard | None = None
 
 
@@ -79,6 +80,7 @@ class Session:
     turn_id: int = 0
     _turn_task: asyncio.Task | None = None
     _warmup_task: asyncio.Task | None = None
+    _hint_task: asyncio.Task | None = None
 
     # ---------- public API (called by the websocket handler) ----------
 
@@ -117,6 +119,41 @@ class Session:
                 pass
         self._turn_task = None
 
+    async def hint(self, query: str) -> None:
+        query = query.strip()
+        if not query:
+            return
+
+        task = self._hint_task
+        if task and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        self._hint_task = None
+
+        if len(query) > 120:
+            await self.send_json(
+                {"type": "hint", "query": query[:120], "error": "too_long"}
+            )
+            return
+
+        thermal = await self._thermal_check()
+        if thermal is not None and thermal.state == "hot":
+            await self.send_json(
+                {
+                    "type": "hint",
+                    "query": query,
+                    "error": "thermal",
+                    "temp_c": thermal.temp_c,
+                }
+            )
+            log.info("hint thermal hot (gpu=%g °C)", thermal.temp_c)
+            return
+
+        self._hint_task = asyncio.create_task(self._hint(query))
+
     async def feedback(self, lang: str | None = None) -> None:
         await self.interrupt()
 
@@ -142,6 +179,15 @@ class Session:
         await self.send_json({"type": "feedback", "markdown": strip_think(text).strip()})
 
     async def close(self) -> None:
+        hint_task = self._hint_task
+        if hint_task and not hint_task.done():
+            hint_task.cancel()
+            try:
+                await hint_task
+            except asyncio.CancelledError:
+                pass
+        self._hint_task = None
+
         task = self._warmup_task
         if task and not task.done():
             task.cancel()
@@ -168,6 +214,28 @@ class Session:
         if turn_id is not None:
             message["turn"] = turn_id
         await self.send_json(message)
+
+    async def _hint(self, query: str) -> None:
+        started = time.perf_counter()
+        context = format_feedback_transcript(self.history[-4:])
+        try:
+            prompt = self.deps.prompts.hint_prompt(query, context)
+            text = await self.deps.llm.chat(
+                [{"role": "user", "content": prompt}],
+                max_tokens=120,
+                temperature=self.deps.hint_temperature,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 — any hint failure becomes a short UI error
+            await self.send_json({"type": "hint", "query": query, "error": "failed"})
+            log.info("hint failed (%s)", type(exc).__name__)
+            return
+
+        await self.send_json(
+            {"type": "hint", "query": query, "markdown": strip_think(text).strip()}
+        )
+        log.info("hint ok (ms=%d)", int((time.perf_counter() - started) * 1000))
 
     async def _send_audio(self, turn_id: int, wav: bytes | None) -> None:
         if wav:

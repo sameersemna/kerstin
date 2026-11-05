@@ -22,7 +22,13 @@ class OllamaLLM:
         self.base = s.ollama_url.rstrip("/")
         self.client = client or httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=5.0))
 
-    def _payload(self, messages: list[Message], stream: bool, max_tokens: int | None) -> dict:
+    def _payload(
+        self,
+        messages: list[Message],
+        stream: bool,
+        max_tokens: int | None,
+        temperature: float | None = None,
+    ) -> dict:
         seed = self.s.llm_seed if self.s.llm_seed is not None else random.randrange(1, 2**31)
         payload: dict = {
             "model": self.s.ollama_model,
@@ -30,7 +36,9 @@ class OllamaLLM:
             "stream": stream,
             "keep_alive": self.s.ollama_keep_alive,
             "options": {
-                "temperature": self.s.llm_temperature,
+                "temperature": (
+                    self.s.llm_temperature if temperature is None else temperature
+                ),
                 "num_ctx": self.s.ollama_num_ctx,
                 "seed": seed,
             },
@@ -59,8 +67,15 @@ class OllamaLLM:
                 if data.get("done"):
                     break
 
-    async def chat(self, messages: list[Message], max_tokens: int | None = 1200) -> str:
-        payload = self._payload(messages, stream=False, max_tokens=max_tokens)
+    async def chat(
+        self,
+        messages: list[Message],
+        max_tokens: int | None = 1200,
+        temperature: float | None = None,
+    ) -> str:
+        payload = self._payload(
+            messages, stream=False, max_tokens=max_tokens, temperature=temperature
+        )
         r = await self.client.post(f"{self.base}/api/chat", json=payload)
         r.raise_for_status()
         return r.json().get("message", {}).get("content", "")
