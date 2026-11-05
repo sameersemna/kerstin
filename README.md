@@ -12,7 +12,7 @@ Browser (mic + Silero VAD) ──PCM──▶ FastAPI /ws ──▶ Whisper ─�
 
 ```bash
 make setup          # venv + deps, creates .env from .env.example
-make voice          # download de_DE-thorsten-high Piper voice
+make voice          # download de_DE-thorsten-medium Piper voice
 ollama pull qwen3:14b
 # edit .env: point KERSTIN_STT_URL at your Whisper server
 make check          # Ollama, STT, voice, GPU temperature

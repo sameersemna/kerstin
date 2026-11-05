@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 OLLAMA="${KERSTIN_OLLAMA_URL:-http://127.0.0.1:11434}"
 MODEL="${KERSTIN_OLLAMA_MODEL:-qwen3:14b}"
 STT="${KERSTIN_STT_URL:-http://127.0.0.1:8000}"
-VOICE="${KERSTIN_PIPER_VOICE_PATH:-voices/de_DE-thorsten-high.onnx}"
+VOICE="${KERSTIN_PIPER_VOICE_PATH:-voices/de_DE-thorsten-medium.onnx}"
 ok()   { echo "  [ok]   $*"; }
 bad()  { echo "  [FAIL] $*"; }
 warn() { echo "  [warn] $*"; }

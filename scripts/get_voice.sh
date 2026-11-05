@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Download a German Piper voice (thorsten) into ./voices.
-# Usage: bash scripts/get_voice.sh [high|medium]   (default: high)
+# Usage: bash scripts/get_voice.sh [high|medium]   (default: medium)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-QUALITY="${1:-high}"
+QUALITY="${1:-medium}"
 case "$QUALITY" in
   high|medium) ;;
   *)

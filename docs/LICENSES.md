@@ -12,7 +12,7 @@ Kerstin may become a public, paid service. Every shipped component must allow co
 | Gemma 3 | LLM alt | Gemma Terms of Use | ⚠️ | commercial allowed with use-policy conditions |
 | Ollama | LLM runtime | MIT | ✅ | |
 | piper-tts (piper1-gpl) | TTS engine | GPL-3.0 | ⚠️ | OK for a hosted service; distribution of a bundled app has GPL obligations. Original rhasspy/piper was MIT. |
-| Piper voice `de_DE-thorsten-high` | TTS voice | Thorsten dataset CC0 (check voice card) | ✅ (verify) | |
+| Piper voices `de_DE-thorsten-medium` (default), `-high` | TTS voice | Thorsten dataset CC0 (check voice card) | ✅ (verify) | |
 | Kokoro-82M German ports | TTS alt | Apache 2.0 (check each fine-tune) | ✅ (verify) | |
 | Coqui XTTS v2 | TTS | Coqui Public Model License | ❌ | non-commercial — do not use in default path |
 | @ricky0123/vad-web | browser VAD | ISC | ✅ | |

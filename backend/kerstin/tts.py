@@ -25,7 +25,7 @@ class NoTTS:
 
 
 class PiperTTS:
-    """Local Piper voice. Default: de_DE-thorsten-high (download via `make voice`)."""
+    """Local Piper voice. Default: de_DE-thorsten-medium (download via `make voice`)."""
 
     def __init__(self, s: Settings) -> None:
         from piper import PiperVoice  # lazy import

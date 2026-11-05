@@ -17,7 +17,7 @@ Silero VAD via vad-web on the client; server receives complete utterances. Why: 
 ## D005 · 2026-11-04 · Superseded by D009 — Default LLM `qwen3:30b-a3b`, thinking off
 MoE keeps first-token latency low on GB10 memory bandwidth. To be confirmed by T002; alternatives: `gemma3:12b`, `mistral-small3.2`.
 
-## D006 · 2026-11-04 · Accepted — Piper `de_DE-thorsten-high` as default TTS
+## D006 · 2026-11-04 · Superseded by D011 — Piper `de_DE-thorsten-high` as default TTS
 Fast on CPU, offline, German. Kokoro-German evaluated in T012.
 
 ## D007 · 2026-11-04 · Open — Kerstin's own "learner flavour"
@@ -31,3 +31,12 @@ Sameer's call after T001: it is already pulled, ~10 GB resident (light on the sh
 
 ## D010 · 2026-11-04 · Accepted — HTTPS on the LAN via Uvicorn TLS + local openssl CA
 Kerstin serves TLS itself (`KERSTIN_TLS_*`). The cert comes from a project-local CA made by `scripts/make_certs.sh`, and each client trusts that CA once. Why: no new software, and nginx on `:80` belongs to other projects, so it stays untouched. mkcert, Caddy and Tailscale were not needed. The default (no TLS vars) is still plain HTTP on 127.0.0.1. **Accepted risk:** with `KERSTIN_HOST=0.0.0.0` anyone on the home LAN (and NordVPN Meshnet peers) can use Kerstin, with no auth. That's fine for a trusted home network; auth comes with T040 before anything goes public.
+
+## D011 · 2026-11-05 · Accepted — Piper `de_DE-thorsten-medium` as default voice (supersedes D006)
+Sameer's call after T002. First-sentence TTS: 190 / 338 ms (p50/p90) for medium vs 398 / 1013 ms for high. `high` is still available via `KERSTIN_PIPER_VOICE_PATH`.
+
+## D012 · 2026-11-05 · Accepted — Keep the 768 ms VAD tail and the shared Whisper server
+Sameer's call. A shorter tail risks cutting learners off mid-sentence; a second Whisper instance would add a GPU process. T006 cuts latency by speaking the first clause early instead.
+
+## D013 · 2026-11-05 · Open — Latency target vs. these choices
+With D011/D012 the realistic end-of-speech → first audio is ≈2.2–2.4 s p50 (VAD tail 768 + STT ~480 + LLM + TTS), not < 1.5 s as `CLAUDE.md` states. Options: (a) accept and restate the target as "server-side first audio < 1.5 s p50", (b) revisit D012 later. Sameer to decide after trying T006.

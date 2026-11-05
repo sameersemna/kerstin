@@ -12,7 +12,7 @@ setup:            ## create venv and install backend + piper + dev deps
 	@test -f .env || cp .env.example .env
 	@echo "Done. Next: make voice && make check && make run"
 
-voice:            ## download the default German Piper voice (thorsten-high)
+voice:            ## download the default German Piper voice (thorsten-medium; `bash scripts/get_voice.sh high` for high)
 	bash scripts/get_voice.sh
 
 certs:            ## create local CA + server cert for HTTPS on the LAN (CERTS_ARGS="--dns host.fritz.box")
