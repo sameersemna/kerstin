@@ -58,5 +58,15 @@ aside { display: flex; flex-direction: column; gap: 12px; }
 .state.listening { border-color: var(--accent); color: var(--accent); }
 .state.speaking { border-color: var(--warn); color: var(--warn); }
 .metrics { font: 12px/1.4 ui-monospace, monospace; color: var(--muted); white-space: pre-wrap; }
-.feedback { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; white-space: pre-wrap; font-size: .92rem; }
+.feedback { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: .92rem; }
+.feedback h3, .feedback h4 { margin: 0 0 6px; line-height: 1.3; }
+.feedback h3 { font-size: 1.08rem; }
+.feedback h4 { font-size: .98rem; }
+.feedback p { margin: 6px 0; }
+.feedback ul, .feedback ol { margin: 6px 0; padding-left: 22px; }
+.feedback li { margin: 3px 0; }
+.feedback li > p { margin: 2px 0; }
+.feedback blockquote { margin: 8px 0; padding-left: 10px; border-left: 3px solid var(--border); color: var(--muted); }
+.feedback code { font: .9em ui-monospace, monospace; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 4px; }
+.feedback hr { border: 0; border-top: 1px solid var(--border); margin: 10px 0; }
 footer { padding: 10px 16px; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--border); }
