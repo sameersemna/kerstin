@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     # --- LLM (Ollama) ---
     ollama_url: str = "http://127.0.0.1:11434"
-    ollama_model: str = "qwen3:14b"
+    ollama_model: str = "gemma4:26b"
     ollama_keep_alive: str = "10m"  # unload after idle so the shared GPU is freed
     ollama_num_ctx: int = 8192
     llm_temperature: float = 0.8

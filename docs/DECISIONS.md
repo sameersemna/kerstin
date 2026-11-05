@@ -26,7 +26,7 @@ Should Kerstin occasionally show B2-learner traits beyond word-searching (e.g. a
 ## D008 · 2026-11-04 · Open — Feedback language
 Explanations in English (current) vs German vs configurable.
 
-## D009 · 2026-11-04 · Accepted — Default LLM `qwen3:14b` (supersedes D005)
+## D009 · 2026-11-04 · Superseded by D015 — Default LLM `qwen3:14b` (supersedes D005)
 Sameer's call after T001: it is already pulled, ~10 GB resident (light on the shared GPU), warm first token ≈0.1 s after STT. `qwen3:30b-a3b` stays an untested alternative. Known risk: one German grammar slip seen in T001 ("haben sie auch geregnet"). T010 watches reply correctness.
 
 ## D010 · 2026-11-04 · Accepted — HTTPS on the LAN via Uvicorn TLS + local openssl CA
@@ -41,5 +41,8 @@ Sameer's call. A shorter tail risks cutting learners off mid-sentence; a second 
 ## D013 · 2026-11-05 · Open — Latency target vs. these choices
 With D011/D012 the realistic end-of-speech → first audio is ≈2.2–2.4 s p50 (VAD tail 768 + STT ~480 + LLM + TTS), not < 1.5 s as `CLAUDE.md` states. Options: (a) accept and restate the target as "server-side first audio < 1.5 s p50", (b) revisit D012 later. Sameer to decide after trying T006.
 
-## D014 · 2026-11-05 · Open — Revisit the conversation model for German correctness
+## D014 · 2026-11-05 · Resolved by D015 — Revisit the conversation model for German correctness
 T010 shows `qwen3:14b` makes grammar errors in ≈25 % of replies and gives wrong explanations when asked, which prompt changes don't fix. This breaks D002 (correct B2 German). Candidates already pulled (Ollama reports Apache 2.0, to verify upstream): `gemma4:26b`, `qwen3.6:latest` (MoE), `mistral-nemo:12b-instruct-2407-q8_0`. Compare with `make persona-eval` (lead judges German) + paired bench. Sameer decides; D009 stands until then. 2026-11-05: Sameer approved only `gemma4:26b` for T015. Thermal policy for evals: cool-down at 76 °C → resume at 70 °C, hard abort 80 °C (Sameer has seen no failures below 83 °C; the margin covers temperature rises between per-turn readings).
+
+## D015 · 2026-11-05 · Accepted — Default LLM `gemma4:26b` (supersedes D009)
+Sameer's call after T015 (lead graded 60 replies per model). German errors: 3/60 (5 %) vs ≈11/60 (18 %) for `qwen3:14b`. One wrong correction explanation out of 10 correction requests vs 3. No markdown/emoji. Reacts to repetition instead of copying. Takes the opposing view in *Diskussion*. Faster: first audio p50/p90 1384/1661 vs 1630/2171 ms. Cost: ≈17 GB vs 9.8 GB while loaded on the shared GPU (still unloads after `keep_alive`). License per Ollama: Apache 2.0, to be verified upstream (T043).

@@ -9,7 +9,8 @@ Kerstin may become a public, paid service. Every shipped component must allow co
 | faster-whisper / CTranslate2 | STT (optional) | MIT | ✅ | |
 | Qwen3 (Ollama) | LLM | Apache 2.0 | ✅ | default |
 | Mistral Small 3.x | LLM alt | Apache 2.0 | ✅ | |
-| Gemma 3 | LLM alt | Gemma Terms of Use | ⚠️ | commercial allowed with use-policy conditions |
+| Gemma 4 (`gemma4:26b`) | LLM (default, D015) | Apache 2.0 (per Ollama model card) | ✅ (verify upstream) | earlier Gemma 3 used the Gemma Terms of Use — confirm Gemma 4 is plain Apache 2.0 before going public |
+| Qwen3 14B | LLM alt | Apache 2.0 | ✅ | previous default (D009) |
 | Ollama | LLM runtime | MIT | ✅ | |
 | piper-tts (piper1-gpl) | TTS engine | GPL-3.0 | ⚠️ | OK for a hosted service; distribution of a bundled app has GPL obligations. Original rhasspy/piper was MIT. |
 | Piper voices `de_DE-thorsten-medium` (default), `-high` | TTS voice | Thorsten dataset CC0 (check voice card) | ✅ (verify) | |

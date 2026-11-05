@@ -1,11 +1,11 @@
 # Status
 
-_Last updated: 2026-11-05 (T010 persona eval merged)_
+_Last updated: 2026-11-05 (T015 merged; default model → gemma4:26b, D015)_
 
 ## Works on the GB10 (T001, 2026-11-04)
 - End-to-end headless: `make smoke` passes. German utterance → whisper.cpp (`:8768`, `language=de`) → Ollama → Piper → WAV over `/ws`.
 - Versions: Python 3.12.3 (aarch64), piper-tts 1.8.0 (installs cleanly), Ollama 0.34.2, `think: false` works (no `<think>` text seen).
-- Model: **`qwen3:14b`**, the default since D009 (9.8 GB, 100% GPU).
+- Model: **`gemma4:26b`**, the default since D015 (≈17 GB, 100% GPU, `think: false` accepted). Previous default `qwen3:14b` stays available.
 - Warm latency (server-side, from receiving the utterance): first audio 1.2–2.2 s. STT 0.36–0.70 s (varies with load on the shared Whisper server), LLM first token +0.1 s, first sentence complete ≈0.7 s later, Piper ≈0.65 s for the first sentence. Cold first turn: ≈8.8 s (model load).
 - GPU stayed at 47–59 °C during smoke runs.
 
@@ -25,6 +25,8 @@ Since T005: random `seed` per request (`KERSTIN_LLM_SEED` fixes it for benches),
 
 Since T006: the first clause (≥ 4 words at `,` `;` `:` `–`) is spoken early. Paired A/B (fixed seed): median −379 ms first audio; 0 cost when no clause. Estimated real end-of-speech → audio now ≈ 2.2–2.6 s p50 (D013 open).
 
+T015 latency with `gemma4:26b` (fixed seed, `--runs 2`): first audio p50/p90 1384/1661 ms server-side → est. real 2152/2429 ms with the VAD tail. The T002 table above is the `qwen3:14b` baseline.
+
 ## Works (verified in a dev sandbox)
 - Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 53 passed.
 - App starts; `/health`, `/api/scenarios`, `/`, static files served; WebSocket `start` → session + opener text.
@@ -35,8 +37,7 @@ Since T006: the first clause (≥ 4 words at `,` `;` `:` `–`) is spoken early.
 
 ## Known limitations
 - **Latency over target** once the VAD tail is counted (≈1.8–2.9 s vs < 1.5 s).
-- **German correctness fails the persona contract:** `qwen3:14b` makes grammar/idiom errors in ≈25 % of replies (T010 lead review) and gives partly wrong explanations when asked to correct. Prompt tuning fixed length (mean 22 words, 2/30 too long) but not grammar → D014.
-- `qwen3:14b` repeats its earlier answer when the learner repeats a sentence verbatim in the same session (T010).
+- German correctness (T015, lead-graded): `gemma4:26b` makes errors in ≈5 % of replies (3/60), and 1 of 10 correction explanations was wrong ("auf dem Tisch"). Better than `qwen3:14b` (18 %) but not zero; keep checking with `make persona-eval`.
 - Short utterances (< 0.35 s) get no server reply at all, so the UI stays on "du sprichst …".
 - Feedback is shown as raw Markdown text.
 - No echo cancellation beyond the browser's default — use headphones.
