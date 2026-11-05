@@ -226,3 +226,9 @@ tts_first                    541      1379
 ```
 
 ## Review (Claude Code fills this in)
+- **Verdict:** accept (2026-11-05)
+- **Notes:**
+  - Diff limited to allowed files. `make test` (30) and `make lint` are clean. The warm-up isn't awaited in `start()` and is cancelled in `close()`; failures are logged and swallowed.
+  - Lead re-verified the cold start: `qwen3:14b` was unloaded (not in `/api/ps`); on 8771 with `--first-delay 6`, turn 1 had `llm_first_token_ms` 455 and `first_audio_ms` 1379 (T001 cold: 7400 / 8781). Afterwards `ollama ps` showed the normal "9 minutes from now".
+  - The warm-up ends on an assistant message, so Ollama treats it as a continuation. The cached prefix then covers system prompt + opener for the first real turn.
+  - Kilo's note stands: within one session `qwen3:14b` repeats its earlier answer when the learner repeats a sentence verbatim, regardless of seed. That's model behavior, not a seed bug; it's for T010.
