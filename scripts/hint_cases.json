@@ -1,0 +1,162 @@
+{
+  "context": "Kerstin: Und, wie war dein Wochenende?\nLernende Person: Ganz gut, aber ich war ziemlich müde.",
+  "cases": [
+    {
+      "query": "to get used to something",
+      "accept": [
+        "sich gewöhnen an",
+        "sich an etwas gewöhnen"
+      ],
+      "pos": "verb"
+    },
+    {
+      "query": "stubborn",
+      "accept": [
+        "stur",
+        "hartnäckig"
+      ],
+      "pos": "adj"
+    },
+    {
+      "query": "to give up",
+      "accept": [
+        "aufgeben",
+        "aufhören"
+      ],
+      "pos": "verb"
+    },
+    {
+      "query": "appointment (doctor)",
+      "accept": [
+        "der Termin",
+        "der Arzttermin"
+      ],
+      "pos": "noun"
+    },
+    {
+      "query": "to complain about",
+      "accept": [
+        "sich beschweren über"
+      ],
+      "pos": "verb"
+    },
+    {
+      "query": "the thing you plug a phone charger into",
+      "accept": [
+        "die Steckdose"
+      ],
+      "pos": "noun"
+    },
+    {
+      "query": "to apply for a job",
+      "accept": [
+        "sich bewerben um",
+        "sich bewerben bei",
+        "sich bewerben für"
+      ],
+      "pos": "verb"
+    },
+    {
+      "query": "to be afraid of",
+      "accept": [
+        "Angst haben vor",
+        "sich fürchten vor"
+      ],
+      "pos": "verb"
+    },
+    {
+      "query": "to depend on",
+      "accept": [
+        "abhängen von"
+      ],
+      "pos": "verb"
+    },
+    {
+      "query": "reliable",
+      "accept": [
+        "zuverlässig"
+      ],
+      "pos": "adj"
+    },
+    {
+      "query": "to get along with someone",
+      "accept": [
+        "sich verstehen mit",
+        "auskommen mit",
+        "mit jemandem auskommen"
+      ],
+      "pos": "verb"
+    },
+    {
+      "query": "receipt",
+      "accept": [
+        "die Quittung",
+        "der Beleg"
+      ],
+      "pos": "noun"
+    },
+    {
+      "query": "to look after children",
+      "accept": [
+        "sich kümmern um",
+        "aufpassen auf"
+      ],
+      "pos": "verb"
+    },
+    {
+      "query": "to agree with someone",
+      "accept": [
+        "zustimmen",
+        "einverstanden sein mit",
+        "jemandem zustimmen"
+      ],
+      "pos": "verb"
+    },
+    {
+      "query": "overtime",
+      "accept": [
+        "die Überstunde",
+        "die Überstunden"
+      ],
+      "pos": "noun"
+    },
+    {
+      "query": "to cancel an appointment",
+      "accept": [
+        "absagen",
+        "einen Termin absagen"
+      ],
+      "pos": "verb"
+    },
+    {
+      "query": "to borrow",
+      "accept": [
+        "sich leihen",
+        "ausleihen"
+      ],
+      "pos": "verb"
+    },
+    {
+      "query": "to be interested in",
+      "accept": [
+        "sich interessieren für",
+        "interessiert sein an"
+      ],
+      "pos": "verb"
+    },
+    {
+      "query": "sustainable",
+      "accept": [
+        "nachhaltig"
+      ],
+      "pos": "adj"
+    },
+    {
+      "query": "to remind someone of something",
+      "accept": [
+        "jemanden an etwas erinnern"
+      ],
+      "pos": "verb"
+    }
+  ]
+}

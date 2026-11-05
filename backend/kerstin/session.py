@@ -53,6 +53,7 @@ class Deps:
     stt_min_rms_dbfs: float = -55.0
     stt_filter: bool = True
     feedback_lang: str = "en"
+    hint_temperature: float = 0.2
     thermal: ThermalGuard | None = None
 
 
@@ -220,7 +221,9 @@ class Session:
         try:
             prompt = self.deps.prompts.hint_prompt(query, context)
             text = await self.deps.llm.chat(
-                [{"role": "user", "content": prompt}], max_tokens=120
+                [{"role": "user", "content": prompt}],
+                max_tokens=120,
+                temperature=self.deps.hint_temperature,
             )
         except asyncio.CancelledError:
             raise

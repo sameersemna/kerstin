@@ -46,6 +46,7 @@ async def lifespan(app: FastAPI):
         stt_min_rms_dbfs=settings.stt_min_rms_dbfs,
         stt_filter=settings.stt_filter,
         feedback_lang=settings.feedback_lang,
+        hint_temperature=settings.hint_temperature,
         thermal=(
             ThermalGuard(settings.thermal_hot_c, settings.thermal_resume_c)
             if settings.thermal_guard

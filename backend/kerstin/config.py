@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     ollama_keep_alive: str = "10m"  # unload after idle so the shared GPU is freed
     ollama_num_ctx: int = 8192
     llm_temperature: float = 0.8
+    hint_temperature: float = 0.2
     llm_max_reply_tokens: int = 220  # keeps replies conversational and fast
     llm_think: bool = False  # disable reasoning mode on models that support it
     llm_seed: int | None = None  # fixed seed for benches; None = fresh random per request

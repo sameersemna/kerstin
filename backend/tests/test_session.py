@@ -41,6 +41,7 @@ class FakeLLM:
         self.last_chat_messages = None
         self.warmup_calls = []
         self.chat_calls = 0
+        self.last_chat_temperature = None
 
     async def stream_chat(self, messages):
         self.last_messages = messages
@@ -49,9 +50,10 @@ class FakeLLM:
                 await asyncio.sleep(self.delay)
             yield p
 
-    async def chat(self, messages, max_tokens=None):
+    async def chat(self, messages, max_tokens=None, temperature=None):
         self.chat_calls += 1
         self.last_chat_messages = messages
+        self.last_chat_temperature = temperature
         if self.chat_delay:
             await asyncio.sleep(self.chat_delay)
         if self.chat_error:
@@ -354,6 +356,7 @@ async def test_hint_returns_markdown_without_touching_history():
     ]
     assert s.history == []
     assert "landlord" in llm.last_chat_messages[0]["content"]
+    assert llm.last_chat_temperature == 0.2
 
 
 async def test_hint_during_turn_does_not_cancel_turn():
@@ -520,10 +523,12 @@ async def test_feedback_invalid_language_uses_server_default(caplog):
 
 
 async def test_feedback():
-    s, js, _ = make_session(FakeLLM(["Gut. Und du?"]))
+    llm = FakeLLM(["Gut. Und du?"])
+    s, js, _ = make_session(llm)
     await s.start()
     await s.handle_audio(PCM_1S)
     await s._turn_task
     await s.feedback()
     fb = [m for m in js if m["type"] == "feedback"]
     assert fb and "Was gut war" in fb[0]["markdown"]
+    assert llm.last_chat_temperature is None

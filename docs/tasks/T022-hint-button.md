@@ -97,7 +97,10 @@ During a conversation, type "landlord" and press Enter. A German answer with art
 - **Measurements (if any):** Hint latency p50 (median) = **925 ms**, mean 914 ms, range 726–1120 ms. Concurrent-turn delay: mean **+673 ms**, worst **+715 ms** (target ≤ 1200 ms). `nvidia-smi` was checked before every hint call; GPU temps were 58, 64, 66, 67, 67, 67, 67, 67, 68, 68 °C, no abort at 76 °C. The delay runs stayed at 59–68 °C.
 - **Deviations from spec / extra files touched:** None beyond the allowed files. `hint_prompt()` uses a single-pass placeholder replacement (safer than two sequential replacements): neither a query containing `{context}` nor a context containing `{query}` is re-expanded. The final samples are the final prompt's raw answers; all are two lines, German, bold lemma with forms, and a `Beispiel:` line.
 - **New dependencies (+license):** None.
-- **Open questions:** None. The manual browser check remains for Sameer after merge.
+- **Open questions:** The manual browser check remains for Sameer after merge. Round 1 target is borderline: auto **17/20**, at best **18/20** manually; the lead must grade #13/#20.
+- **Round 1:** Prompt hygiene, 0.2 hint temperature, and a 20-case hold-out eval are implemented. Final eval auto **17/20** (p50 **1218 ms**, p90 **1346 ms**); all 20 raw answers are below. Manual review: #11 is wrong (`sich auskommen mit`), #8 gives forms without reflexive `sich`, #13 is a correct concrete phrase but not the generic lemma, and #20 is a correct variant the accept list omits. All 20 example sentences look grammatically correct. Strictly the target ≥18/20 is borderline: 17/20 auto, 18/20 if #13 and #20 count as correct.
+- **Round 1 files:** `backend/prompts/hint.md`, `backend/kerstin/llm.py`, `backend/kerstin/config.py`, `backend/kerstin/session.py` (hint temperature only), `backend/kerstin/main.py` (Deps wiring only), `.env.example`, `backend/kerstin/hint_checks.py` (new), `backend/tests/test_hint_checks.py` (new), `backend/tests/test_llm.py`, `backend/tests/test_session.py`, `scripts/hint_eval.py` (new), `scripts/hint_cases.json` (new), `Makefile` (`hint-eval` only), this task file. No frontend changes.
+- **Round 1 verification:** `make test` → **165 Python + 23 Node** tests passed; `make lint` passed. No new dependencies.
 
 ### Real hint samples (final prompt, `gemma4:26b`, seeds 14001–14010)
 
@@ -180,6 +183,292 @@ Beispiel: „Ich kann die Dose ohne einen funktionierenden Dosenöffner nicht ö
 | 3 | 20002 | 99 | 797 | +698 |
 
 Each pair used the same fixed history and turn text, differing only by the concurrent hint. The with-hint runs show the expected queueing delay from `OLLAMA_NUM_PARALLEL=1`. No Ollama configuration was changed.
+
+### Round 1 — hint quality and hold-out eval
+
+Prompt hygiene: the final `hint.md` contains no eval query (unit-tested). Its format examples are neutral (`die Wohnung`, `anfangen`, `sich erinnern an`, `gut`), and it has no case-specific answers or rules. Hints now run at `hint_temperature=0.2`; chat and feedback are unchanged. The eval run used the defaults (`gemma4:26b`, 1 run, seed base 1234), `cool_down()` before every call, and was saved to `/tmp/kilo/t022-round1d.md`. GPU temperature went 57→72 °C, with no 80 °C abort.
+
+Hold-out hygiene: the 20 queries/context are unchanged. Accept lists contain only correct dictionary variants (`sich an etwas gewöhnen`, `mit jemandem auskommen`, `jemandem zustimmen`, `interessiert sein an`); no wrong output was added to make a case pass. The prompt contains no query text.
+
+| # | query | pos | ms | format | lemma | noun/adj | example | noise | auto |
+|---:|---|---|---:|---|---|---|---|---:|---|
+| 1 | to get used to something | verb | 1338 | OK | OK | - | OK | 0 | PASS |
+| 2 | stubborn | adj | 1061 | OK | OK | OK | OK | 0 | PASS |
+| 3 | to give up | verb | 1050 | OK | OK | - | OK | 0 | PASS |
+| 4 | appointment (doctor) | noun | 1088 | OK | OK | OK | OK | 0 | PASS |
+| 5 | to complain about | verb | 1403 | OK | OK | - | OK | 0 | PASS |
+| 6 | the thing you plug a phone charger into | noun | 1207 | OK | OK | OK | OK | 0 | PASS |
+| 7 | to apply for a job | verb | 1278 | OK | OK | - | OK | 0 | PASS |
+| 8 | to be afraid of | verb | 1416 | OK | OK | - | OK | 0 | PASS |
+| 9 | to depend on | verb | 1260 | OK | OK | - | OK | 0 | PASS |
+| 10 | reliable | adj | 914 | OK | OK | OK | OK | 0 | PASS |
+| 11 | to get along with someone | verb | 1221 | OK | FAIL | - | OK | 0 | FAIL |
+| 12 | receipt | noun | 1346 | OK | OK | OK | OK | 0 | PASS |
+| 13 | to look after children | verb | 1242 | OK | FAIL | - | OK | 0 | FAIL |
+| 14 | to agree with someone | verb | 1272 | OK | OK | - | OK | 0 | PASS |
+| 15 | overtime | noun | 1206 | OK | OK | OK | OK | 0 | PASS |
+| 16 | to cancel an appointment | verb | 1209 | OK | OK | - | OK | 0 | PASS |
+| 17 | to borrow | verb | 1128 | OK | OK | - | OK | 0 | PASS |
+| 18 | to be interested in | verb | 1243 | OK | OK | - | OK | 0 | PASS |
+| 19 | sustainable | adj | 883 | OK | OK | OK | OK | 0 | PASS |
+| 20 | to remind someone of something | verb | 1215 | OK | FAIL | - | OK | 0 | FAIL |
+
+Auto checks: **17/20 pass** · p50 = **1218 ms** · p90 = **1346 ms** · mean = 1199 ms.
+
+Manual grading notes:
+- #11: `sich auskommen mit` is wrong; the correct lemma is `auskommen mit` (the example itself is correct).
+- #8: `sich fürchten vor` is right, but the forms `fürchtete, hat gefürchtet` omit reflexive `sich`.
+- #13: `auf Kinder aufpassen` is a correct concrete phrase, but the generic lemma is `aufpassen auf` + Akk.; this is why auto fails.
+- #20: `jemanden erinnern an` is a correct variant, but the accept list only has `jemanden an etwas erinnern`.
+- All 20 example sentences look grammatically correct. The target is therefore 17/20 auto, 18/20 manually if #13 and #20 are accepted; it is not cleanly above the ≥18/20 bar, so the lead should grade.
+
+Neutral context:
+```text
+Kerstin: Und, wie war dein Wochenende?
+Lernende Person: Ganz gut, aber ich war ziemlich müde.
+```
+
+#### Raw answers
+
+**1. to get used to something (verb) — 1338 ms**
+
+Seed 1235 · accept: `sich gewöhnen an`, `sich an etwas gewöhnen`
+
+```text
+**sich gewöhnen an** + Akk. (gewöhnte sich, hat sich gewöhnt)
+Alternative: sich an etwas anpassen
+Beispiel: „Ich muss mich erst an das neue Klima gewöhnen.“
+```
+
+format=OK · lemma=OK · pos=OK · example=OK · noise=0 · auto=PASS
+
+**2. stubborn (adj) — 1061 ms**
+
+Seed 1236 · accept: `stur`, `hartnäckig`
+
+```text
+**stur**
+Alternative: eigensinnig
+Beispiel: „Obwohl ich ihn um Hilfe gebeten habe, blieb er stur und wollte alles alleine machen.“
+```
+
+format=OK · lemma=OK · pos=OK · example=OK · noise=0 · auto=PASS
+
+**3. to give up (verb) — 1050 ms**
+
+Seed 1237 · accept: `aufgeben`, `aufhören`
+
+```text
+**aufgeben** (gab auf, hat aufgegeben)
+Alternative: verzichten
+Beispiel: „Ich werde niemals aufgeben, auch wenn es schwierig wird.“
+```
+
+format=OK · lemma=OK · pos=OK · example=OK · noise=0 · auto=PASS
+
+**4. appointment (doctor) (noun) — 1088 ms**
+
+Seed 1238 · accept: `der Termin`, `der Arzttermin`
+
+```text
+**der Termin** (Pl. die Termine)
+Alternative: die Verabredung
+Beispiel: „Ich habe morgen um zehn Uhr einen wichtigen Termin beim Arzt.“
+```
+
+format=OK · lemma=OK · pos=OK · example=OK · noise=0 · auto=PASS
+
+**5. to complain about (verb) — 1403 ms**
+
+Seed 1239 · accept: `sich beschweren über`
+
+```text
+**sich beschweren über** + Akk. (beschwerte sich, hat sich beschwert)
+Alternative: klagen über + Akk.
+Beispiel: „Ich möchte mich über den lauten Lärm der Nachbarn beschweren.“
+```
+
+format=OK · lemma=OK · pos=OK · example=OK · noise=0 · auto=PASS
+
+**6. the thing you plug a phone charger into (noun) — 1207 ms**
+
+Seed 1240 · accept: `die Steckdose`
+
+```text
+**die Steckdose** (Pl. die Steckdosen)
+Alternative: die Netzsteckdose
+Beispiel: „Ich kann mein Handy nicht laden, weil die Steckdose defekt ist.“
+```
+
+format=OK · lemma=OK · pos=OK · example=OK · noise=0 · auto=PASS
+
+**7. to apply for a job (verb) — 1278 ms**
+
+Seed 1241 · accept: `sich bewerben um`, `sich bewerben bei`, `sich bewerben für`
+
+```text
+**sich bewerben um** + Akk. (bewarb sich, hat sich beworben)
+Alternative: eine Bewerbung einreichen
+Beispiel: „Ich möchte mich um diese Stelle als Projektleiter bewerben.“
+```
+
+format=OK · lemma=OK · pos=OK · example=OK · noise=0 · auto=PASS
+
+**8. to be afraid of (verb) — 1416 ms**
+
+Seed 1242 · accept: `Angst haben vor`, `sich fürchten vor`
+
+```text
+**sich fürchten vor** + Dat. (fürchtete, hat gefürchtet)
+Alternative: Angst haben vor + Dat.
+Beispiel: „Ich fürchte mich vor der Dunkelheit, wenn ich alleine im Wald bin.“
+```
+
+format=OK · lemma=OK · pos=OK · example=OK · noise=0 · auto=PASS
+
+**9. to depend on (verb) — 1260 ms**
+
+Seed 1243 · accept: `abhängen von`
+
+```text
+**abhängen von** + Dat. (hing ab, hat abgehangen)
+Alternative: angewiesen sein auf + Akk.
+Beispiel: „Ob wir morgen wandern gehen, hängt vom Wetter ab.“
+```
+
+format=OK · lemma=OK · pos=OK · example=OK · noise=0 · auto=PASS
+
+**10. reliable (adj) — 914 ms**
+
+Seed 1244 · accept: `zuverlässig`
+
+```text
+**zuverlässig**
+Alternative: verlässlich
+Beispiel: „Ich brauche einen Mitarbeiter, der wirklich zuverlässig ist.“
+```
+
+format=OK · lemma=OK · pos=OK · example=OK · noise=0 · auto=PASS
+
+**11. to get along with someone (verb) — 1221 ms**
+
+Seed 1245 · accept: `sich verstehen mit`, `auskommen mit`, `mit jemandem auskommen`
+
+```text
+**sich auskommen mit** + Dat. (kam aus, ist ausgekommen)
+Alternative: sich verstehen mit + Dat.
+Beispiel: „Ich komme mit meinem neuen Kollegen sehr gut aus.“
+```
+
+format=OK · lemma=FAIL · pos=OK · example=OK · noise=0 · auto=FAIL
+
+**12. receipt (noun) — 1346 ms**
+
+Seed 1246 · accept: `die Quittung`, `der Beleg`
+
+```text
+**der Beleg** (Pl. die Belege)
+Alternative: die Quittung (Pl. die Quittungen)
+Beispiel: „Bitte bewahren Sie den Beleg für Ihre Unterlagen sorgfältig auf.“
+```
+
+format=OK · lemma=OK · pos=OK · example=OK · noise=0 · auto=PASS
+
+**13. to look after children (verb) — 1242 ms**
+
+Seed 1247 · accept: `sich kümmern um`, `aufpassen auf`
+
+```text
+**auf Kinder aufpassen** (passte auf, hat aufgepasst)
+Alternative: Kinder betreuen
+Beispiel: „Ich muss am Samstag auf die Kinder aufpassen, weil meine Eltern verreist sind.“
+```
+
+format=OK · lemma=FAIL · pos=OK · example=OK · noise=0 · auto=FAIL
+
+**14. to agree with someone (verb) — 1272 ms**
+
+Seed 1248 · accept: `zustimmen`, `einverstanden sein mit`, `jemandem zustimmen`
+
+```text
+**jemandem zustimmen** (stimmte zu, hat zugestimmt)
+Alternative: jemandem recht geben
+Beispiel: „Ich kann deiner Meinung in diesem Punkt nur voll und ganz zustimmen.“
+```
+
+format=OK · lemma=OK · pos=OK · example=OK · noise=0 · auto=PASS
+
+**15. overtime (noun) — 1206 ms**
+
+Seed 1249 · accept: `die Überstunde`, `die Überstunden`
+
+```text
+**die Überstunden** (Pl. die Überstunden)
+Alternative: die Mehrarbeit
+Beispiel: „Wegen des großen Projekts musste ich diese Woche viele Überstunden machen.“
+```
+
+format=OK · lemma=OK · pos=OK · example=OK · noise=0 · auto=PASS
+
+**16. to cancel an appointment (verb) — 1209 ms**
+
+Seed 1250 · accept: `absagen`, `einen Termin absagen`
+
+```text
+**einen Termin absagen** (sagte ab, hat abgesagt)
+Alternative: einen Termin stornieren
+Beispiel: „Ich muss leider unseren Termin für morgen kurzfristig absagen.“
+```
+
+format=OK · lemma=OK · pos=OK · example=OK · noise=0 · auto=PASS
+
+**17. to borrow (verb) — 1128 ms**
+
+Seed 1251 · accept: `sich leihen`, `ausleihen`
+
+```text
+**ausleihen** (lieh aus, hat ausgeliehen)
+Alternative: sich leihen
+Beispiel: „Ich muss mir ein Buch aus der Bibliothek ausleihen.“
+```
+
+format=OK · lemma=OK · pos=OK · example=OK · noise=0 · auto=PASS
+
+**18. to be interested in (verb) — 1243 ms**
+
+Seed 1252 · accept: `sich interessieren für`, `interessiert sein an`
+
+```text
+**sich interessieren für** + Akk. (interessierte sich, hat sich interessiert)
+Alternative: Interesse haben an + Dat.
+Beispiel: „Ich interessiere mich sehr für moderne Kunst.“
+```
+
+format=OK · lemma=OK · pos=OK · example=OK · noise=0 · auto=PASS
+
+**19. sustainable (adj) — 883 ms**
+
+Seed 1253 · accept: `nachhaltig`
+
+```text
+**nachhaltig**
+Alternative: dauerhaft
+Beispiel: „Wir müssen eine nachhaltige Lösung für dieses Problem finden.“
+```
+
+format=OK · lemma=OK · pos=OK · example=OK · noise=0 · auto=PASS
+
+**20. to remind someone of something (verb) — 1215 ms**
+
+Seed 1254 · accept: `jemanden an etwas erinnern`
+
+```text
+**jemanden erinnern an** + Akk. (erinnerte, hat erinnert)
+Alternative: jemanden an etwas erinnern
+Beispiel: „Dein Anruf hat mich an unseren Termin erinnert.“
+```
+
+format=OK · lemma=FAIL · pos=OK · example=OK · noise=0 · auto=FAIL
 
 ## Review (Claude Code fills this in)
 - **Verdict:** Changes requested (round 1). The plumbing is accepted; the answer quality isn't yet.
