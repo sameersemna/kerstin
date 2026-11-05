@@ -132,6 +132,20 @@ async def test_opener_and_turn():
     assert "Kreuzberg" in llm.last_messages[0]["content"]
 
 
+async def test_first_clause_is_sent_as_its_own_chunk():
+    llm = FakeLLM(["Das klingt wirklich schön, ", "weil ich gern Rad fahre."])
+    s, js, _ = make_session(llm)
+    await s.start()
+    await s.handle_audio(PCM_1S)
+    await s._turn_task
+    texts = [m["text"] for m in js if m["type"] == "reply_text" and m["turn"] == 1]
+    assert texts == ["Das klingt wirklich schön,", "weil ich gern Rad fahre."]
+    assert s.history[-1] == {
+        "role": "assistant",
+        "content": "Das klingt wirklich schön, weil ich gern Rad fahre.",
+    }
+
+
 async def test_barge_in_cancels_turn():
     llm = FakeLLM(["Das ist ein langer Satz, der langsam kommt. "] * 20, delay=0.05)
     s, js, _ = make_session(llm)

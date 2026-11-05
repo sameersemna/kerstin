@@ -41,6 +41,7 @@ async def lifespan(app: FastAPI):
         prompts=PromptStore(settings.prompts_dir),
         history_max_turns=settings.history_max_turns,
         llm_warmup=settings.llm_warmup,
+        first_clause_min_words=settings.tts_first_clause_min_words,
     )
     log.info(
         "Kerstin %s ready: model=%s stt=%s tts=%s",

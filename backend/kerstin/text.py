@@ -54,9 +54,36 @@ class SentenceSplitter:
     Call .flush() at the end of the stream to get the remainder.
     """
 
-    def __init__(self, min_chars: int = MIN_SENTENCE_CHARS) -> None:
+    def __init__(
+        self,
+        min_chars: int = MIN_SENTENCE_CHARS,
+        first_clause_min_words: int = 0,
+    ) -> None:
         self.buf = ""
         self.min_chars = min_chars
+        self.first_clause_min_words = first_clause_min_words
+        self._emitted = False
+
+    def _is_clause_boundary(self, i: int, start: int) -> bool:
+        ch = self.buf[i]
+        if ch in ",;:":
+            if (
+                ch == ","
+                and i > 0
+                and i + 1 < len(self.buf)
+                and self.buf[i - 1].isdigit()
+                and self.buf[i + 1].isdigit()
+            ):
+                return False
+            return i + 1 < len(self.buf) and self.buf[i + 1].isspace()
+        if ch in "–-":
+            return (
+                i > start
+                and self.buf[i - 1].isspace()
+                and i + 1 < len(self.buf)
+                and self.buf[i + 1].isspace()
+            )
+        return False
 
     def feed(self, chunk: str) -> list[str]:
         self.buf += chunk
@@ -75,12 +102,24 @@ class SentenceSplitter:
                     if len(candidate) >= self.min_chars:
                         out.append(candidate)
                         start = j + 1
+                        self._emitted = True
                     i = j
             elif ch == "\n" and self.buf[start:i].strip():
                 candidate = self.buf[start:i].strip()
                 if len(candidate) >= self.min_chars:
                     out.append(candidate)
                     start = i + 1
+                    self._emitted = True
+            elif (
+                self.first_clause_min_words > 0
+                and not self._emitted
+                and self._is_clause_boundary(i, start)
+            ):
+                before = self.buf[start:i].strip()
+                if len(before.split()) >= self.first_clause_min_words:
+                    out.append(self.buf[start : i + 1].strip())
+                    start = i + 1
+                    self._emitted = True
             i += 1
         self.buf = self.buf[start:]
         return out
@@ -88,6 +127,8 @@ class SentenceSplitter:
     def flush(self) -> list[str]:
         rest = self.buf.strip()
         self.buf = ""
+        if rest:
+            self._emitted = True
         return [rest] if rest else []
 
 

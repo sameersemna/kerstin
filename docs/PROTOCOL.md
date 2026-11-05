@@ -24,7 +24,7 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 | **binary** | `[4-byte big-endian uint32 turn id][WAV file]` — one sentence of audio. Drop if turn id < current turn. |
 | `{"type":"reply_done","turn"}` | Reply finished. |
 | `{"type":"reply_interrupted","turn"}` | Reply cancelled by barge-in. |
-| `{"type":"metrics","turn","audio_s","stt_ms","llm_first_token_ms","first_sentence_ms","tts_first_ms","first_audio_ms","total_ms","sentences"}` | Timings (ms measured from server receiving the utterance). `first_sentence_ms` = first complete sentence available to the consumer; `tts_first_ms` = duration of the first sentence's TTS call. |
+| `{"type":"metrics","turn","audio_s","stt_ms","llm_first_token_ms","first_sentence_ms","tts_first_ms","first_audio_ms","total_ms","sentences"}` | Timings (ms measured from server receiving the utterance). `first_sentence_ms` = first spoken chunk (early clause or sentence) available to the consumer; `tts_first_ms` = duration of that first chunk's TTS call. |
 | `{"type":"feedback","markdown"}` | End-of-session report. |
 | `{"type":"error","message","turn"?}` | Error. |
 | `{"type":"pong"}` | Reply to ping. |
