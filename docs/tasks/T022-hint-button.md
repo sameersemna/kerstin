@@ -471,7 +471,20 @@ Beispiel: „Dein Anruf hat mich an unseren Termin erinnert.“
 format=OK · lemma=FAIL · pos=OK · example=OK · noise=0 · auto=FAIL
 
 ## Review (Claude Code fills this in)
-- **Verdict:** Changes requested (round 1). The plumbing is accepted; the answer quality isn't yet.
+- **Verdict:** Accepted after round 1 + a lead prompt edit (2026-11-05). The quality target was missed by one case; that's documented, not hidden.
+- **Round 1 check (lead-graded, all 20 answers):**
+  - Kilo's prompt:
+    - 0 wrong example sentences (round 0: 2 of 6 fresh queries taught errors);
+    - 17/20 correct headwords: wrong are #11 *sich auskommen mit*, #8 forms without *sich*, #15 plural as headword;
+    - the optional "Alternative" line was often misleading: *Verabredung* for a doctor's appointment, *verzichten* for give up, *dauerhaft* for sustainable.
+  - **Lead edit to `hint.md`:** drop the Alternative line (exactly 2 lines: headword + example); nothing else changed. A broader edit that also touched the check sentence was tried first and caused 2 wrong example sentences, so it was reverted.
+  - **Final** (`--runs 2`, 40 answers, temperature 0.2 so the runs are nearly identical):
+    - 17/20 cases fully correct;
+    - **1 case teaches an error:** #11 "to get along with" → „sich mit jemandem auskommen“ with the example „Ich kann mich mit … auskommen“, in both runs. This is a stable model belief; fixing it would need a case-specific rule, which the task forbids;
+    - minor: #15 headword in plural, #16 no verb forms;
+    - p50/p90 884/1085 ms.
+  - **Mitigation:** the hint box shows „KI-Antwort – kann Fehler enthalten. Im Zweifel im Wörterbuch prüfen.“ A stronger model for hints/feedback can be judged with `make hint-eval` (T011).
+- **Round 0 notes:**
 - **Notes:**
   - **What's good:** the server/UI code is clean and matches the spec. Hints are isolated from history, turns, playback and the mic gate (tested). The single-pass placeholder replacement is better than the spec. 149 Python + 23 JS tests and lint pass. The concurrent-turn delay is +673 ms mean.
   - **Why the 10 samples are weak evidence:**

@@ -68,6 +68,7 @@ aside { display: flex; flex-direction: column; gap: 12px; }
 .hint-query { color: var(--muted); font-size: .8rem; }
 .hint-query strong { color: var(--ink); }
 .hint-answer p { margin: 4px 0; }
+.hint-note { margin: 8px 0 0; color: var(--muted); font-size: .75rem; }
 .hint-error { color: var(--warn); margin-top: 4px; }
 .feedback { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: .92rem; }
 .feedback h3, .feedback h4 { margin: 0 0 6px; line-height: 1.3; }
