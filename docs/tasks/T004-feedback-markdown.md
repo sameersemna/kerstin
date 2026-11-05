@@ -85,13 +85,188 @@ The end-of-session feedback shows as formatted text (headings, lists, bold, ✅/
 End a short conversation: the feedback shows headings, bullet lists with the ❌/✅/💡 lines indented under each error, and no `###` or `**` visible.
 
 ## Worker report (Kilo Code fills this in)
-- **Changed files:**
-- **How tested:**
-- **Measurements (if any):**
-- **Deviations from spec / extra files touched:**
-- **New dependencies (+license):**
-- **Open questions:**
+- **Changed files:** `frontend/markdown.js` (new), `frontend/tests/markdown.test.js` (new), `frontend/app.js` (feedback case only), `frontend/index.html` (script tag only), `frontend/style.css` (`.feedback` rules only), this task file.
+- **How tested:** `make test` → 110 Python tests + 23 Node tests passed; `make lint` passed. Parser, real-shape, safety and fake-DOM render tests all pass. `grep -n "innerHTML" frontend/markdown.js` returns nothing; the feedback path in `app.js` uses `replaceChildren(renderMarkdown(...))` with a `textContent` fallback. The three feedbacks were generated with a throwaway heredoc (no committed script), checked with `nvidia-smi --query-gpu=temperature.gpu` before and after each call, and parsed with the Node module. Trailing hard-break spaces are trimmed by the parser.
+- **Measurements (if any):** Real feedback GPU temperatures: 46→62 °C, 62→66 °C, 66→71 °C; all below the 76 °C stop threshold.
+- **Deviations from spec / extra files touched:** Real feedback used indented non-bullet `✅`/`💡` continuation lines; these become child `para` blocks (max nesting remains 2 list levels), with a test added. Real feedback also nested `**...**` inside `*...*`; these are flattened to `em`/`strong`/`em` spans so no literal `**` is visible, with a test added.
+- **New dependencies (+license):** None.
+- **Open questions:** None.
+
+### Real-feedback checks
+
+#### Feedback 1 (46→62 °C)
+Raw:
+```markdown
+### Was gut war
+- Die Lernende Person verwendet korrekte Zeitformen (Präteritum und Futur I).
+- Die Sätze sind klar und verständlich, mit guter Struktur.
+- Sie benutzt Nebensätze (z. B. „weil ich bin sehr müde von meinem Job“) korrekt und sinnvoll.
+
+### Wichtigste Fehler
+- ❌ Original: *„weil ich bin sehr müde von meinem Job“*  
+  ✅ Korrektur: *„weil ich sehr müde von meinem Job bin“*  
+  💡 Die Satzstruktur im Nebensatz muss anders sein als im Hauptsatz: Verben wie „sein“ kommen am Ende.
+
+- ❌ Original: *„obwohl ich habe kein Geld“*  
+  ✅ Korrektur: *„obwohl ich kein Geld habe“*  
+  💡 Im Nebensatz mit „obwohl“ steht das Verb am Ende, genauso wie bei „weil“.
+
+### Besser ausdrücken
+- „Ich habe gestern in die Stadt gegangen“ könnte klingen wie: *„Ich bin gestern in die Stadt gegangen“* – dies ist eine natürlichere Formulierung im Deutschen.
+- „Ich bin sehr müde von meinem Job“ könnte klingen wie: *„Ich bin von meinem Job sehr müde“* – umgangssprachlicher und natürlicher.
+
+### Tipp für das nächste Gespräch
+Achte darauf, dass Verben im Nebensatz (z. B. nach „weil“ und „obwohl“) am Satzende stehen.
+```
+Blocks:
+```text
+heading level=3
+list unordered items=3
+  item children=0
+  item children=0
+  item children=0
+heading level=3
+list unordered items=1
+  item children=2
+    para
+    para
+list unordered items=1
+  item children=2
+    para
+    para
+heading level=3
+list unordered items=2
+  item children=0
+  item children=0
+heading level=3
+para
+```
+
+#### Feedback 2 (62→66 °C)
+Raw:
+```markdown
+### Was gut war
+- Die Lernende Person spricht klar und verständlich.
+- Sie nutzt eine Vielzahl von grammatisch korrekten Satzstrukturen.
+- Sie formuliert ihre Gedanken logisch und verständlich.
+
+### Wichtigste Fehler
+- ❌ *Ich wohne seit zwei Jahre in Berlin*  
+  ✅ *Ich wohne seit zwei **Jahren** in Berlin*  
+  💡 Die Zahl **zwei** muss mit dem Nominativ **Jahren** konjugiert werden, nicht mit dem Akkusativ.
+
+- ❌ *aber ich brauche mehr Geld*  
+  ✅ *aber ich **brauche** mehr Geld*  
+  💡 Es ist ein Satz mit **Präsens**, also korrekt. Fehler im Original nicht vorhanden.
+
+- ❌ *weil es gibt viele Möglichkeiten*  
+  ✅ *weil **es viele** Möglichkeiten gibt*  
+  💡 Die Satzstruktur „weil es gibt“ ist unüblich. Stattdessen wird „weil es **viele** Möglichkeiten gibt“ verwendet.
+
+### Besser ausdrücken
+- *Ich suche eine neue Arbeit, weil ich brauche mehr Geld*  
+  → *Ich suche eine neue Arbeit, weil ich **mehr Geld** brauche*
+
+- *es gibt viele Möglichkeiten*  
+  → *es **gibt viele** Möglichkeiten*
+
+### Tipp für das nächste Gespräch
+Achte darauf, dass die Zeitangaben korrekt konjugiert werden (z. B. „seit zwei Jahren“).
+```
+Blocks:
+```text
+heading level=3
+list unordered items=3
+  item children=0
+  item children=0
+  item children=0
+heading level=3
+list unordered items=1
+  item children=2
+    para
+    para
+list unordered items=1
+  item children=2
+    para
+    para
+list unordered items=1
+  item children=2
+    para
+    para
+heading level=3
+list unordered items=1
+  item children=1
+    para
+list unordered items=1
+  item children=1
+    para
+heading level=3
+para
+```
+
+#### Feedback 3 (66→71 °C)
+Raw:
+```markdown
+### Was gut war
+- Die lernende Person hat klar und verständlich gesprochen und sich gut in das Gespräch eingebracht.
+- Sie nutzt korrekt Vergangenheitsformen und Nebensätze (z. B. „weil sie mag Komödien“).
+- Die Aussagen sind logisch und folgen einer klaren Erzählstruktur.
+
+### Wichtigste Fehler
+- ❌ Original: *„obwohl die Geschichte war ein bisschen langsam“*  
+  ✅ Korrektur: *„obwohl die Geschichte ein bisschen langsam war“*  
+  💡 The correct word order in a subordinate clause with „obwohl“ requires the verb to be at the end.
+
+- ❌ Original: *„weil sie mag Komödien“*  
+  ✅ Korrektur: *„weil sie Komödien mag“*  
+  💡 In a subordinate clause introduced by „weil“, the verb comes at the end.
+
+- ❌ Original: *„Meine Schwester hat den Film besser gefunden als ich“*  
+  ✅ Korrektur: *„Meine Schwester hat den Film besser gefunden als ich ihn“*  
+  💡 When comparing with „als“, the pronoun „ihn“ should be used for clarity.
+
+### Besser ausdrücken
+- „Die Geschichte war ein bisschen langsam“ klingt natürlicher als „die Geschichte war ein bisschen langsam“.
+- „Wir haben viel gelacht“ könnte auch als „wir haben viel gelacht und uns gut unterhalten“ formuliert werden, um die Beschreibung zu bereichern.
+
+### Tipp für das nächste Gespräch
+Achte besonders auf die Satzstruktur in Nebensätzen (z. B. mit „obwohl“, „weil“ und „als“), insbesondere auf die Position des Verbs am Satzende.
+```
+Blocks:
+```text
+heading level=3
+list unordered items=3
+  item children=0
+  item children=0
+  item children=0
+heading level=3
+list unordered items=1
+  item children=2
+    para
+    para
+list unordered items=1
+  item children=2
+    para
+    para
+list unordered items=1
+  item children=2
+    para
+    para
+heading level=3
+list unordered items=2
+  item children=0
+  item children=0
+heading level=3
+para
+```
 
 ## Review (Claude Code fills this in)
-- **Verdict:**
-- **Notes:**
+- **Verdict:** Accepted (2026-11-05).
+- **Notes:** Diff is limited to allowed files; 110 Python + 23 JS tests and lint pass. No `innerHTML` in `markdown.js` or the feedback path (the remaining ones in `app.js` are pre-existing, static or server-controlled, and outside this task). Lead probes:
+  - `2*3*4` and `a_b_c` stay text;
+  - `**Original:** … *(Perfekt)*` parses correctly;
+  - an ordered ❌ list with indented ✅/💡 lines becomes child paragraphs;
+  - 4-level nesting is flattened to 2;
+  - a pathological 5k-`*` input takes 4 ms.
+
+  The two real-output fixes (indented continuation → child paragraph, `**` inside italics flattened) are good, and both came from real gemma4 output.

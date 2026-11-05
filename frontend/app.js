@@ -187,7 +187,11 @@ function handle(msg) {
       break;
     case "feedback":
       feedbackEl.hidden = false;
-      feedbackEl.textContent = msg.markdown; // TODO(ROADMAP): render markdown
+      try {
+        feedbackEl.replaceChildren(renderMarkdown(msg.markdown));
+      } catch {
+        feedbackEl.textContent = msg.markdown;
+      }
       setState("fertig", "idle");
       break;
     case "error":
