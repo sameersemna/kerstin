@@ -261,5 +261,12 @@ para
 ```
 
 ## Review (Claude Code fills this in)
-- **Verdict:**
-- **Notes:**
+- **Verdict:** Accepted (2026-11-05).
+- **Notes:** Diff is limited to allowed files; 110 Python + 23 JS tests and lint pass. No `innerHTML` in `markdown.js` or the feedback path (the remaining ones in `app.js` are pre-existing, static or server-controlled, and outside this task). Lead probes:
+  - `2*3*4` and `a_b_c` stay text;
+  - `**Original:** … *(Perfekt)*` parses correctly;
+  - an ordered ❌ list with indented ✅/💡 lines becomes child paragraphs;
+  - 4-level nesting is flattened to 2;
+  - a pathological 5k-`*` input takes 4 ms.
+
+  The two real-output fixes (indented continuation → child paragraph, `**` inside italics flattened) are good, and both came from real gemma4 output.
