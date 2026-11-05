@@ -173,5 +173,7 @@ Konzentriere dich darauf, die **Verbposition in Nebensätzen** (besonders bei �
 ```
 
 ## Review (Claude Code fills this in)
-- **Verdict:**
-- **Notes:**
+- **Verdict:** Accepted (2026-11-05).
+- **Notes:** Diff is limited to allowed files; 118 Python + 23 JS tests and lint pass. The placeholder is replaced before the transcript (tested). An invalid `feedback_lang` falls back without raising. Lead check of the German sample: all three planted errors were found with correct corrections in both languages, and the German 💡 explanations are correct (dative after *seit*, verb-final after *weil*). Two prompt issues were passed to T016:
+  - gemma emits LaTeX `$\rightarrow$`, which shows raw;
+  - the ❌/✅/💡 layout varies (sibling bullets vs nested).
