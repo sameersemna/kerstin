@@ -54,21 +54,68 @@ The page loads the VAD, ONNX runtime and Silero model from Kerstin's own server 
 - Anything on other services. This task touches no GPU and no Ollama.
 
 ## Acceptance criteria
-- [ ] `make test` and `make lint` pass.
-- [ ] `make vendor` on a clean checkout downloads, verifies and extracts. A second run is a no-op. A corrupted tarball (simulate by editing a pinned hash in a scratch copy) fails with exit 1 and leaves no partial files.
-- [ ] `grep -rn "jsdelivr\|unpkg\|https://" frontend/*.html frontend/*.js` → no hits.
-- [ ] Headless Chromium on port 8771: a session starts and VAD initialises **with outbound network to jsDelivr blocked** (e.g. Chromium `--host-resolver-rules="MAP cdn.jsdelivr.net 0.0.0.0"`). The network log shows only same-origin requests. Paste the log.
-- [ ] `curl -s https://localhost:8771/health -k | jq .frontend_vendor` → `true`, and `false` after temporarily moving `frontend/vendor` away.
-- [ ] `make check` shows the Frontend line.
-- [ ] Worker report filled in. No new dependencies (curl/tar only).
+- [x] `make test` and `make lint` pass.
+- [x] `make vendor` on a clean checkout downloads, verifies and extracts. A second run is a no-op. A corrupted tarball (simulate by editing a pinned hash in a scratch copy) fails with exit 1 and leaves no partial files.
+- [x] `grep -rn "jsdelivr\|unpkg\|https://" frontend/*.html frontend/*.js` → no hits.
+- [x] Headless Chromium on port 8771: a session starts and VAD initialises **with outbound network to jsDelivr blocked** (e.g. Chromium `--host-resolver-rules="MAP cdn.jsdelivr.net 0.0.0.0"`). The network log shows only same-origin requests. Paste the log.
+- [x] `curl -s https://localhost:8771/health -k | jq .frontend_vendor` → `true`, and `false` after temporarily moving `frontend/vendor` away.
+- [x] `make check` shows the Frontend line.
+- [x] Worker report filled in. No new dependencies (curl/tar only).
 
 ## Worker report (Kilo Code fills this in)
-- **Changed files:**
-- **How tested:**
-- **Measurements (if any):**
-- **Deviations from spec / extra files touched:**
-- **New dependencies (+license):**
-- **Open questions:**
+- **Changed files:** `scripts/get_frontend_vendor.sh` (new), `Makefile`, `.gitignore`, `frontend/index.html`, `frontend/app.js`, `backend/kerstin/main.py`, `scripts/check_env.sh`, `backend/tests/test_vendor.py` (new), `README.md`, `docs/LICENSES.md`, `docs/ARCHITECTURE.md`, `docs/STATUS.md`, this task file.
+- **How tested:** `make test` → 253 Python tests + 33 Node tests passed; `make lint` → ruff passed. `make vendor` downloaded and extracted the pinned assets; the second run printed both `exists` lines and did not download. A scratch copy with an edited vad-web SHA-512 exited 1 with `ERROR: SHA-512 mismatch for vad-web-0.0.22` and left no `frontend/vendor` directory. `grep -rn "jsdelivr\|unpkg\|https://" frontend/*.html frontend/*.js` has no hits. The blocked Chromium run logged only same-origin requests and `window.vad` was an object with state `hört zu …`. `/health` returned `true`, then `false` with `frontend/vendor` moved away, then `true` after restore. `make check` printed `[ok] vendor assets`. The `.wasm` response is `application/wasm`; the `.onnx` response is `application/octet-stream`.
+- **Page request log (unblocked, port 8771):**
+  - `/npm/onnxruntime-web@1.14.0/dist/ort.js` — 507,289 bytes, `application/javascript`
+  - `/npm/@ricky0123/vad-web@0.0.22/dist/bundle.min.js` — 5,115 bytes, `application/javascript`
+  - `/npm/@ricky0123/vad-web@0.0.22/dist/silero_vad_legacy.onnx` — 721,513 bytes, `application/octet-stream`
+  - `/npm/onnxruntime-web@1.14.0/dist/ort-wasm-simd.wasm` — 1,814,356 bytes, `application/wasm`
+  - Plus `vad-web/LICENSE` (1,896 bytes) and `onnxruntime-web/LICENSE` (1,073 bytes). The HTTP sizes above are transfer sizes; installed files are larger because the tarballs are compressed (e.g. `ort.js` 3,966,081 bytes, `ort-wasm-simd.wasm` 10,014,674 bytes on disk).
+- **Blocked Chromium network log** (`--host-resolver-rules="MAP cdn.jsdelivr.net 0.0.0.0"`):
+```text
+click: clicked
+page: {"vad":"object","state":"hört zu …","startDisabled":true}
+
+ALL_REQUESTS
+https://localhost:8771/	status=200	mime=text/html	size=4380	host=localhost
+https://localhost:8771/style.css	status=200	mime=text/css	size=6675	host=localhost
+https://localhost:8771/vendor/onnxruntime-web/ort.js	status=200	mime=text/javascript	size=3966335	host=localhost
+https://localhost:8771/vendor/vad-web/bundle.min.js	status=200	mime=text/javascript	size=19343	host=localhost
+https://localhost:8771/mic_gate.js	status=200	mime=text/javascript	size=2909	host=localhost
+https://localhost:8771/exam_ui.js	status=200	mime=text/javascript	size=2140	host=localhost
+https://localhost:8771/markdown.js	status=200	mime=text/javascript	size=9346	host=localhost
+https://localhost:8771/app.js	status=200	mime=text/javascript	size=27638	host=localhost
+https://localhost:8771/api/scenarios	status=200	mime=application/json	size=395	host=localhost
+https://localhost:8771/api/mistakes	status=200	mime=application/json	size=170	host=localhost
+https://localhost:8771/api/exams	status=200	mime=application/json	size=444	host=localhost
+https://localhost:8771/favicon.ico	status=404	mime=application/json	size=154	host=localhost
+https://localhost:8771/vendor/vad-web/silero_vad_legacy.onnx	status=200	mime=application/octet-stream	size=1807770	host=localhost
+https://localhost:8771/vendor/onnxruntime-web/ort-wasm-simd.wasm	status=200	mime=application/wasm	size=10014915	host=localhost
+
+EXTERNAL_REQUESTS
+(none)
+
+CDN_REQUESTS
+```
+- **MIME and health headers:**
+```text
+HTTP/1.1 200 OK
+content-type: application/wasm
+content-length: 10014674
+
+HTTP/1.1 200 OK
+content-type: application/octet-stream
+content-length: 1807522
+
+$ curl -sk https://localhost:8771/health | jq .frontend_vendor
+true
+false  # after temporarily moving frontend/vendor away
+true   # after restoring it
+```
+- **Measurements (if any):** Vendor download sizes: vad-web tarball 3.4 MB, onnxruntime-web tarball 15.8 MB; installed vendor directory contains the four page files plus two licenses. No latency/GPU changes.
+- **Deviations from spec / extra files touched:** The npm tarballs for these pinned versions do not contain a `LICENSE` file. The script therefore fetches the upstream license texts (vad-web at the package's `gitHead`, onnxruntime-web at `v1.14.0`) into each vendor directory. No binaries are committed; `frontend/vendor/` is gitignored. The pre-existing `.gitignore` `*.prs` change is still present but not staged.
+- **New dependencies (+license):** None. The script uses `curl`, `tar` and the standard `openssl`/`base64` utilities for SHA-512 verification; no npm or node.
+- **Open questions:** None.
 
 ## Review (Claude Code fills this in)
 - **Verdict:**

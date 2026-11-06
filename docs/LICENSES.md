@@ -20,3 +20,5 @@ Kerstin may become a public, paid service. Every shipped component must allow co
 | @ricky0123/vad-web | browser VAD | ISC | ✅ | |
 | Silero VAD model | VAD | MIT | ✅ | |
 | onnxruntime-web | browser runtime | MIT | ✅ | |
+
+The browser assets for `@ricky0123/vad-web`, the Silero VAD model and `onnxruntime-web` are downloaded by `make vendor` into `frontend/vendor/` (gitignored) together with each package's `LICENSE` file.

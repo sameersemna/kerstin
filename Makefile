@@ -1,4 +1,4 @@
-.PHONY: setup voice certs run test test-js lint check smoke bench persona-eval feedback-eval hint-eval exam-eval score-eval
+.PHONY: setup voice vendor certs run test test-js lint check smoke bench persona-eval feedback-eval hint-eval exam-eval score-eval
 
 VENV ?= .venv
 PY := $(VENV)/bin/python
@@ -10,7 +10,7 @@ HINT_ARGS ?=
 EXAM_ARGS ?=
 SCORE_ARGS ?=
 
-setup:            ## create venv and install backend + piper + dev deps
+setup:            ## create venv and install backend + piper + dev deps (then: make voice && make vendor)
 	python3 -m venv $(VENV)
 	$(PIP) install -U pip
 	$(PIP) install -e "backend[piper,dev]"
@@ -19,6 +19,9 @@ setup:            ## create venv and install backend + piper + dev deps
 
 voice:            ## download the default German Piper voice (thorsten-medium; `bash scripts/get_voice.sh high` for high)
 	bash scripts/get_voice.sh
+
+vendor:           ## download pinned browser VAD/ONNX assets into frontend/vendor
+	bash scripts/get_frontend_vendor.sh
 
 certs:            ## create local CA + server cert for HTTPS on the LAN (CERTS_ARGS="--dns host.fritz.box")
 	bash scripts/make_certs.sh $(CERTS_ARGS)

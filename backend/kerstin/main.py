@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import mimetypes
 import random
 from contextlib import asynccontextmanager
 
@@ -33,6 +34,17 @@ logging.basicConfig(
 log = logging.getLogger("kerstin")
 
 deps: Deps | None = None
+
+FRONTEND_VENDOR_FILES = (
+    "vad-web/bundle.min.js",
+    "vad-web/silero_vad_legacy.onnx",
+    "vad-web/LICENSE",
+    "onnxruntime-web/ort.js",
+    "onnxruntime-web/ort-wasm-simd.wasm",
+    "onnxruntime-web/LICENSE",
+)
+mimetypes.add_type("application/wasm", ".wasm")
+mimetypes.add_type("application/octet-stream", ".onnx")
 
 
 async def _focus_for_start(deps: Deps, use_focus: object) -> list[str]:
@@ -109,6 +121,10 @@ async def health() -> JSONResponse:
             "tts_backend": settings.tts_backend,
             "gpu_temp_c": gpu_temp_c,
             "thermal": thermal_state,
+            "frontend_vendor": all(
+                (settings.frontend_dir / "vendor" / name).is_file()
+                for name in FRONTEND_VENDOR_FILES
+            ),
         }
     )
 
