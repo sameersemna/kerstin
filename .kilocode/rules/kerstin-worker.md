@@ -14,6 +14,7 @@ You are the worker on Kerstin, a local German B2 speaking partner (Whisper → O
 - Write tests with fakes (see `backend/tests/test_session.py`). Tests must not need GPU, network, Ollama or audio devices.
 - No new dependency without a reason in the report and its license.
 - Never write audio or transcripts to disk by default. Never add telemetry.
+- Shared services (Ollama, whisper.cpp, nginx, other projects' models): never load, unload, restore or reconfigure anything that isn't Kerstin's own, even to "repair" a state that someone else changed. If the shared state changes during your work, **report it and stop**; Sameer decides.
 - Do not start GPU-heavy jobs (benchmarks, model downloads > 5 GB) unless the task says so — the GPU is shared and the machine shuts down above ~84 °C.
 
 ## Before reporting

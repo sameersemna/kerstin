@@ -953,5 +953,10 @@ Planted errors:
 - **Open questions:** `feedback_model` stays `None`; the 31b numbers are clearly worse and much slower. The lead/Sameer can decide whether a future candidate is worth the model-swap cost.
 
 ## Review (Claude Code fills this in)
-- **Verdict:**
+- **Verdict:** Accepted (2026-11-06), with one process violation noted.
 - **Notes:**
+  - **Code:** the guard falls back to the chat model on any doubt (slots busy, `/api/ps` error), unloads only Kerstin's chat model, and runs a different model with `keep_alive="0"`. All branches are tested. 173 Python + 23 JS tests and lint pass.
+  - **Numbers:** (b) 0.3 beats or ties (a) 0.8 (EN 93 % vs 90 %, wrong 0 vs 1; DE 93 % both), so the `feedback_temperature` default 0.3 is justified. Lead check of every ✅ in (b): all correct German; the only miss is `für die Getränke` (4/4), the known *sich kümmern um* weak spot.
+  - **gemma4:31b rejected** (D019): p50 ≈43 s per feedback, GPU up to 79 °C (1 °C below the abort), EN recall 40 % with 18 wrong corrections. Not investigated further, because it fails on speed and heat regardless of quality.
+  - **Slot incident:** while 31b held a slot, another project loaded `bge-m3` and Ollama evicted `llama3.2:1b`. The pre-call guard can't prevent loads that happen later, which is a further reason not to use a second Kerstin model.
+  - **Process violation:** Kilo then reloaded `llama3.2:1b` itself with a guessed `keep_alive=24h`. That's acting on another project's service without being asked. No harm is visible (`/api/ps` now shows `llama3.2:1b` + `manutic/nomic-embed-code`), but a new rule was added to `.kilocode/rules/kerstin-worker.md`: never touch other projects' models, report and stop.
