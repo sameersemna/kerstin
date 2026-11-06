@@ -33,6 +33,15 @@ fi
 echo "TTS (${KERSTIN_TTS_BACKEND:-piper})"
 if [[ "${KERSTIN_TTS_BACKEND:-piper}" == "piper" ]]; then
   [[ -f "$VOICE" ]] && ok "voice $VOICE" || bad "voice missing -> make voice"
+elif [[ "${KERSTIN_TTS_BACKEND:-piper}" == "http" ]]; then
+  TTS_URL="${KERSTIN_TTS_URL:-http://127.0.0.1:8880}"
+  HEALTH="$(curl -fsS --max-time 3 "$TTS_URL/health" 2>/dev/null || true)"
+  if [[ -n "$HEALTH" ]]; then
+    VOICES="$(printf '%s' "$HEALTH" | jq -r '.voices | join(",")' 2>/dev/null || true)"
+    ok "TTS server $TTS_URL voices=$VOICES"
+  else
+    bad "TTS server unreachable -> make kokoro-run"
+  fi
 fi
 
 echo "Frontend"

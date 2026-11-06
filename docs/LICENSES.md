@@ -15,7 +15,14 @@ Kerstin may become a public, paid service. Every shipped component must allow co
 | Ollama | LLM runtime | MIT | ✅ | |
 | piper-tts (piper1-gpl) | TTS engine | GPL-3.0 | ⚠️ | OK for a hosted service; distribution of a bundled app has GPL obligations. Original rhasspy/piper was MIT. |
 | Piper voices `de_DE-thorsten-medium` (default), `-high` | TTS voice | Thorsten dataset CC0 (check voice card) | ✅ (verify) | |
-| Kokoro-82M German ports | TTS alt | Apache 2.0 (check each fine-tune) | ✅ (verify) | |
+| Kokoro-82M base weights (`hexgrad/Kokoro-82M`) | TTS model | Apache-2.0 | ✅ (verify) | base of all Kokoro voices; check hexgrad's training-data statement (it mentions synthetic audio) in T043 |
+| kokoro (semidark fork) | TTS engine | Apache-2.0 | ✅ | pinned `b96fef95e6a746495f92443fac7c688f90fc57fc`; fork of hexgrad/kokoro for German |
+| misaki (semidark fork) | G2P | Apache-2.0 | ✅ | pinned `6d252a2e02f3b030f22f56686f1a73786c16ffc8`; uses espeak-ng |
+| espeak-ng | G2P runtime | GPL-3.0 | ⚠️ | same situation as Piper; system library, no bundling decided |
+| torch | TTS runtime | BSD-3-Clause | ✅ | CUDA wheel 2.9.1+cu130 in `.venv-kokoro` only |
+| Kokoro German Thorsten (`Thorsten-Voice/Kokoro`) | TTS voice | Apache-2.0; Thorsten-Voice dataset CC0 | ✅ | weights and dataset card saved under `voices/kokoro/thorsten/` |
+| Kokoro German Kerstin (`cryptomilk/kokoro-german-kerstin`) | TTS voice | Apache-2.0; Kerstin 1.0 dataset CC0-1.0 (real recordings) | ⚠️ verify | used as voicepack on stock `hexgrad/Kokoro-82M` weights. Its card names `kikiri-german-base-51speakers-synthetic` as base, which was "trained entirely on synthetic (TTS-generated) audio" from an **unnamed** TTS. Confirm that source TTS allows commercial use before going public (T043) |
+| Kokoro German Victoria (`kikiri-tts/kikiri-german-victoria`) | TTS voice | Apache-2.0 on weights; speaker is "synthetic", base trained on TTS-generated audio from an **unnamed** TTS | ❌ not for the default path | same provenance gap as the excluded Martin voice (T012). Evaluation only unless kikiri-tts names a commercially usable source TTS |
 | Coqui XTTS v2 | TTS | Coqui Public Model License | ❌ | non-commercial — do not use in default path |
 | @ricky0123/vad-web | browser VAD | ISC | ✅ | |
 | Silero VAD model | VAD | MIT | ✅ | |
