@@ -241,5 +241,11 @@ Meta-talk hits
 - **New dependencies (+license):** None.
 - **Open questions:** The `meta_talk` hits in (b)/(c) are all replies to the explicit `[Korrektur erlaubt]` learner turns; the lead should judge whether any are “genuine” focus leaks. The browser manual check remains for Sameer after merge.
 ## Review (Claude Code fills this in)
-- **Verdict:**
+- **Verdict:** Accepted (2026-11-06).
 - **Notes:**
+  - **Code:** the system prompt is built once per session and is identical for the warm-up and all turns (tested); the no-focus prompt is byte-identical; `use_focus` is strict; a lookup error → no focus. 206 Python + 23 JS tests and lint pass. First-token cost is +10/+14 ms.
+  - **Lead grading of the 30 (b) and 10 (c) replies:**
+    - German correct and natural; one borderline colloquial phrase in (c) S2-T1, „Zeit, dass wir uns das anschauen“;
+    - **no focus leak**: all 6 `meta_talk` hits (3 of them in the no-focus run (a)) answer explicit `[Korrektur erlaubt]` requests, the same as the baseline behaviour. Kerstin's habit of offering more corrections afterwards („Möchtest du, dass ich dich öfter korrigiere?“) predates T024 and is a persona topic, not part of this task;
+    - invite rate: verbposition 47 % vs 23 % (clear); perfekt+präposition 20 % vs 13 % (modest, criterion met).
+  - **Good catch by Kilo:** since T013's −55 dBFS gate, `persona_eval.py` had been feeding silent PCM that the gate dropped, so the eval was silently broken. It's fixed with a −6 dBFS buffer.
