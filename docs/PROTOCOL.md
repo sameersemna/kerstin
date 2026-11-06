@@ -6,20 +6,23 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 
 | Frame | Meaning |
 |---|---|
-| `{"type":"start","scenario":"<key>","use_focus"?}` | Start (or restart) a session. Keys from `GET /api/scenarios`. `use_focus` is opt-in, strict boolean, and defaults to off. |
+| `{"type":"start","scenario":"<key>","use_focus"?,"exam"?:"<preset key>","exam_seed"?}` | Start (or restart) a session. Keys from `GET /api/scenarios`. `use_focus` is opt-in, strict boolean, and defaults to off. `exam` selects an exam preset; `exam_seed` is for the eval/tests only. An unknown preset returns `error`. |
 | **binary** | One complete learner utterance: 16 kHz, mono, signed 16-bit little-endian PCM, no header. Implicitly starts turn `n+1` and cancels any running turn. |
 | `{"type":"interrupt"}` | Learner barged in; cancel the running turn. |
 | `{"type":"hint","query"}` | Typed word/phrase lookup; text only, outside the conversation. |
 | `{"type":"end","feedback_lang"?:"en"\|"de","save_mistakes"?}` | End the conversation and request feedback. Invalid values use the server default. `save_mistakes` is opt-in and defaults to `false`. |
+| `{"type":"exam_next"}` | In exam mode: finish or advance the current part. Outside exam mode it returns `error`. |
 | `{"type":"ping"}` | Keepalive → `pong`. |
 
 ## Server → client
 
 | Frame | Meaning |
 |---|---|
-| `{"type":"session","scenario","title","focus":[...]}` | Session started; reset UI, `turn = 0`. `focus` is the list of active focus labels, empty when off. |
+| `{"type":"session","scenario","title","focus":[...],"exam"?}` | Session started; reset UI, `turn = 0`. `focus` is the list of active focus labels, empty when off. `exam` has `{preset,title,note,parts:[{kind,title,seconds}]}` when exam mode is active. |
 | `{"type":"status","state":"transcribing"\|"thinking"\|"feedback_running","turn"}` | Progress hints. |
 | `{"type":"transcript","turn","text"}` | What STT heard. |
+| `{"type":"collected","turn"}` | Exam collect mode: the utterance was stored and no LLM call was made. |
+| `{"type":"exam_part","index"?, "kind","title"?,"seconds"?,"ui_text"?,"card"?}` | Exam part entered. `card` is the learner's card for `prep`/`learner_talk`/`dialog`, Kerstin's card title only for `kerstin_talk`, or `null`; `kind:"done"` has no index/card. |
 | `{"type":"stt_empty","turn","reason"?}` | Nothing recognized. Optional `reason`: `too_short`, `too_quiet`, `tags_only`, `hallucination`, `echo` or `empty`. |
 | `{"type":"thermal","state":"hot","temp_c","turn"?}` | GPU too hot; no new STT/LLM work. `turn` is absent for `start`/`feedback`. |
 | `{"type":"reply_text","turn","text"}` | One sentence of Kerstin's reply (sent just before its audio). Turn 0 = opener. |
@@ -34,7 +37,7 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 | `{"type":"pong"}` | Reply to ping. |
 
 ## Turn ids
-Both sides start at 0 after `session`. Each binary utterance from the client increments the turn on both sides (the server increments even if the utterance is too short and ignored, to stay in sync).
+Both sides start at 0 after `session`. Each binary utterance from the client increments the turn on both sides (the server increments even if the utterance is too short and ignored, to stay in sync). In exam mode, server-initiated Kerstin turns (her talk, part openers and follow-up) also increment the server turn id.
 
 ## HTTP
 - `GET /health` → Ollama reachability, model presence, configured backends, `gpu_temp_c` (number or null) and `thermal` (`ok|hot|unknown|disabled`).

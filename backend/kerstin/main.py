@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Response, WebSocket, WebSocketDisconnect
@@ -16,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import __version__
 from .config import settings
+from .exam import load_presets, make_plan
 from .llm import OllamaLLM
 from .mistakes import MistakeLog, pick_focus
 from .prompts import PromptStore
@@ -179,17 +181,46 @@ async def ws_endpoint(ws: WebSocket) -> None:
             if kind == "start":
                 if session:
                     await session.close()
-                focus = await _focus_for_start(deps, data.get("use_focus"))
+                exam_key = data.get("exam")
+                plan = None
+                if exam_key is not None:
+                    if not isinstance(exam_key, str):
+                        session = None
+                        await send_json(
+                            {"type": "error", "message": "exam must be a preset key"}
+                        )
+                        continue
+                    try:
+                        catalog = load_presets(settings.prompts_dir)
+                        seed = data.get("exam_seed")
+                        if not isinstance(seed, int) or isinstance(seed, bool):
+                            seed = random.randrange(0, 2**31)
+                        plan = make_plan(exam_key, catalog, seed)
+                    except ValueError as exc:
+                        session = None
+                        await send_json({"type": "error", "message": str(exc)})
+                        continue
+                    focus = []
+                else:
+                    focus = await _focus_for_start(deps, data.get("use_focus"))
                 session = Session(
                     deps=deps,
                     send_json=send_json,
                     send_bytes=send_bytes,
                     scenario_key=data.get("scenario") or settings.default_scenario,
                     focus=focus,
+                    exam=plan,
                 )
                 await session.start()
             elif kind == "interrupt" and session:
                 await session.interrupt()
+            elif kind == "exam_next":
+                if session and session.exam is not None:
+                    await session.exam_next()
+                else:
+                    await send_json(
+                        {"type": "error", "message": "exam_next outside exam mode"}
+                    )
             elif kind == "hint":
                 if session:
                     await session.hint(str(data.get("query") or ""))

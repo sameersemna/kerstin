@@ -1,0 +1,301 @@
+{
+  "greeting": "Hallo, ich bin Kerstin. Ich mache die Prüfung heute mit dir – viel Erfolg uns beiden!",
+  "presets": {
+    "praesentation_diskussion_planung": {
+      "title": "Präsentation, Diskussion und Planung",
+      "note": "Angelehnt an gängige B2-Prüfungsformate – keine offizielle Prüfung.",
+      "parts": [
+        {
+          "kind": "prep",
+          "title": "Vorbereitung",
+          "seconds": 300,
+          "ui_text": "Du siehst deine Karte und bereitest deinen Kurzvortrag vor."
+        },
+        {
+          "kind": "learner_talk",
+          "title": "Dein Kurzvortrag",
+          "seconds": 120,
+          "ui_text": "Halte deinen Kurzvortrag. Kerstin hört zu."
+        },
+        {
+          "kind": "kerstin_talk",
+          "title": "Kerstins Kurzvortrag",
+          "seconds": 120,
+          "talk_words": 130,
+          "ui_text": "Kerstin hält ihren Kurzvortrag. Danach kannst du Fragen stellen."
+        },
+        {
+          "kind": "dialog",
+          "title": "Diskussion",
+          "seconds": 300,
+          "ui_text": "Diskutiert das Thema mit klaren Positionen."
+        },
+        {
+          "kind": "dialog",
+          "title": "Gemeinsam planen",
+          "seconds": 300,
+          "ui_text": "Plant gemeinsam eine Aufgabe und macht konkrete Vorschläge."
+        }
+      ]
+    },
+    "vortrag_diskussion": {
+      "title": "Vortrag und Diskussion",
+      "note": "Angelehnt an gängige B2-Prüfungsformate – keine offizielle Prüfung.",
+      "parts": [
+        {
+          "kind": "prep",
+          "title": "Vorbereitung",
+          "seconds": 300,
+          "ui_text": "Du siehst deine Karte und bereitest deinen Kurzvortrag vor."
+        },
+        {
+          "kind": "learner_talk",
+          "title": "Dein Kurzvortrag",
+          "seconds": 240,
+          "ui_text": "Halte deinen Kurzvortrag. Kerstin hört zu."
+        },
+        {
+          "kind": "kerstin_talk",
+          "title": "Kerstins Kurzvortrag",
+          "seconds": 150,
+          "talk_words": 170,
+          "ui_text": "Kerstin hält ihren Kurzvortrag. Danach kannst du Fragen stellen."
+        },
+        {
+          "kind": "dialog",
+          "title": "Diskussion",
+          "seconds": 300,
+          "ui_text": "Diskutiert das Thema mit klaren Positionen."
+        }
+      ]
+    }
+  },
+  "pools": {
+    "talk_topics": [
+      {
+        "title": "Arbeit im Homeoffice",
+        "points": [
+          "Situation in deinem Heimatland",
+          "Vor- und Nachteile",
+          "eigene Erfahrung",
+          "deine Meinung"
+        ]
+      },
+      {
+        "title": "Wohnen in der Stadt",
+        "points": [
+          "Situation in deinem Heimatland",
+          "Vor- und Nachteile",
+          "eigene Erfahrung",
+          "deine Meinung"
+        ]
+      },
+      {
+        "title": "Soziale Medien",
+        "points": [
+          "Nutzung in deinem Alltag",
+          "Chancen und Risiken",
+          "eigene Erfahrung",
+          "deine Meinung"
+        ]
+      },
+      {
+        "title": "Umwelt im Alltag",
+        "points": [
+          "Situation in deinem Heimatland",
+          "was du selbst tust",
+          "Vor- und Nachteile",
+          "deine Meinung"
+        ]
+      },
+      {
+        "title": "Freizeit und Sport",
+        "points": [
+          "was du gern machst",
+          "Angebote in deiner Stadt",
+          "Bedeutung für dich",
+          "deine Meinung"
+        ]
+      },
+      {
+        "title": "Lernen und Bildung",
+        "points": [
+          "Schule in deinem Heimatland",
+          "was dir geholfen hat",
+          "Herausforderungen",
+          "deine Meinung"
+        ]
+      },
+      {
+        "title": "Gesundheit und Alltag",
+        "points": [
+          "was dir wichtig ist",
+          "Gewohnheiten",
+          "Herausforderungen",
+          "deine Meinung"
+        ]
+      },
+      {
+        "title": "Reisen und Urlaub",
+        "points": [
+          "beliebte Reiseziele",
+          "eigene Erfahrung",
+          "Vor- und Nachteile",
+          "deine Meinung"
+        ]
+      }
+    ],
+    "kerstin_topics": [
+      {
+        "title": "Mein Weg nach Berlin",
+        "points": [
+          "warum ich nach Berlin gekommen bin",
+          "was mir am Anfang schwerfiel",
+          "was mir heute gefällt",
+          "mein Tipp für Neuzugezogene"
+        ]
+      },
+      {
+        "title": "Arbeiten im Start-up",
+        "points": [
+          "meine Aufgaben",
+          "was mir gefällt",
+          "was schwierig ist",
+          "mein Traum für die Zukunft"
+        ]
+      },
+      {
+        "title": "Bouldern und Alltag",
+        "points": [
+          "wie ich zum Bouldern kam",
+          "was mir daran gefällt",
+          "wie oft ich gehe",
+          "was ich dabei gelernt habe"
+        ]
+      },
+      {
+        "title": "Wohnungssuche in Berlin",
+        "points": [
+          "wie ich meine Wohnung gefunden habe",
+          "was schwierig war",
+          "was ich gelernt habe",
+          "mein Tipp"
+        ]
+      }
+    ],
+    "discussion_questions": [
+      {
+        "question": "Sollten Städte autofreie Zonen einrichten?",
+        "aspects": [
+          "Verkehr und Umwelt",
+          "Geschäfte und Anwohner"
+        ]
+      },
+      {
+        "question": "Ist Homeoffice gut für alle?",
+        "aspects": [
+          "Produktivität",
+          "Team und Kontakt"
+        ]
+      },
+      {
+        "question": "Sollten soziale Medien erst ab 16 erlaubt sein?",
+        "aspects": [
+          "Schutz",
+          "Freiheit"
+        ]
+      },
+      {
+        "question": "Muss man im Urlaub immer weit reisen?",
+        "aspects": [
+          "Erholung",
+          "Umwelt"
+        ]
+      },
+      {
+        "question": "Sollten Schulen mehr praktische Fächer anbieten?",
+        "aspects": [
+          "Vorbereitung",
+          "Zeit"
+        ]
+      },
+      {
+        "question": "Ist es besser, in der Stadt oder auf dem Land zu wohnen?",
+        "aspects": [
+          "Alltag",
+          "Kosten"
+        ]
+      },
+      {
+        "question": "Sollen Unternehmen vier Tage pro Woche arbeiten?",
+        "aspects": [
+          "Belastung",
+          "Wirtschaft"
+        ]
+      },
+      {
+        "question": "Sollten alle Studierenden ein Auslandssemester machen?",
+        "aspects": [
+          "Erfahrung",
+          "Kosten"
+        ]
+      }
+    ],
+    "planning_tasks": [
+      {
+        "situation": "Der Deutschkurs endet nächsten Monat. Plant gemeinsam ein Abschiedsfest.",
+        "points": [
+          "Ort",
+          "Essen und Getränke",
+          "Programm",
+          "Aufgaben und Kosten"
+        ]
+      },
+      {
+        "situation": "Ihr wollt ein Wochenende mit Freunden verbringen. Plant die Reise gemeinsam.",
+        "points": [
+          "Ziel",
+          "Unterkunft",
+          "Anreise",
+          "Aktivitäten"
+        ]
+      },
+      {
+        "situation": "Das Team möchte einmal im Monat gemeinsam frühstücken. Plant das Frühstück.",
+        "points": [
+          "Termin",
+          "Einkauf",
+          "Ort",
+          "Aufgaben"
+        ]
+      },
+      {
+        "situation": "Ihr möchtet einen Tagesausflug in die Umgebung machen. Plant den Ausflug.",
+        "points": [
+          "Ziel",
+          "Transport",
+          "Essen",
+          "Zeitplan"
+        ]
+      },
+      {
+        "situation": "Die Klasse möchte ein kleines Lernprojekt machen. Plant das Projekt.",
+        "points": [
+          "Thema",
+          "Aufgaben",
+          "Material",
+          "Präsentation"
+        ]
+      },
+      {
+        "situation": "Neue Kolleginnen fangen nächste Woche an. Plant eine kleine Willkommensfeier.",
+        "points": [
+          "Termin",
+          "Ort",
+          "Essen",
+          "Kleine Rede"
+        ]
+      }
+    ]
+  }
+}

@@ -53,8 +53,16 @@ class OllamaLLM:
         payload["think"] = self.s.llm_think
         return payload
 
-    async def stream_chat(self, messages: list[Message]) -> AsyncIterator[str]:
-        payload = self._payload(messages, stream=True, max_tokens=self.s.llm_max_reply_tokens)
+    async def stream_chat(
+        self, messages: list[Message], max_tokens: int | None = None
+    ) -> AsyncIterator[str]:
+        payload = self._payload(
+            messages,
+            stream=True,
+            max_tokens=(
+                self.s.llm_max_reply_tokens if max_tokens is None else max_tokens
+            ),
+        )
         async with self.client.stream("POST", f"{self.base}/api/chat", json=payload) as r:
             if r.status_code >= 400:
                 body = await r.aread()
@@ -95,7 +103,11 @@ class OllamaLLM:
         r = await self.client.get(f"{self.base}/api/ps")
         r.raise_for_status()
         models = r.json().get("models", [])
-        return [m.get("name") or m.get("model") for m in models if m.get("name") or m.get("model")]
+        return [
+            m.get("name") or m.get("model")
+            for m in models
+            if m.get("name") or m.get("model")
+        ]
 
     async def unload(self, model: str) -> None:
         try:

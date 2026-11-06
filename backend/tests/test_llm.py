@@ -207,3 +207,26 @@ async def test_warmup_swallows_timeout() -> None:
         await llm.warmup(MESSAGES)
     finally:
         await llm.client.aclose()
+
+
+async def test_stream_chat_max_tokens_override() -> None:
+    payloads: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payloads.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            content=b'{"message":{"content":"Hallo"}}\n{"done":true}\n',
+        )
+
+    llm = make_llm(handler, llm_max_reply_tokens=77)
+    try:
+        pieces = [piece async for piece in llm.stream_chat(MESSAGES, max_tokens=450)]
+        default_pieces = [piece async for piece in llm.stream_chat(MESSAGES)]
+    finally:
+        await llm.client.aclose()
+
+    assert pieces == ["Hallo"]
+    assert default_pieces == ["Hallo"]
+    assert payloads[0]["options"]["num_predict"] == 450
+    assert payloads[1]["options"]["num_predict"] == 77

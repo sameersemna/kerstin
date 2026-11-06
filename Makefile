@@ -1,4 +1,4 @@
-.PHONY: setup voice certs run test test-js lint check smoke bench persona-eval feedback-eval hint-eval
+.PHONY: setup voice certs run test test-js lint check smoke bench persona-eval feedback-eval hint-eval exam-eval
 
 VENV ?= .venv
 PY := $(VENV)/bin/python
@@ -7,6 +7,7 @@ BENCH_ARGS ?=
 EVAL_ARGS ?=
 FEEDBACK_ARGS ?=
 HINT_ARGS ?=
+EXAM_ARGS ?=
 
 setup:            ## create venv and install backend + piper + dev deps
 	python3 -m venv $(VENV)
@@ -51,3 +52,6 @@ feedback-eval:    ## feedback quality eval (5 cases × 2 languages; needs Ollama
 
 hint-eval:        ## hint quality eval (20 hold-out cases; needs Ollama)
 	$(PY) scripts/hint_eval.py $(HINT_ARGS)
+
+exam-eval:        ## B2 exam engine eval (both presets; needs Ollama)
+	$(PY) scripts/exam_eval.py $(EXAM_ARGS)

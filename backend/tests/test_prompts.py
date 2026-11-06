@@ -110,3 +110,27 @@ def test_focus_instructions_omit_text_only_categories():
     }
     assert "wortwahl" not in keys
     assert "sonstiges" not in keys
+
+
+def test_exam_system_prompt_contains_all_cards_and_no_placeholders():
+    from kerstin.exam import load_presets, make_plan
+
+    data = load_presets(BACKEND_DIR / "prompts")
+    plan = make_plan("praesentation_diskussion_planung", data, 1234)
+    prompt = store().exam_system_prompt(plan)
+
+    assert "## Prüfungssituation" in prompt
+    assert "## Karten" in prompt
+    assert "{" not in prompt
+    assert "}" not in prompt
+    for part in plan.parts:
+        card = part.card
+        assert card
+        if "question" in card:
+            assert card["question"] in prompt
+            for aspect in card["aspects"]:
+                assert aspect in prompt
+        else:
+            assert (card.get("title") or card.get("situation")) in prompt
+            for point in card["points"]:
+                assert point in prompt

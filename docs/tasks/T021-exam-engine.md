@@ -114,12 +114,139 @@ A session can run in **exam mode**: a sequence of timed parts modelled on two co
 - [ ] `git diff main --stat` shows only allowed files
 
 ## Worker report (Kilo Code fills this in)
-- **Changed files:**
-- **How tested:**
+- **Changed files:** `backend/prompts/exam.json` (new), `backend/prompts/exam.md` (new), `backend/kerstin/exam.py` (new), `backend/kerstin/prompts.py`, `backend/kerstin/session.py`, `backend/kerstin/llm.py` (`stream_chat` max_tokens only), `backend/kerstin/main.py`, `backend/tests/test_exam.py` (new), `backend/tests/test_session.py`, `backend/tests/test_prompts.py`, `backend/tests/test_llm.py`, `scripts/exam_eval.py` (new), `Makefile` (`exam-eval` only), `docs/PROTOCOL.md`, and this task file.
+- **How tested:** `make test` → **227 Python + 23 Node** tests passed; `make lint` passed. New tests cover real `exam.json` validation, broken kind/seconds/pool sizes, deterministic no-repeat plans, moderation detection, exam card/prompt hygiene, full telc-style enter/finish/message/part/done flow, collect mode (0 LLM calls, history grows), one follow-up, `kerstin_talk` `max_tokens=450`, marker retention on trimming, marker headings in feedback and marker-free hint context, thermal `_kerstin_says`, `exam_next` outside exam mode, and unchanged normal mode. `make exam-eval EXAM_ARGS='--model gemma4:26b --seed 1234'` ran both presets on the real Session; 20 LLM calls total.
 - **Measurements (if any):**
-- **Deviations from spec / extra files touched:**
-- **New dependencies (+license):**
-- **Open questions:**
+  - Card pools: `talk_topics` 8, `kerstin_topics` 4, `discussion_questions` 8, `planning_tasks` 6; `exam.json`/`exam.md` contain no official brand names (tested). `exam.md` has no placeholders left.
+  - Eval summary: both presets **Overall PASS**; **collect-mode LLM calls 0**; follow-up one question true; **0 moderation leaks**; **0 dialog `check_reply` issues** (14 and 9 replies); talk markdown false; talk word counts 128/130 (range 84–175) and 170/170 (range 110–229); discussion opener position true for both; planning proposal true for the preset that has planning (Goethe-style preset has no planning part, so n/a).
+  - Kerstin talk first-audio (headless `NoTTS`, so `tts_first_ms=0`): telc-style `first_sentence_ms=447`, `first_audio_ms=447`, `llm_first_token_ms=165`; Goethe-style `first_sentence_ms=329`, `first_audio_ms=329`, `llm_first_token_ms=162`.
+  - GPU during eval: 48→65 °C; no 80 °C abort. `gemma4:26b` was loaded alongside the other project's `llama3.2:1b`; neither was unloaded. No server was started (port 8771/8770 untouched).
+  - Full eval output (summary + every Kerstin reply by part):
+    ```text
+.venv/bin/python scripts/exam_eval.py --model gemma4:26b --seed 1234
+Model: gemma4:26b | seed: 1234 | cool_down: 76→70 °C
+GPU before exam start: 48 °C
+GPU before praesentation_diskussion_planung part 0 prep next: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 1: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 2: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 3: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 4: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk follow-up: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk answer: 54 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk next: 55 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk question 1: 57 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk question 2: 57 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk next: 58 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 1: 58 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 2: 58 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 3: 59 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 4: 59 °C
+GPU before praesentation_diskussion_planung part 3 dialog next: 59 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 1: 60 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 2: 60 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 3: 61 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 4: 62 °C
+GPU before praesentation_diskussion_planung part 4 dialog next: 62 °C
+
+## Preset `praesentation_diskussion_planung` — Präsentation, Diskussion und Planung
+Parts: 0:prep, 1:learner_talk, 2:kerstin_talk, 3:dialog, 4:dialog
+Collect-mode LLM calls: 0
+Follow-up: Das hast du sehr interessant erklärt. Warst du in letzter Zeit selbst schon in einem neuen Land oder einer anderen Stadt im Urlaub?  [one-question=True]
+Kerstin talk: 128 words (target 130, range 84–175); markdown=False
+Kerstin talk timing: first_sentence_ms=447 tts_first_ms=0 first_audio_ms=447 llm_first_token_ms=165
+Discussion opener: Ich finde das Thema sehr aktuell. Meiner Meinung nach sind autofreie Zonen in der Innenstadt eine wirklich gute Idee für die Umwelt. Was denkst du darüber?  [position=True]
+Planning opener: Ich finde die Idee toll, dass wir unser Ende des Deutschkurses gemeinsam feiern sollten. Wir könnten zum Beispiel etwas Schönes organisieren, damit wir uns alle noch einmal in Ruhe verabschieden können. Was hältst du davon, wenn wir eine kleine Party in einem Park machen?  [proposal=True]
+Dialog check_reply: 14 replies, issues=none
+Moderation leaks: 0
+Overall: PASS
+
+Replies by part
+
+[Greeting] T0: Hallo, ich bin Kerstin. Ich mache die Prüfung heute mit dir – viel Erfolg uns beiden!
+
+[0] prep — Vorbereitung
+  (no reply)
+
+[1] learner_talk — Dein Kurzvortrag
+  T5: Das hast du sehr interessant erklärt. Warst du in letzter Zeit selbst schon in einem neuen Land oder einer anderen Stadt im Urlaub?  [codes: -]
+  T6: Das kann ich gut verstehen, der Anfang in einem neuen Job ist immer sehr stressig. Musstest du in dieser Zeit auch viel neue Fachbegriffe auf Deutsch lernen?  [codes: -]
+
+[2] kerstin_talk — Kerstins Kurzvortrag
+  T7: Ich möchte euch jetzt etwas über meinen Weg nach Berlin erzählen. Ich komme ursprünglich aus Schweden, aus Göteborg, aber ich bin vor zwei Jahren nach Berlin gezogen, weil ich hier eine Stelle als UX-Designerin in einem kleinen Start-up gefunden habe. Am Anfang war alles ziemlich schwer für mich, besonders die Wohnungssuche in dieser Stadt war ein echter Albtraum und ich war oft frustriert wegen der Bürokratie. Aber heute gefällt mir das Leben in Berlin sehr gut, weil es so viele internationale Menschen und tolle Cafés gibt. Ich gehe hier auch gerne bouldern, um Stress abzubauen. Mein Tipp für Neuzugezogene ist, dass man nicht sofort perfekt Deutsch sprechen muss, sondern einfach Leute kennenlernen und mutig sein sollte. Habt ihr auch schon mal überlegt, in eine andere Stadt zu ziehen?  [codes: too_long]
+  T8: Es war wirklich sehr stressig, weil ich mich einsam gefühlt habe und die Sprache noch nicht so gut war. Besonders die Behördengänge waren schwierig, weil alles so kompliziert klingt. Wie war das denn für dich in deinem neuen Job?  [codes: -]
+  T9: Ich habe gelernt, dass man Geduld haben muss und dass es hilft, sich Hilfe zu suchen. Man darf nicht alles alleine versuchen, wenn man nicht weiterkommt. Hast du auch so etwas gelernt, als du deine Erfahrungen gemacht hast?  [codes: -]
+
+[3] dialog — Diskussion
+  T10: Ich finde das Thema sehr aktuell. Meiner Meinung nach sind autofreie Zonen in der Innenstadt eine wirklich gute Idee für die Umwelt. Was denkst du darüber?  [codes: -]
+  T11: Da hast du absolut recht, die Busse und Bahnen müssen zuverlässiger werden, damit die Leute auch darauf verzichten können. Aber glaubst du nicht, dass die Geschäfte in der Stadt Probleme bekommen könnten, wenn man nicht mehr mit dem Auto direkt dorthin fahren kann?  [codes: -]
+  T12: Das ist ein sehr wichtiger Punkt. Ich denke, man müsste für diese Menschen spezielle Lösungen finden, zum Beispiel Lieferdienste oder Parkplätze am Rand der Zone. Meinst du, dass die Anwohner mit der Situation zufrieden wären, wenn es weniger Verkehr gibt?  [codes: -]
+  T13: Das ist ein guter erster Schritt. Vielleicht könnten wir in einem Park oder in einem Gemeinschaftsraum feiern, weil das nicht so teuer ist. Hast du schon eine Idee, wo wir feiern könnten?  [codes: -]
+  T14: Das ist super, danke! Dann könnten wir zum Beispiel Saft, Wasser und vielleicht auch ein bisschen Limonade kaufen. Sollen wir uns auch um das Essen kümmern oder wäre es besser, wenn jeder einfach eine Kleinigkeit selbst mitbringt?  [codes: -]
+
+[4] dialog — Gemeinsam planen
+  T15: Ich finde die Idee toll, dass wir unser Ende des Deutschkurses gemeinsam feiern sollten. Wir könnten zum Beispiel etwas Schönes organisieren, damit wir uns alle noch einmal in Ruhe verabschieden können. Was hältst du davon, wenn wir eine kleine Party in einem Park machen?  [codes: -]
+  T16: Das ist ein wichtiger Punkt für die Stadtplanung, aber für unser Abschiedsfest im Park ist das vielleicht weniger wichtig. Sollen wir uns vielleicht überlegen, was wir an Essen machen wollen? Findest du es gut, wenn wir gemeinsam Pizza bestellen?  [codes: -]
+  T17: Das ist ein schwieriges Problem, aber für unser Fest im Park müssen wir uns ja nicht so viele Sorgen um die Autofahrer machen. Wir sollten uns lieber darauf konzentrieren, dass alle Gäste gut an den Ort kommen können. Was hältst du davon, wenn wir auch ein bisschen Musik oder ein kleines Programm planen, damit es nicht langweilig wird?  [codes: -]
+  T18: Das stimmt, die Suche nach einem Ort ist das Wichtigste. Wir könnten ja vielleicht im Park am Gleisdreieck feiern, weil man dort sehr gut mit der U-Bahn hinkommt. Hast du eine Idee, was wir für das Programm machen könnten?  [codes: -]
+  T19: Das ist wirklich sehr lieb von dir, danke! Dann können wir uns ja zusammen überlegen, wie viel Geld wir insgesamt ausgeben wollen. Meinst du, wir sollten alle Teilnehmer bitten, einen kleinen Beitrag zu zahlen?  [codes: -]
+GPU before exam start: 62 °C
+GPU before vortrag_diskussion part 0 prep next: 62 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 1: 62 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 2: 62 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 3: 58 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 4: 58 °C
+GPU before vortrag_diskussion part 1 learner_talk follow-up: 58 °C
+GPU before vortrag_diskussion part 1 learner_talk answer: 62 °C
+GPU before vortrag_diskussion part 1 learner_talk next: 62 °C
+GPU before vortrag_diskussion part 2 kerstin_talk question 1: 63 °C
+GPU before vortrag_diskussion part 2 kerstin_talk question 2: 64 °C
+GPU before vortrag_diskussion part 2 kerstin_talk next: 64 °C
+GPU before vortrag_diskussion part 3 dialog turn 1: 64 °C
+GPU before vortrag_diskussion part 3 dialog turn 2: 64 °C
+GPU before vortrag_diskussion part 3 dialog turn 3: 64 °C
+GPU before vortrag_diskussion part 3 dialog turn 4: 65 °C
+GPU before vortrag_diskussion part 3 dialog next: 65 °C
+
+## Preset `vortrag_diskussion` — Vortrag und Diskussion
+Parts: 0:prep, 1:learner_talk, 2:kerstin_talk, 3:dialog
+Collect-mode LLM calls: 0
+Follow-up: Das klingt wirklich interessant. Welches Land hast du denn als Reiseziel am liebsten?  [one-question=True]
+Kerstin talk: 170 words (target 170, range 110–229); markdown=False
+Kerstin talk timing: first_sentence_ms=329 tts_first_ms=0 first_audio_ms=329 llm_first_token_ms=162
+Discussion opener: Ich finde das Thema sehr spannend. Meiner Meinung nach sind autofreie Zonen eine gute Idee für die Lebensqualität in der Stadt. Was denkst du darüber?  [position=True]
+Planning opener: n/a
+Dialog check_reply: 9 replies, issues=none
+Moderation leaks: 0
+Overall: PASS
+
+Replies by part
+
+[Greeting] T0: Hallo, ich bin Kerstin. Ich mache die Prüfung heute mit dir – viel Erfolg uns beiden!
+
+[0] prep — Vorbereitung
+  (no reply)
+
+[1] learner_talk — Dein Kurzvortrag
+  T5: Das klingt wirklich interessant. Welches Land hast du denn als Reiseziel am liebsten?  [codes: -]
+  T6: Das klingt nach einer sehr intensiven Zeit. War der Anfang in der Firma sehr stressig für dich?  [codes: -]
+
+[2] kerstin_talk — Kerstins Kurzvortrag
+  T7: Ich möchte euch heute kurz erzählen, wie ich nach Berlin gekommen bin. Ich komme ursprünglich aus Schweden, genauer gesagt aus Göteborg, und bin vor zwei Jahren hierhergezogen. Ich habe mich für Berlin entschieden, weil ich als UX-Designerin in einem Start-up arbeiten wollte und die Stadt einfach sehr dynamisch finde. Am Anfang war es aber nicht alles so einfach. Besonders das Finden einer Wohnung war sehr schwer und stressig, weil es so viele Bewerber gibt. Auch die Behörden hier in Deutschland waren für mich am Anfang ein bisschen kompliziert, weil alles so viel Papierkram bedeutet. Aber heute gefällt mir das Leben in Berlin sehr gut. Ich liebe die vielen Möglichkeiten, zum Beispiel die Kletterhallen zum Bouldern oder die vielen internationalen Cafés. Ich lerne auch gerade intensiv Deutsch an der Volkshochschule. Mein Tipp für Leute, die neu hier sind, ist, dass man mutig sein muss und schnell Kontakt zu anderen Menschen suchen sollte. Wenn man Freunde findet, fühlt man sich viel weniger einsam. Habt ihr auch Fragen zu meinem Weg nach Berlin?  [codes: too_long]
+  T8: Es war wirklich sehr aufregend, aber auch ein bisschen einsam. Ich kannte ja noch niemanden hier und musste mich erst einmal an die deutsche Sprache und die Kultur gewöhnen. Hast du dich auch schon einmal in einer neuen Stadt oder einem neuen Land so gefühlt?  [codes: -]
+  T9: Ich habe gelernt, dass man nicht sofort alles perfekt machen muss und dass Geduld sehr wichtig ist. Außerdem ist es wichtig, sich Hilfe zu suchen, wenn man bei den Behörden oder der Wohnungssuche nicht weiterkommt. Hast du in deiner neuen Umgebung auch schon solche wichtigen Lektionen gelernt?  [codes: -]
+
+[3] dialog — Diskussion
+  T10: Ich finde das Thema sehr spannend. Meiner Meinung nach sind autofreie Zonen eine gute Idee für die Lebensqualität in der Stadt. Was denkst du darüber?  [codes: -]
+  T11: Da stimme ich dir absolut zu. Wenn die Busse und Bahnen nicht zuverlässig sind, werden die Leute die Autos nicht stehen lassen. Glaubst du, dass die Menschen in Berlin bereit wären, auf das Auto zu verzichten, wenn der öffentliche Verkehr besser wäre?  [codes: -]
+  T12: Das ist ein sehr wichtiger Punkt. Besonders Leute, die außerhalb wohnen oder im Beruf zum Beispiel Handwerker sind, brauchen ein Auto. Findest du, dass man für diese Gruppen spezielle Ausnahmen oder Lösungen finden könnte?  [codes: -]
+  T13: Das ist ein guter Anfang. Meinst du damit, dass wir erst einmal einen bestimmten Stadtteil suchen sollten, in dem wir das Projekt testen können?  [codes: -]
+  T14: Das ist sehr lieb von dir, danke! Ich kann mich dann um die Planung der Aktivitäten und die Suche nach dem Ort kümmern. Sollen wir uns vielleicht am nächsten Wochenende treffen, um alles gemeinsam zu besprechen?  [codes: -]
+
+All automatic checks passed.
+    ```
+- **Deviations from spec / extra files touched:** `exam_eval.py` uses `NoTTS` (same headless approach as `persona_eval.py`), so `tts_first_ms` is 0; `first_audio_ms` reports the first-sentence/first-audio availability. The Goethe-style preset has no planning part, so its planning-opener check prints n/a by design. Kerstin's talk is legitimately longer than normal turns and is excluded from `check_reply`; its reply is still shown with its `too_long` code. The pre-existing `.gitignore` `*.prs` line remains unstaged and is not part of this task.
+- **New dependencies (+license):** None.
+- **Open questions:** The T026 UI is out of scope; the browser/manual check remains for Sameer. The lead grades all cards and the pasted Kerstin replies.
 
 ## Review (Claude Code fills this in)
 - **Verdict:**
