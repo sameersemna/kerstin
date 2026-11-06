@@ -30,8 +30,11 @@ class OllamaLLM:
         temperature: float | None = None,
         model: str | None = None,
         keep_alive: str | None = None,
+        fmt: str | None = None,
+        seed: int | None = None,
     ) -> dict:
-        seed = self.s.llm_seed if self.s.llm_seed is not None else random.randrange(1, 2**31)
+        if seed is None:
+            seed = self.s.llm_seed if self.s.llm_seed is not None else random.randrange(1, 2**31)
         payload: dict = {
             "model": model or self.s.ollama_model,
             "messages": messages,
@@ -49,6 +52,8 @@ class OllamaLLM:
         }
         if max_tokens:
             payload["options"]["num_predict"] = max_tokens
+        if fmt is not None:
+            payload["format"] = fmt
         # Only send "think" when we want it off/on explicitly; older Ollama ignores unknown keys.
         payload["think"] = self.s.llm_think
         return payload
@@ -86,6 +91,8 @@ class OllamaLLM:
         temperature: float | None = None,
         model: str | None = None,
         keep_alive: str | None = None,
+        fmt: str | None = None,
+        seed: int | None = None,
     ) -> str:
         payload = self._payload(
             messages,
@@ -94,6 +101,8 @@ class OllamaLLM:
             temperature=temperature,
             model=model,
             keep_alive=keep_alive,
+            fmt=fmt,
+            seed=seed,
         )
         r = await self.client.post(f"{self.base}/api/chat", json=payload)
         r.raise_for_status()

@@ -19,7 +19,7 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 | Frame | Meaning |
 |---|---|
 | `{"type":"session","scenario","title","focus":[...],"exam"?}` | Session started; reset UI, `turn = 0`. `focus` is the list of active focus labels, empty when off. `exam` has `{preset,title,note,parts:[{kind,title,seconds}]}` when exam mode is active. |
-| `{"type":"status","state":"transcribing"\|"thinking"\|"feedback_running","turn"}` | Progress hints. |
+| `{"type":"status","state":"transcribing"\|"thinking"\|"feedback_running"\|"score_running","turn"}` | Progress hints. |
 | `{"type":"transcript","turn","text"}` | What STT heard. |
 | `{"type":"collected","turn"}` | Exam collect mode: the utterance was stored and no LLM call was made. |
 | `{"type":"exam_part","index"?, "kind","title"?,"seconds"?,"ui_text"?,"card"?}` | Exam part entered. `card` is the learner's card for `prep`/`learner_talk`/`dialog`, Kerstin's card title only for `kerstin_talk`, or `null`; `kind:"done"` has no index/card. |
@@ -31,6 +31,7 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 | `{"type":"reply_interrupted","turn"}` | Reply cancelled by barge-in. |
 | `{"type":"metrics","turn","audio_s","audio_dbfs","stt_ms","llm_first_token_ms","first_sentence_ms","tts_first_ms","first_audio_ms","total_ms","sentences"}` | Timings (ms measured from server receiving the utterance). `audio_dbfs` = input RMS level (dBFS, one decimal). `first_sentence_ms` = first spoken chunk (early clause or sentence) available to the consumer; `tts_first_ms` = duration of that first chunk's TTS call. |
 | `{"type":"feedback","markdown"}` | End-of-session report. |
+| `{"type":"exam_score","criteria":[{"key","label","band","band_label","reason","evidence"}],"overall_band","overall_label","note"}` | Exam-only transcript estimate after `feedback`. Bands 1–4; evidence is a verbatim learner quote or `null`. Errors: `{"type":"exam_score","error"}`. |
 | `{"type":"mistakes_saved","count","error"?:"failed"}` | Optional feedback follow-up when the learner opted in. `count` is the number of category rows stored; an error does not affect the feedback. |
 | `{"type":"hint","query","markdown"}` or `{"type":"hint","query","error":"too_long"\|"thermal"\|"failed","temp_c"?}` | Hint answer or short error. No `turn`; never affects turn state, history or feedback. |
 | `{"type":"error","message","turn"?}` | Error. |

@@ -13,6 +13,8 @@ const modeEl = $("mode"), scenarioEl = $("scenario"), startBtn = $("startBtn"), 
 const examPanelEl = $("examPanel"), examTitleEl = $("examTitle"), examNoteEl = $("examNote");
 const examPartEl = $("examPart"), examUiTextEl = $("examUiText"), examCardEl = $("examCard");
 const examClockEl = $("examClock"), examNextBtnEl = $("examNextBtn"), examDoneMsgEl = $("examDoneMsg");
+const scoreBoxEl = $("scoreBox"), scoreNoteEl = $("scoreNote"), scoreSummaryEl = $("scoreSummary");
+const scoreTableEl = $("scoreTable"), scoreRowsEl = $("scoreRows"), scoreMessageEl = $("scoreMessage");
 
 let ws = null;
 let vadInstance = null;
@@ -34,6 +36,10 @@ let examNextLockedUntil = 0;
 let examAutoFired = false;
 let examTimer = null;
 const MAX_HINTS = 5;
+const SCORE_NOTE =
+  "Einschätzung aus dem Transkript – keine offizielle Bewertung. " +
+  "Aussprache und Flüssigkeit werden nicht bewertet; die Spracherkennung " +
+  "kann Fehler glätten oder hinzufügen.";
 const HINT_ERRORS = {
   too_long: "zu lang (max. 120 Zeichen)",
   thermal: "GPU zu warm – gleich nochmal",
@@ -299,6 +305,69 @@ async function loadExams() {
   }
 }
 
+// ---------- score box ----------
+function resetScore() {
+  scoreBoxEl.hidden = true;
+  scoreNoteEl.textContent = SCORE_NOTE;
+  scoreSummaryEl.textContent = "";
+  scoreSummaryEl.hidden = true;
+  scoreRowsEl.replaceChildren();
+  scoreTableEl.hidden = true;
+  scoreMessageEl.textContent = "";
+  scoreMessageEl.hidden = true;
+}
+
+function showScorePending() {
+  scoreBoxEl.hidden = false;
+  scoreNoteEl.textContent = SCORE_NOTE;
+  scoreSummaryEl.hidden = true;
+  scoreTableEl.hidden = true;
+  scoreRowsEl.replaceChildren();
+  scoreMessageEl.textContent = "Einschätzung wird erstellt …";
+  scoreMessageEl.hidden = false;
+}
+
+function showScoreError(text) {
+  scoreBoxEl.hidden = false;
+  scoreNoteEl.textContent = SCORE_NOTE;
+  scoreSummaryEl.hidden = true;
+  scoreTableEl.hidden = true;
+  scoreRowsEl.replaceChildren();
+  scoreMessageEl.textContent = text || "Einschätzung konnte nicht erstellt werden";
+  scoreMessageEl.hidden = false;
+}
+
+function renderExamScore(message) {
+  scoreBoxEl.hidden = false;
+  scoreNoteEl.textContent = message.note || SCORE_NOTE;
+  scoreSummaryEl.textContent = message.overall_label
+    ? `Gesamt: ${message.overall_label}`
+    : "";
+  scoreSummaryEl.hidden = !message.overall_label;
+  const rows = [];
+  for (const criterion of message.criteria || []) {
+    const row = document.createElement("tr");
+    const name = document.createElement("th");
+    name.scope = "row";
+    name.textContent = criterion.label || criterion.key || "";
+    row.appendChild(name);
+    const band = document.createElement("td");
+    band.textContent = criterion.band_label || "";
+    row.appendChild(band);
+    const reason = document.createElement("td");
+    reason.textContent = criterion.reason || "";
+    row.appendChild(reason);
+    const evidence = document.createElement("td");
+    if (criterion.evidence) evidence.textContent = `„${criterion.evidence}“`;
+    row.appendChild(evidence);
+    rows.push(row);
+  }
+  scoreRowsEl.replaceChildren(...rows);
+  scoreTableEl.hidden = rows.length === 0;
+  scoreMessageEl.textContent = "";
+  scoreMessageEl.hidden = true;
+}
+
 // ---------- hint panel ----------
 function setHintEnabled(enabled) {
   hintInputEl.disabled = !enabled;
@@ -523,6 +592,7 @@ function handle(msg) {
       renderHints();
       setHintEnabled(true);
       resetExam();
+      resetScore();
       modeEl.value = msg.exam && msg.exam.preset ? msg.exam.preset : "";
       updateModeControls();
       if (msg.exam) showExamSession(msg.exam);
@@ -542,6 +612,10 @@ function handle(msg) {
       if (msg.state === "transcribing") setState("verstehe …", "idle");
       else if (msg.state === "thinking") setState("denkt nach …", "idle");
       else if (msg.state === "feedback_running") setState("Feedback wird erstellt …", "idle");
+      else if (msg.state === "score_running") {
+        setState("Einschätzung wird erstellt …", "idle");
+        showScorePending();
+      }
       break;
     case "transcript":
       syncTurn(msg);
@@ -595,6 +669,15 @@ function handle(msg) {
         `LLM 1. Token: ${msg.llm_first_token_ms} ms\nErste Audio: ${msg.first_audio_ms} ms\n` +
         `Gesamt: ${msg.total_ms} ms (${msg.sentences} Sätze)`;
       break;
+    case "exam_score":
+      if (msg.error) {
+        showScoreError(msg.error);
+        setState("Einschätzung nicht möglich", "idle");
+      } else {
+        renderExamScore(msg);
+        setState("fertig", "idle");
+      }
+      break;
     case "feedback":
       feedbackEl.hidden = false;
       try {
@@ -623,6 +706,7 @@ async function start() {
   await audioCtx.resume();
   feedbackEl.hidden = true;
   resetExam();
+  resetScore();
   if (!ws || ws.readyState !== WebSocket.OPEN) await connect();
 
   vadInstance = await vad.MicVAD.new({
@@ -744,6 +828,7 @@ document.addEventListener("keydown", (e) => {
   e.preventDefault();
   interruptSpeaking();
 });
+resetScore();
 loadScenarios();
 loadMistakes();
 loadExams();

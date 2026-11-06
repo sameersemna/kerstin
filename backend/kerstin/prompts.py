@@ -102,15 +102,27 @@ class PromptStore:
         addendum = addendum.replace("{cards}", cards)
         return prompt + "\n\n" + addendum
 
-    def feedback_prompt(self, transcript: str, lang: str = "en") -> str:
+    def _explanation_language(self, lang: str) -> str:
         labels = {
             "en": "Englisch",
             "de": "Deutsch (einfache Sprache, mit Fachbegriffen wie Akkusativ, Dativ, Perfekt)",
         }
         if lang not in labels:
             raise ValueError(f"Unknown feedback language {lang!r}")
+        return labels[lang]
+
+    def feedback_prompt(self, transcript: str, lang: str = "en") -> str:
         tpl = (self.dir / "feedback.md").read_text(encoding="utf-8")
-        tpl = tpl.replace("{explanation_language}", labels[lang])
+        tpl = tpl.replace("{explanation_language}", self._explanation_language(lang))
+        return tpl.replace("{transcript}", transcript)
+
+    def score_prompt(
+        self, transcript: str, plan: ExamPlan, lang: str, talk_words: int
+    ) -> str:
+        tpl = (self.dir / "score.md").read_text(encoding="utf-8")
+        tpl = tpl.replace("{explanation_language}", self._explanation_language(lang))
+        tpl = tpl.replace("{cards}", _format_exam_cards(plan))
+        tpl = tpl.replace("{talk_words}", str(talk_words))
         return tpl.replace("{transcript}", transcript)
 
     def hint_prompt(self, query: str, context: str) -> str:

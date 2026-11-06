@@ -72,6 +72,18 @@
         <button id="clearMistakes">Alle löschen</button>
       </div>
       <div id="feedback" class="feedback" hidden></div>
+      <section id="scoreBox" class="score-box" aria-live="polite" hidden>
+        <h2>Einschätzung</h2>
+        <p id="scoreNote" class="score-note"></p>
+        <p id="scoreSummary" class="score-summary" hidden></p>
+        <table id="scoreTable" class="score-table" hidden>
+          <thead>
+            <tr><th scope="col">Kriterium</th><th scope="col">Einschätzung</th><th scope="col">Begründung</th><th scope="col">Beleg</th></tr>
+          </thead>
+          <tbody id="scoreRows"></tbody>
+        </table>
+        <p id="scoreMessage" class="score-message" hidden></p>
+      </section>
     </aside>
   </main>
 

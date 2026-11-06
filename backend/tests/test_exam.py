@@ -217,3 +217,159 @@ async def test_prep_guard_drops_before_stt_and_collect_after_exam_next():
     assert sent[-1] == {"type": "collected", "turn": 2}
     assert session.turn_id == 2
     assert llm.stream_calls == 0
+
+
+LONG_LEARNER = (
+    "Ich wohne seit zwei Jahren in Berlin und arbeite dort als Designerin. "
+    "Am Anfang war die Wohnungssuche schwierig, aber inzwischen kenne ich die Stadt gut. "
+    "Ich fahre meistens mit dem Fahrrad und kaufe auf dem Markt ein. "
+    "Meiner Meinung nach ist das Leben in der Stadt praktisch, weil alles nah ist. "
+    "Allerdings sind die Mieten hoch und es ist oft laut. "
+    "Trotzdem möchte ich vorerst hier bleiben und später vielleicht an den Stadtrand ziehen. "
+    "Für mich ist wichtig, dass ich kurze Wege habe und viele kulturelle Angebote nutzen kann. "
+    "Deshalb finde ich die Stadt für junge Menschen besonders geeignet."
+)
+
+SCORE_JSON = json.dumps(
+    {
+        "aufgabe": {
+            "band": 2,
+            "reason": "Die Aufgabe ist teilweise erfüllt.",
+            "evidence": "Ich wohne seit zwei Jahren",
+        },
+        "kohaerenz": {
+            "band": 3,
+            "reason": "Die Aussagen sind verbunden.",
+            "evidence": "weil alles nah ist",
+        },
+        "wortschatz": {
+            "band": 3,
+            "reason": "Der Wortschatz passt zum Thema.",
+            "evidence": "die Mieten hoch",
+        },
+        "grammatik": {
+            "band": 4,
+            "reason": "Die Strukturen sind sicher.",
+            "evidence": "Trotzdem möchte ich vorerst hier bleiben",
+        },
+    }
+)
+
+
+class ScoringLLM:
+    def __init__(self, score_json=SCORE_JSON):
+        self.score_json = score_json
+        self.chat_calls = 0
+        self.last_chat_temperature = None
+        self.last_chat_model = None
+        self.last_chat_seed = None
+        self.last_chat_fmt = None
+
+    async def stream_chat(self, messages, max_tokens=None):
+        yield "Hallo."
+
+    async def chat(
+        self,
+        messages,
+        max_tokens=None,
+        temperature=None,
+        model=None,
+        keep_alive=None,
+        fmt=None,
+        seed=None,
+    ):
+        self.chat_calls += 1
+        self.last_chat_temperature = temperature
+        self.last_chat_model = model
+        self.last_chat_seed = seed
+        self.last_chat_fmt = fmt
+        if self.chat_calls == 1:
+            return "### Feedback"
+        return self.score_json
+
+
+def scoring_session(llm, exam, learner=LONG_LEARNER):
+    sent = []
+
+    async def send_json(message):
+        sent.append(message)
+
+    async def send_bytes(data):
+        return None
+
+    session = Session(
+        deps=Deps(
+            stt=CountingSTT(),
+            llm=llm,
+            tts=NoTTS(),
+            prompts=PromptStore(BACKEND_DIR / "prompts"),
+            llm_warmup=False,
+            score_seed=7,
+        ),
+        send_json=send_json,
+        send_bytes=send_bytes,
+        scenario_key="freies_gespraech",
+        exam=exam,
+        history=[
+            {"role": "assistant", "content": "Hallo."},
+            {"role": "user", "content": learner},
+        ],
+    )
+    return session, sent
+
+
+async def test_exam_feedback_is_followed_by_exam_score():
+    llm = ScoringLLM()
+    session, sent = scoring_session(
+        llm, make_plan("vortrag_diskussion", catalog(), 1)
+    )
+
+    await session.feedback()
+
+    types = [message["type"] for message in sent]
+    assert types.index("feedback") < types.index("exam_score")
+    score = next(message for message in sent if message["type"] == "exam_score")
+    assert [criterion["key"] for criterion in score["criteria"]] == [
+        "aufgabe",
+        "kohaerenz",
+        "wortschatz",
+        "grammatik",
+    ]
+    assert [criterion["band"] for criterion in score["criteria"]] == [2, 3, 3, 4]
+    assert score["overall_band"] == 3
+    assert score["overall_label"] == "B2 sicher"
+    assert score["note"]
+    assert llm.chat_calls == 2
+    assert llm.last_chat_temperature == 0.0
+    assert llm.last_chat_model == "gemma4:26b"
+    assert llm.last_chat_seed == 7
+    assert llm.last_chat_fmt == "json"
+
+
+async def test_exam_feedback_too_short_skips_score_llm():
+    llm = ScoringLLM()
+    session, sent = scoring_session(
+        llm,
+        make_plan("vortrag_diskussion", catalog(), 1),
+        learner="Ich wohne in Berlin.",
+    )
+
+    await session.feedback()
+
+    score = next(message for message in sent if message["type"] == "exam_score")
+    assert score == {
+        "type": "exam_score",
+        "error": "zu wenig Material für eine Einschätzung",
+    }
+    assert llm.chat_calls == 1
+
+
+async def test_free_conversation_feedback_has_no_exam_score():
+    llm = ScoringLLM()
+    session, sent = scoring_session(llm, None)
+
+    await session.feedback()
+
+    assert [message["type"] for message in sent] == ["status", "feedback"]
+    assert not any(message["type"] == "exam_score" for message in sent)
+    assert llm.chat_calls == 1

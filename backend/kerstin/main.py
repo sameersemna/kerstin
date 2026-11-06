@@ -66,6 +66,7 @@ async def lifespan(app: FastAPI):
         ollama_model=settings.ollama_model,
         feedback_model=settings.feedback_model,
         feedback_temperature=settings.feedback_temperature,
+        score_seed=settings.score_seed,
         ollama_max_loaded=settings.ollama_max_loaded,
         hint_temperature=settings.hint_temperature,
         mistakes=(

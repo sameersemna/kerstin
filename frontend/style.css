@@ -102,4 +102,13 @@ aside { display: flex; flex-direction: column; gap: 12px; }
 .feedback blockquote { margin: 8px 0; padding-left: 10px; border-left: 3px solid var(--border); color: var(--muted); }
 .feedback code { font: .9em ui-monospace, monospace; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 4px; }
 .feedback hr { border: 0; border-top: 1px solid var(--border); margin: 10px 0; }
+.score-box { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: .9rem; }
+.score-box h2 { margin: 0 0 6px; font-size: 1rem; }
+.score-note { margin: 0 0 8px; color: var(--muted); font-size: .78rem; }
+.score-summary { margin: 0 0 6px; color: var(--accent); font-weight: 600; }
+.score-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.score-table th, .score-table td { text-align: left; vertical-align: top; padding: 5px 6px 5px 0; border-top: 1px solid var(--border); }
+.score-table thead th { color: var(--muted); font-weight: 600; }
+.score-table th[scope="row"] { white-space: nowrap; }
+.score-message { margin: 0; color: var(--muted); }
 footer { padding: 10px 16px; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--border); }
