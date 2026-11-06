@@ -46,6 +46,7 @@ GB10 note: large unified memory but moderate memory bandwidth — dense 27B+ mod
 - One `Session` per WebSocket. Default deployment is single-user on the GB10.
 - STT and TTS clients are shared across sessions. Piper runs on CPU (Grace cores) in a thread.
 - Ollama `keep_alive` (default 10 m) unloads the model when idle so the shared GPU is released.
+- Deployment: `make service-install` runs Kerstin as a systemd user service with journald logs and rate-limited restarts.
 
 ## Things deliberately not done yet
 Authentication, multi-user, HTTPS, persistence, markdown rendering of feedback, server-side VAD, streaming TTS within a sentence. See `docs/ROADMAP.md`.

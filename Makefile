@@ -1,4 +1,4 @@
-.PHONY: setup voice vendor certs run test test-js lint check smoke bench persona-eval feedback-eval hint-eval exam-eval score-eval
+.PHONY: setup voice vendor certs run test test-js lint check smoke bench persona-eval feedback-eval hint-eval exam-eval score-eval service-install service-uninstall service-status logs
 
 VENV ?= .venv
 PY := $(VENV)/bin/python
@@ -9,6 +9,7 @@ FEEDBACK_ARGS ?=
 HINT_ARGS ?=
 EXAM_ARGS ?=
 SCORE_ARGS ?=
+SERVICE_ARGS ?=
 
 setup:            ## create venv and install backend + piper + dev deps (then: make voice && make vendor)
 	python3 -m venv $(VENV)
@@ -62,3 +63,15 @@ exam-eval:        ## B2 exam engine eval (both presets; needs Ollama)
 
 score-eval:      ## exam rubric calibration eval (needs Ollama); hold-out: make score-eval SCORE_ARGS="--cases scripts/score_holdout.json"
 	$(PY) scripts/score_eval.py $(SCORE_ARGS)
+
+service-install: ## install + start Kerstin as a systemd user service (SERVICE_ARGS="--enable" to start on boot)
+	bash scripts/install_service.sh install $(SERVICE_ARGS)
+
+service-uninstall: ## stop and remove Kerstin's systemd user service
+	bash scripts/install_service.sh uninstall $(SERVICE_ARGS)
+
+service-status:  ## systemd status + /health for Kerstin's user service
+	bash scripts/install_service.sh status $(SERVICE_ARGS)
+
+logs:            ## follow Kerstin's journal
+	journalctl --user -u kerstin -f

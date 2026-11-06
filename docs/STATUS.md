@@ -13,6 +13,7 @@ _Last updated: 2026-11-06 (T003 vendored browser assets merged)_
 - Browser assets vendored (T003): `make vendor` downloads vad-web 0.0.22 + onnxruntime-web 1.14.0 (SHA-pinned) into `frontend/vendor/`; no CDN at runtime. Headless check with jsDelivr blocked passed; Sameer's browser check on the vendored files is pending. Only `ort-wasm-simd.wasm` is shipped (browsers without WASM SIMD, e.g. Safari < 16.4, will fail VAD init).
 
 - HTTPS on the LAN (T032): Uvicorn TLS with a local CA (`make certs`). Verified with curl and a `wss://` smoke test from the GB10; Sameer's check from the Mac is still pending. Names in the cert: `promaxgb10-6116.fritz.box` (recommended), `.local`, `192.168.178.55`, `localhost`.
+- systemd user service (T031): `make service-install` installs `kerstin.service`, restarts on failure with a 3-start/5-minute limit, logs to journald; `make service-status`, `make logs`, `make service-uninstall`.
 - mDNS caveat: avahi advertises the Docker bridge (`172.30.0.1`) for `promaxgb10-6116.local`, so prefer the `.fritz.box` name or the IP.
 
 ## Latency baseline (T002, `make bench`, 20 warm turns, qwen3:14b)
