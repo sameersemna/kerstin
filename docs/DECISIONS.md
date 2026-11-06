@@ -80,3 +80,10 @@ After an exam, `exam_score` gives an estimate for four independent criteria (Auf
 - **Service:** a user unit (`make service-install`), not a system unit: no root, same account as the other GB10 projects. The installer only manages units whose name starts with `kerstin` and that carry its marker line. It never touches other units, `sudo`, linger or `journald.conf`.
 - **Restarts:** `Restart=on-failure`, at most 3 starts per 5 min, so a crash loop can't keep reloading models onto the shared GPU.
 - **Logs:** journald only. No log files of our own, no logrotate. Rotation is journald's system-wide size limit. The journal is persistent, so the T013 rule is binding: no learner or Kerstin text in INFO/WARNING logs (checked in T031 with the smoke sentence).
+
+## D024 · 2026-11-06 · Accepted — Default voice Kokoro-Kerstin on the GPU, selectable in the UI, Piper as fallback
+- **Choice (Sameer, after the T012 A/B):** Kerstin speaks with `kokoro-kerstin`, a female voice matching the persona. Kokoro on the CPU was too slow (≈1.6 s per sentence), so the sidecar runs with `KOKORO_DEVICE=cuda`.
+- **Cost:** ≈1.3–1.6 GB VRAM while loaded, short bursts per sentence. Measured 56–60 °C peak with LLM + TTS. The sidecar releases the GPU when idle, mirroring Ollama `keep_alive` (T018).
+- **Selectable:** the learner picks a voice in the UI. Choices are `kokoro-kerstin`, `kokoro-thorsten` and `piper-thorsten`; Victoria is not offered (synthetic provenance, LICENSES).
+- **Fallback:** if the sidecar is down or a request fails, Kerstin speaks with Piper and tells the UI. A conversation never goes silent because of TTS.
+- **License caveat:** Kerstin's voicepack has a synthetic stage-1 base in its lineage (LICENSES ⚠️). Must be verified in T043 before going public; `piper-thorsten` or `kokoro-thorsten` are the clean alternatives.
