@@ -536,3 +536,25 @@ FAILURES: ['ihr/euch address', 'planning opener lacks proposal', 'dialog replies
 5. Tests: the `cards` override (pinning, unknown title → `ValueError`); an `exam.md` sanity test (contains „du an“, no „Prüfungsmarken“).
 
 Allowed files (round 1): `backend/prompts/exam.md`, `backend/kerstin/exam.py`, `scripts/exam_eval.py`, `backend/tests/test_exam.py`, `backend/tests/test_prompts.py`, this task file.
+
+### Review — round 1
+- **Verdict:** Changes requested (round 2). Pinning, card-matched scripts and the new checks are good. 230 Python + 23 Node tests pass, and lint passes.
+- **Lead grading of all 4 runs:**
+  1. **Counterpoint works.** Every discussion pushes back after agreement (delivery vans, local shops, team contact, children at home), stays friendly and offers compromises (delivery hours, cargo bikes, office days). Task fit is good in all parts.
+  2. **„ihr/euch“ is still there in 2 of 4 talks** („Ich möchte euch … erzählen“, „Sucht euch …“, „Habt ihr …?“). The system-prompt rule is too far from the generation point. The talk marker „Halte jetzt deinen Vortrag.“ evokes an audience.
+  3. **Planning opener B has no proposal** („Hast du schon eine Idee, wohin wir reisen könnten?“). The generic marker „Eröffne den Teil.“ doesn't carry the part's opening rule.
+  4. **The `no_question` failures (T6/T8 in run B) are a check error, not a model error.** In an exam, a reaction to the partner's answer, or an answer to a question about her own talk, needs no counter-question. The persona's ask-back habit doesn't apply there. The lead changes the spec: in the exam eval, `no_question` applies only to dialog parts.
+  5. **German:** 1 real slip in ≈40 replies: „Jugendherrenunterkunft“ (→ Jugendherberge). Minor: „Am meisten hat mir ein kleiner Sprachkurs und der Kontakt … geholfen“ (→ haben … geholfen), „zwei Mal“ (→ zweimal). This is within the norm, and no fix is needed.
+  6. Formulaic openers repeat („Da hast du absolut recht“, „Das ist ein sehr guter Punkt“). This is noted for T025/T026 and isn't blocking.
+
+### Follow-up (round 2) — required changes
+1. **Part-specific moderation markers** (`session.py`, the marker strings only):
+   - kerstin_talk: „Teil N – {title}: Halte jetzt deinen Vortrag. Du sprichst zu einer einzigen Person, deiner Gesprächspartnerin – sag ‚du‘, nie ‚ihr/euch‘.“
+   - dialog whose title contains „plan“: „Teil N – {title}: Eröffne den Teil mit einem ersten konkreten Vorschlag (z. B. ‚Ich schlage vor, …‘).“
+   - other dialog: „Teil N – {title}: Eröffne den Teil mit einer klaren eigenen Position.“
+   Don't change `exam.md`, `persona.md` or anything else in the prompts.
+2. **Eval:** apply `no_question` only to replies in `dialog` parts. Leave the learner_talk reaction and the kerstin_talk answers out of that code (they are still checked for the other codes). Don't change any other check.
+3. **Tests:** marker texts per part kind (talk marker contains „du“ and „nie ‚ihr/euch‘“; planning marker contains „Vorschlag“).
+4. Rerun the same 4 runs (same seed, same pinned sets). Paste summaries + every reply by part.
+
+Allowed files (round 2): `backend/kerstin/session.py` (marker strings and a small helper only), `scripts/exam_eval.py`, `backend/tests/test_exam.py`, this task file.
