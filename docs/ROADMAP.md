@@ -28,7 +28,7 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 - [x] T024 **Focus steering** (after T020): Kerstin creates natural chances to practise the top 1–2 weak categories; never corrects or mentions it. Task file: `docs/tasks/T024-focus-steering.md`.
 - [x] T021 **Exam training engine** (D021): two presets (telc-style / Goethe-style B2 oral), part kinds prep / learner talk (collect) / Kerstin talk / dialog, original topic cards, `make exam-eval`. Task file: `docs/tasks/T021-exam-engine.md`.
 - [x] T026 **Exam UI**: mode selector, part panel with task card, countdown, "Weiter"/"Fertig", auto-finish of the learner talk at time + 30 s.
-- [ ] T025 **Exam rubric scoring**: per-criterion estimate (task fulfilment, coherence, vocabulary, grammar; no pronunciation from text) + calibration eval on transcripts of known levels (ordering + stability); clearly labelled as an estimate.
+- [x] T025 **Exam rubric scoring**: per-criterion estimate (task fulfilment, coherence, vocabulary, grammar; no pronunciation from text) + calibration eval on transcripts of known levels (ordering + stability); clearly labelled as an estimate.
 - [x] T022 **Hint box** (D018): learner types "Wie sagt man …?" (English or German paraphrase) → short German answer with article/forms + example in a side panel; not spoken, not in history. Task file: `docs/tasks/T022-hint-button.md`.
 - [ ] T023 **Session history page** (transcripts + feedback, local only).
 
