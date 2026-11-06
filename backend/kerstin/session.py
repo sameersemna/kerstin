@@ -18,6 +18,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from .audio import pcm16_duration_s, pcm16_rms_dbfs
+from .exam import MODERATION_PREFIX, ExamPart, ExamPlan, is_moderation
 from .feedback_checks import parse_errors
 from .llm import Message, OllamaLLM
 from .mistakes import CATEGORIES, MistakeLog, classify
@@ -37,10 +38,14 @@ MIN_UTTERANCE_S = 0.35
 
 
 def format_feedback_transcript(history: list[Message]) -> str:
-    return "\n".join(
-        f"{'Lernende Person' if m['role'] == 'user' else 'Kerstin'}: {m['content']}"
-        for m in history
-    )
+    lines = []
+    for message in history:
+        if is_moderation(message):
+            lines.append(f"--- {message['content'][len(MODERATION_PREFIX):]} ---")
+        else:
+            speaker = "Lernende Person" if message["role"] == "user" else "Kerstin"
+            lines.append(f"{speaker}: {message['content']}")
+    return "\n".join(lines)
 
 
 @dataclass
@@ -77,6 +82,26 @@ class TurnMetrics:
     sentences: int = 0
 
 
+def exam_enter_marker(part: ExamPart, index: int) -> str | None:
+    if part.kind == "kerstin_talk":
+        return (
+            f"Teil {index + 1} – {part.title}: Halte jetzt deinen Vortrag. "
+            "Du sprichst zu einer einzigen Person, deiner Gesprächspartnerin – "
+            "sag ‚du‘, nie ‚ihr/euch‘."
+        )
+    if part.kind == "dialog":
+        if "plan" in part.title.lower():
+            return (
+                f"Teil {index + 1} – {part.title}: Eröffne den Teil mit einem "
+                "ersten konkreten Vorschlag (z. B. ‚Ich schlage vor, …‘)."
+            )
+        return (
+            f"Teil {index + 1} – {part.title}: Eröffne den Teil mit einer "
+            "klaren eigenen Position."
+        )
+    return None
+
+
 @dataclass
 class Session:
     deps: Deps
@@ -84,9 +109,13 @@ class Session:
     send_bytes: SendBytes
     scenario_key: str
     focus: list[str] = field(default_factory=list)
+    exam: ExamPlan | None = None
+    part_index: int = 0
     history: list[Message] = field(default_factory=list)
     turn_id: int = 0
     _system: str | None = None
+    _collect_followup_done: bool = False
+    _pending_metrics: tuple[TurnMetrics, float] | None = None
     _turn_task: asyncio.Task | None = None
     _warmup_task: asyncio.Task | None = None
     _hint_task: asyncio.Task | None = None
@@ -95,18 +124,35 @@ class Session:
 
     async def start(self) -> None:
         sc = self.deps.prompts.scenario(self.scenario_key)
-        self._system = self.deps.prompts.system_prompt(
-            self.scenario_key, self.focus or None
-        )
+        if self.exam is not None:
+            self.focus = []
+            self._system = self.deps.prompts.exam_system_prompt(self.exam)
+        else:
+            self._system = self.deps.prompts.system_prompt(
+                self.scenario_key, self.focus or None
+            )
         self.history.clear()
-        await self.send_json(
-            {
-                "type": "session",
-                "scenario": sc.key,
-                "title": sc.title,
-                "focus": [CATEGORIES[key] for key in self.focus],
+        session_message = {
+            "type": "session",
+            "scenario": sc.key,
+            "title": sc.title,
+            "focus": [CATEGORIES[key] for key in self.focus],
+        }
+        if self.exam is not None:
+            session_message["exam"] = {
+                "preset": self.exam.preset,
+                "title": self.exam.title,
+                "note": self.exam.note,
+                "parts": [
+                    {
+                        "kind": part.kind,
+                        "title": part.title,
+                        "seconds": part.seconds,
+                    }
+                    for part in self.exam.parts
+                ],
             }
-        )
+        await self.send_json(session_message)
 
         thermal = await self._thermal_check()
         if thermal is not None and thermal.state == "hot":
@@ -114,11 +160,14 @@ class Session:
             log.info("session start thermal hot (gpu=%g °C)", thermal.temp_c)
             return
 
+        greeting = self.exam.greeting if self.exam is not None else sc.opener
         if self.deps.llm_warmup:
             system = {"role": "system", "content": self._system}
-            warmup_messages = [system, {"role": "assistant", "content": sc.opener}]
+            warmup_messages = [system, {"role": "assistant", "content": greeting}]
             self._warmup_task = asyncio.create_task(self.deps.llm.warmup(warmup_messages))
-        await self._speak_fixed(sc.opener)
+        await self._speak_fixed(greeting)
+        if self.exam is not None:
+            await self._enter_part(0)
 
     async def handle_audio(self, pcm16: bytes) -> None:
         await self.interrupt()
@@ -184,7 +233,11 @@ class Session:
             log.info("feedback thermal hot (gpu=%g °C)", thermal.temp_c)
             return
 
-        learner_lines = [m for m in self.history if m["role"] == "user"]
+        learner_lines = [
+            m
+            for m in self.history
+            if m["role"] == "user" and not is_moderation(m)
+        ]
         if not learner_lines:
             await self.send_json({"type": "feedback", "markdown": "_Noch keine Äußerungen._"})
             return
@@ -271,9 +324,19 @@ class Session:
         system = {
             "role": "system",
             "content": self._system
-            or self.deps.prompts.system_prompt(self.scenario_key, self.focus or None),
+            or (
+                self.deps.prompts.exam_system_prompt(self.exam)
+                if self.exam is not None
+                else self.deps.prompts.system_prompt(
+                    self.scenario_key, self.focus or None
+                )
+            ),
         }
-        return [system, *self.history[-self.deps.history_max_turns :]]
+        recent = self.history[-self.deps.history_max_turns :]
+        markers = [message for message in self.history if is_moderation(message)]
+        if markers and markers[-1] not in recent:
+            recent = [markers[-1], *recent]
+        return [system, *recent]
 
     async def _thermal_check(self) -> ThermalStatus | None:
         if self.deps.thermal is None:
@@ -288,7 +351,9 @@ class Session:
 
     async def _hint(self, query: str) -> None:
         started = time.perf_counter()
-        context = format_feedback_transcript(self.history[-4:])
+        context = format_feedback_transcript(
+            [m for m in self.history[-4:] if not is_moderation(m)]
+        )
         try:
             prompt = self.deps.prompts.hint_prompt(query, context)
             text = await self.deps.llm.chat(
@@ -390,6 +455,28 @@ class Session:
         await self.send_json({"type": "transcript", "turn": turn_id, "text": text})
         self.history.append({"role": "user", "content": text})
 
+        if self._collecting():
+            await self.send_json({"type": "collected", "turn": turn_id})
+            return
+
+        self._pending_metrics = (m, t0)
+        try:
+            await self._respond(turn_id)
+        finally:
+            self._pending_metrics = None
+
+    async def _respond(self, turn_id: int, max_tokens: int | None = None) -> None:
+        pending = self._pending_metrics
+        self._pending_metrics = None
+        if pending is None:
+            m = TurnMetrics()
+            t0 = time.perf_counter()
+        else:
+            m, t0 = pending
+
+        def ms() -> int:
+            return int((time.perf_counter() - t0) * 1000)
+
         queue: asyncio.Queue[str | None] = asyncio.Queue()
         spoken: list[str] = []
 
@@ -399,7 +486,9 @@ class Session:
             )
             first = True
             try:
-                async for piece in self.deps.llm.stream_chat(self._messages()):
+                async for piece in self.deps.llm.stream_chat(
+                    self._messages(), max_tokens=max_tokens
+                ):
                     if first:
                         m.llm_first_token_ms = ms()
                         first = False
@@ -454,3 +543,72 @@ class Session:
         finally:
             if spoken:
                 self.history.append({"role": "assistant", "content": " ".join(spoken)})
+
+    async def _kerstin_says(self, marker: str, max_tokens: int | None = None) -> None:
+        self.turn_id += 1
+        self.history.append(
+            {"role": "user", "content": f"{MODERATION_PREFIX}{marker}"}
+        )
+        thermal = await self._thermal_check()
+        if thermal is not None and thermal.state == "hot":
+            await self._send_thermal(thermal, self.turn_id)
+            log.info("kerstin_says thermal hot (gpu=%g °C)", thermal.temp_c)
+            return
+        await self._respond(self.turn_id, max_tokens=max_tokens)
+
+    def _collecting(self) -> bool:
+        if self.exam is None or self.part_index >= len(self.exam.parts):
+            return False
+        part = self.exam.parts[self.part_index]
+        return part.kind == "learner_talk" and not self._collect_followup_done
+
+    async def _enter_part(self, index: int) -> None:
+        if self.exam is None:
+            return
+        self.part_index = index
+        self._collect_followup_done = False
+        part = self.exam.parts[index]
+        card = part.card
+        if part.kind == "kerstin_talk" and card:
+            card = {"title": card.get("title")}
+        await self.send_json(
+            {
+                "type": "exam_part",
+                "index": index,
+                "kind": part.kind,
+                "title": part.title,
+                "seconds": part.seconds,
+                "ui_text": part.ui_text,
+                "card": card,
+            }
+        )
+        log.info("exam part %s %s", index, part.kind)
+        marker = exam_enter_marker(part, index)
+        if marker is not None:
+            await self._kerstin_says(
+                marker,
+                max_tokens=450 if part.kind == "kerstin_talk" else None,
+            )
+
+    async def exam_next(self) -> None:
+        if self.exam is None:
+            await self.send_json(
+                {"type": "error", "message": "exam_next outside exam mode"}
+            )
+            return
+        await self.interrupt()
+        if self.part_index >= len(self.exam.parts):
+            return
+        part = self.exam.parts[self.part_index]
+        if part.kind == "learner_talk" and not self._collect_followup_done:
+            self._collect_followup_done = True
+            await self._kerstin_says(
+                f"Teil {self.part_index + 1} – Rückfrage zu deinem Vortrag: "
+                "Stelle genau eine kurze Frage."
+            )
+            return
+        if self.part_index + 1 >= len(self.exam.parts):
+            await self.send_json({"type": "exam_part", "kind": "done"})
+            log.info("exam done")
+            return
+        await self._enter_part(self.part_index + 1)

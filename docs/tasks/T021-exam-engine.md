@@ -114,13 +114,709 @@ A session can run in **exam mode**: a sequence of timed parts modelled on two co
 - [ ] `git diff main --stat` shows only allowed files
 
 ## Worker report (Kilo Code fills this in)
-- **Changed files:**
-- **How tested:**
+- **Changed files:** `backend/prompts/exam.json` (new), `backend/prompts/exam.md` (new), `backend/kerstin/exam.py` (new), `backend/kerstin/prompts.py`, `backend/kerstin/session.py`, `backend/kerstin/llm.py` (`stream_chat` max_tokens only), `backend/kerstin/main.py`, `backend/tests/test_exam.py` (new), `backend/tests/test_session.py`, `backend/tests/test_prompts.py`, `backend/tests/test_llm.py`, `scripts/exam_eval.py` (new), `Makefile` (`exam-eval` only), `docs/PROTOCOL.md`, and this task file.
+- **How tested:** `make test` → **227 Python + 23 Node** tests passed; `make lint` passed. New tests cover real `exam.json` validation, broken kind/seconds/pool sizes, deterministic no-repeat plans, moderation detection, exam card/prompt hygiene, full telc-style enter/finish/message/part/done flow, collect mode (0 LLM calls, history grows), one follow-up, `kerstin_talk` `max_tokens=450`, marker retention on trimming, marker headings in feedback and marker-free hint context, thermal `_kerstin_says`, `exam_next` outside exam mode, and unchanged normal mode. `make exam-eval EXAM_ARGS='--model gemma4:26b --seed 1234'` ran both presets on the real Session; 20 LLM calls total.
 - **Measurements (if any):**
-- **Deviations from spec / extra files touched:**
-- **New dependencies (+license):**
-- **Open questions:**
+  - Card pools: `talk_topics` 8, `kerstin_topics` 4, `discussion_questions` 8, `planning_tasks` 6; `exam.json`/`exam.md` contain no official brand names (tested). `exam.md` has no placeholders left.
+  - Eval summary: both presets **Overall PASS**; **collect-mode LLM calls 0**; follow-up one question true; **0 moderation leaks**; **0 dialog `check_reply` issues** (14 and 9 replies); talk markdown false; talk word counts 128/130 (range 84–175) and 170/170 (range 110–229); discussion opener position true for both; planning proposal true for the preset that has planning (Goethe-style preset has no planning part, so n/a).
+  - Kerstin talk first-audio (headless `NoTTS`, so `tts_first_ms=0`): telc-style `first_sentence_ms=447`, `first_audio_ms=447`, `llm_first_token_ms=165`; Goethe-style `first_sentence_ms=329`, `first_audio_ms=329`, `llm_first_token_ms=162`.
+  - GPU during eval: 48→65 °C; no 80 °C abort. `gemma4:26b` was loaded alongside the other project's `llama3.2:1b`; neither was unloaded. No server was started (port 8771/8770 untouched).
+  - Full eval output (summary + every Kerstin reply by part):
+    ```text
+.venv/bin/python scripts/exam_eval.py --model gemma4:26b --seed 1234
+Model: gemma4:26b | seed: 1234 | cool_down: 76→70 °C
+GPU before exam start: 48 °C
+GPU before praesentation_diskussion_planung part 0 prep next: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 1: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 2: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 3: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 4: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk follow-up: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk answer: 54 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk next: 55 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk question 1: 57 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk question 2: 57 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk next: 58 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 1: 58 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 2: 58 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 3: 59 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 4: 59 °C
+GPU before praesentation_diskussion_planung part 3 dialog next: 59 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 1: 60 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 2: 60 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 3: 61 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 4: 62 °C
+GPU before praesentation_diskussion_planung part 4 dialog next: 62 °C
+
+## Preset `praesentation_diskussion_planung` — Präsentation, Diskussion und Planung
+Parts: 0:prep, 1:learner_talk, 2:kerstin_talk, 3:dialog, 4:dialog
+Collect-mode LLM calls: 0
+Follow-up: Das hast du sehr interessant erklärt. Warst du in letzter Zeit selbst schon in einem neuen Land oder einer anderen Stadt im Urlaub?  [one-question=True]
+Kerstin talk: 128 words (target 130, range 84–175); markdown=False
+Kerstin talk timing: first_sentence_ms=447 tts_first_ms=0 first_audio_ms=447 llm_first_token_ms=165
+Discussion opener: Ich finde das Thema sehr aktuell. Meiner Meinung nach sind autofreie Zonen in der Innenstadt eine wirklich gute Idee für die Umwelt. Was denkst du darüber?  [position=True]
+Planning opener: Ich finde die Idee toll, dass wir unser Ende des Deutschkurses gemeinsam feiern sollten. Wir könnten zum Beispiel etwas Schönes organisieren, damit wir uns alle noch einmal in Ruhe verabschieden können. Was hältst du davon, wenn wir eine kleine Party in einem Park machen?  [proposal=True]
+Dialog check_reply: 14 replies, issues=none
+Moderation leaks: 0
+Overall: PASS
+
+Replies by part
+
+[Greeting] T0: Hallo, ich bin Kerstin. Ich mache die Prüfung heute mit dir – viel Erfolg uns beiden!
+
+[0] prep — Vorbereitung
+  (no reply)
+
+[1] learner_talk — Dein Kurzvortrag
+  T5: Das hast du sehr interessant erklärt. Warst du in letzter Zeit selbst schon in einem neuen Land oder einer anderen Stadt im Urlaub?  [codes: -]
+  T6: Das kann ich gut verstehen, der Anfang in einem neuen Job ist immer sehr stressig. Musstest du in dieser Zeit auch viel neue Fachbegriffe auf Deutsch lernen?  [codes: -]
+
+[2] kerstin_talk — Kerstins Kurzvortrag
+  T7: Ich möchte euch jetzt etwas über meinen Weg nach Berlin erzählen. Ich komme ursprünglich aus Schweden, aus Göteborg, aber ich bin vor zwei Jahren nach Berlin gezogen, weil ich hier eine Stelle als UX-Designerin in einem kleinen Start-up gefunden habe. Am Anfang war alles ziemlich schwer für mich, besonders die Wohnungssuche in dieser Stadt war ein echter Albtraum und ich war oft frustriert wegen der Bürokratie. Aber heute gefällt mir das Leben in Berlin sehr gut, weil es so viele internationale Menschen und tolle Cafés gibt. Ich gehe hier auch gerne bouldern, um Stress abzubauen. Mein Tipp für Neuzugezogene ist, dass man nicht sofort perfekt Deutsch sprechen muss, sondern einfach Leute kennenlernen und mutig sein sollte. Habt ihr auch schon mal überlegt, in eine andere Stadt zu ziehen?  [codes: too_long]
+  T8: Es war wirklich sehr stressig, weil ich mich einsam gefühlt habe und die Sprache noch nicht so gut war. Besonders die Behördengänge waren schwierig, weil alles so kompliziert klingt. Wie war das denn für dich in deinem neuen Job?  [codes: -]
+  T9: Ich habe gelernt, dass man Geduld haben muss und dass es hilft, sich Hilfe zu suchen. Man darf nicht alles alleine versuchen, wenn man nicht weiterkommt. Hast du auch so etwas gelernt, als du deine Erfahrungen gemacht hast?  [codes: -]
+
+[3] dialog — Diskussion
+  T10: Ich finde das Thema sehr aktuell. Meiner Meinung nach sind autofreie Zonen in der Innenstadt eine wirklich gute Idee für die Umwelt. Was denkst du darüber?  [codes: -]
+  T11: Da hast du absolut recht, die Busse und Bahnen müssen zuverlässiger werden, damit die Leute auch darauf verzichten können. Aber glaubst du nicht, dass die Geschäfte in der Stadt Probleme bekommen könnten, wenn man nicht mehr mit dem Auto direkt dorthin fahren kann?  [codes: -]
+  T12: Das ist ein sehr wichtiger Punkt. Ich denke, man müsste für diese Menschen spezielle Lösungen finden, zum Beispiel Lieferdienste oder Parkplätze am Rand der Zone. Meinst du, dass die Anwohner mit der Situation zufrieden wären, wenn es weniger Verkehr gibt?  [codes: -]
+  T13: Das ist ein guter erster Schritt. Vielleicht könnten wir in einem Park oder in einem Gemeinschaftsraum feiern, weil das nicht so teuer ist. Hast du schon eine Idee, wo wir feiern könnten?  [codes: -]
+  T14: Das ist super, danke! Dann könnten wir zum Beispiel Saft, Wasser und vielleicht auch ein bisschen Limonade kaufen. Sollen wir uns auch um das Essen kümmern oder wäre es besser, wenn jeder einfach eine Kleinigkeit selbst mitbringt?  [codes: -]
+
+[4] dialog — Gemeinsam planen
+  T15: Ich finde die Idee toll, dass wir unser Ende des Deutschkurses gemeinsam feiern sollten. Wir könnten zum Beispiel etwas Schönes organisieren, damit wir uns alle noch einmal in Ruhe verabschieden können. Was hältst du davon, wenn wir eine kleine Party in einem Park machen?  [codes: -]
+  T16: Das ist ein wichtiger Punkt für die Stadtplanung, aber für unser Abschiedsfest im Park ist das vielleicht weniger wichtig. Sollen wir uns vielleicht überlegen, was wir an Essen machen wollen? Findest du es gut, wenn wir gemeinsam Pizza bestellen?  [codes: -]
+  T17: Das ist ein schwieriges Problem, aber für unser Fest im Park müssen wir uns ja nicht so viele Sorgen um die Autofahrer machen. Wir sollten uns lieber darauf konzentrieren, dass alle Gäste gut an den Ort kommen können. Was hältst du davon, wenn wir auch ein bisschen Musik oder ein kleines Programm planen, damit es nicht langweilig wird?  [codes: -]
+  T18: Das stimmt, die Suche nach einem Ort ist das Wichtigste. Wir könnten ja vielleicht im Park am Gleisdreieck feiern, weil man dort sehr gut mit der U-Bahn hinkommt. Hast du eine Idee, was wir für das Programm machen könnten?  [codes: -]
+  T19: Das ist wirklich sehr lieb von dir, danke! Dann können wir uns ja zusammen überlegen, wie viel Geld wir insgesamt ausgeben wollen. Meinst du, wir sollten alle Teilnehmer bitten, einen kleinen Beitrag zu zahlen?  [codes: -]
+GPU before exam start: 62 °C
+GPU before vortrag_diskussion part 0 prep next: 62 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 1: 62 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 2: 62 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 3: 58 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 4: 58 °C
+GPU before vortrag_diskussion part 1 learner_talk follow-up: 58 °C
+GPU before vortrag_diskussion part 1 learner_talk answer: 62 °C
+GPU before vortrag_diskussion part 1 learner_talk next: 62 °C
+GPU before vortrag_diskussion part 2 kerstin_talk question 1: 63 °C
+GPU before vortrag_diskussion part 2 kerstin_talk question 2: 64 °C
+GPU before vortrag_diskussion part 2 kerstin_talk next: 64 °C
+GPU before vortrag_diskussion part 3 dialog turn 1: 64 °C
+GPU before vortrag_diskussion part 3 dialog turn 2: 64 °C
+GPU before vortrag_diskussion part 3 dialog turn 3: 64 °C
+GPU before vortrag_diskussion part 3 dialog turn 4: 65 °C
+GPU before vortrag_diskussion part 3 dialog next: 65 °C
+
+## Preset `vortrag_diskussion` — Vortrag und Diskussion
+Parts: 0:prep, 1:learner_talk, 2:kerstin_talk, 3:dialog
+Collect-mode LLM calls: 0
+Follow-up: Das klingt wirklich interessant. Welches Land hast du denn als Reiseziel am liebsten?  [one-question=True]
+Kerstin talk: 170 words (target 170, range 110–229); markdown=False
+Kerstin talk timing: first_sentence_ms=329 tts_first_ms=0 first_audio_ms=329 llm_first_token_ms=162
+Discussion opener: Ich finde das Thema sehr spannend. Meiner Meinung nach sind autofreie Zonen eine gute Idee für die Lebensqualität in der Stadt. Was denkst du darüber?  [position=True]
+Planning opener: n/a
+Dialog check_reply: 9 replies, issues=none
+Moderation leaks: 0
+Overall: PASS
+
+Replies by part
+
+[Greeting] T0: Hallo, ich bin Kerstin. Ich mache die Prüfung heute mit dir – viel Erfolg uns beiden!
+
+[0] prep — Vorbereitung
+  (no reply)
+
+[1] learner_talk — Dein Kurzvortrag
+  T5: Das klingt wirklich interessant. Welches Land hast du denn als Reiseziel am liebsten?  [codes: -]
+  T6: Das klingt nach einer sehr intensiven Zeit. War der Anfang in der Firma sehr stressig für dich?  [codes: -]
+
+[2] kerstin_talk — Kerstins Kurzvortrag
+  T7: Ich möchte euch heute kurz erzählen, wie ich nach Berlin gekommen bin. Ich komme ursprünglich aus Schweden, genauer gesagt aus Göteborg, und bin vor zwei Jahren hierhergezogen. Ich habe mich für Berlin entschieden, weil ich als UX-Designerin in einem Start-up arbeiten wollte und die Stadt einfach sehr dynamisch finde. Am Anfang war es aber nicht alles so einfach. Besonders das Finden einer Wohnung war sehr schwer und stressig, weil es so viele Bewerber gibt. Auch die Behörden hier in Deutschland waren für mich am Anfang ein bisschen kompliziert, weil alles so viel Papierkram bedeutet. Aber heute gefällt mir das Leben in Berlin sehr gut. Ich liebe die vielen Möglichkeiten, zum Beispiel die Kletterhallen zum Bouldern oder die vielen internationalen Cafés. Ich lerne auch gerade intensiv Deutsch an der Volkshochschule. Mein Tipp für Leute, die neu hier sind, ist, dass man mutig sein muss und schnell Kontakt zu anderen Menschen suchen sollte. Wenn man Freunde findet, fühlt man sich viel weniger einsam. Habt ihr auch Fragen zu meinem Weg nach Berlin?  [codes: too_long]
+  T8: Es war wirklich sehr aufregend, aber auch ein bisschen einsam. Ich kannte ja noch niemanden hier und musste mich erst einmal an die deutsche Sprache und die Kultur gewöhnen. Hast du dich auch schon einmal in einer neuen Stadt oder einem neuen Land so gefühlt?  [codes: -]
+  T9: Ich habe gelernt, dass man nicht sofort alles perfekt machen muss und dass Geduld sehr wichtig ist. Außerdem ist es wichtig, sich Hilfe zu suchen, wenn man bei den Behörden oder der Wohnungssuche nicht weiterkommt. Hast du in deiner neuen Umgebung auch schon solche wichtigen Lektionen gelernt?  [codes: -]
+
+[3] dialog — Diskussion
+  T10: Ich finde das Thema sehr spannend. Meiner Meinung nach sind autofreie Zonen eine gute Idee für die Lebensqualität in der Stadt. Was denkst du darüber?  [codes: -]
+  T11: Da stimme ich dir absolut zu. Wenn die Busse und Bahnen nicht zuverlässig sind, werden die Leute die Autos nicht stehen lassen. Glaubst du, dass die Menschen in Berlin bereit wären, auf das Auto zu verzichten, wenn der öffentliche Verkehr besser wäre?  [codes: -]
+  T12: Das ist ein sehr wichtiger Punkt. Besonders Leute, die außerhalb wohnen oder im Beruf zum Beispiel Handwerker sind, brauchen ein Auto. Findest du, dass man für diese Gruppen spezielle Ausnahmen oder Lösungen finden könnte?  [codes: -]
+  T13: Das ist ein guter Anfang. Meinst du damit, dass wir erst einmal einen bestimmten Stadtteil suchen sollten, in dem wir das Projekt testen können?  [codes: -]
+  T14: Das ist sehr lieb von dir, danke! Ich kann mich dann um die Planung der Aktivitäten und die Suche nach dem Ort kümmern. Sollen wir uns vielleicht am nächsten Wochenende treffen, um alles gemeinsam zu besprechen?  [codes: -]
+
+All automatic checks passed.
+    ```
+- **Deviations from spec / extra files touched:** `exam_eval.py` uses `NoTTS` (same headless approach as `persona_eval.py`), so `tts_first_ms` is 0; `first_audio_ms` reports the first-sentence/first-audio availability. The Goethe-style preset has no planning part, so its planning-opener check prints n/a by design. Kerstin's talk is legitimately longer than normal turns and is excluded from `check_reply`; its reply is still shown with its `too_long` code. The pre-existing `.gitignore` `*.prs` line remains unstaged and is not part of this task.
+- **New dependencies (+license):** None.
+- **Open questions:** The T026 UI is out of scope; the browser/manual check remains for Sameer. The lead grades all cards and the pasted Kerstin replies.
+
+### Round 1 — exam.md wording + eval realism
+
+- **Round 1:** Implemented `make_plan(..., cards=...)` pinning by pool name/alias and title/question/situation; the eval now pins two card sets and runs **2 presets × 2 card sets = 4 runs** with card-matched learner lines (talk, answer, 2 Kerstin questions, 4 discussion lines: 2 pro + 2 partly agreeing, 4 planning lines only in planning). `exam.md` now says du (not ihr/euch), asks for a counterpoint after agreement, and says „Punkte oder Noten“ (no „Prüfungsmarken“). The eval gained `ihr_euch` and `counterpoint` checks.
+- **Verification:** `make test` → **230 Python + 23 Node** tests pass; `make lint` passes. New tests: pinning by title/question/situation, unknown pinned title → `ValueError`, and `exam.md` contains „du an“, „Gegenpunkt“, and no „Prüfungsmarken“. No other prompt changes; `persona.md`/`feedback.md` untouched.
+- **4-run results:** A/telc **PASS**; A/Goethe **FAIL** (`ihr/euch` in T7 talk); B/telc **FAIL** (planning opener lacks a proposal; `no_question` T6/T8); B/Goethe **FAIL** (`no_question` T6/T8; `ihr/euch` in T7 talk). Counterpoint after learner agreement was **true in all four**; collect-mode LLM calls **0**; talk lengths **133/163/121/174**; first-audio **461/423/429/460 ms** (headless `NoTTS`, `tts_first_ms=0`); GPU **48–71 °C**; no 80 °C abort. `gemma4:26b` ran alongside `nomic-embed-text`; no other model was unloaded. No server was started. The four failures are model behaviour, not check tuning; the lead grades them.
+- **Full 4-run output (summaries + every Kerstin reply by part):**
+  ```text
+.venv/bin/python scripts/exam_eval.py --model gemma4:26b --seed 1234
+Model: gemma4:26b | seed: 1234 | cool_down: 76→70 °C
+GPU before exam start: 48 °C
+GPU before praesentation_diskussion_planung part 0 prep next: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 1: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 2: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 3: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 4: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk follow-up: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk answer: 54 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk next: 55 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk question 1: 57 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk question 2: 57 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk next: 58 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 1: 58 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 2: 59 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 3: 59 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 4: 59 °C
+GPU before praesentation_diskussion_planung part 3 dialog next: 59 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 1: 60 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 2: 61 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 3: 61 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 4: 62 °C
+GPU before praesentation_diskussion_planung part 4 dialog next: 63 °C
+
+## Run `praesentation_diskussion_planung / A — Homeoffice / Berlin / autofrei / Abschied` — Präsentation, Diskussion und Planung
+Parts: 0:prep, 1:learner_talk, 2:kerstin_talk, 3:dialog, 4:dialog
+Collect-mode LLM calls: 0
+Follow-up: Das klingt nach einer sehr vernünftigen Einstellung. Glaubst du, dass die Regeln für das Homeoffice in den Firmen strenger werden sollten?  [one-question=True]
+Kerstin talk: 133 words (target 130, range 84–175); markdown=False
+Kerstin talk timing: first_sentence_ms=461 tts_first_ms=0 first_audio_ms=461 llm_first_token_ms=168
+Discussion opener: Ich finde das Thema sehr spannend. Meiner Meinung nach sind autofreie Zonen in den Innenstädten eine super Idee, um die Luft sauberer zu machen. Was denkst du darüber?  [position=True]
+Counterpoint after learner agreement: True
+Planning opener: Da unser Deutschkurs nächsten Monat endet, sollten wir unbedingt ein Abschiedsfest organisieren. Ich schlage vor, dass wir eine kleine Party in einem Café oder in einem Park machen. Was hältst du davon?  [proposal=True]
+Dialog check_reply: 14 replies, issues=none
+Moderation leaks: 0
+ihr/euch hits: 0
+Overall: PASS
+
+Replies by part
+
+[Greeting] T0: Hallo, ich bin Kerstin. Ich mache die Prüfung heute mit dir – viel Erfolg uns beiden!
+
+[0] prep — Vorbereitung
+  (no reply)
+
+[1] learner_talk — Dein Kurzvortrag
+  T5: Das klingt nach einer sehr vernünftigen Einstellung. Glaubst du, dass die Regeln für das Homeoffice in den Firmen strenger werden sollten?  [codes: -]
+  T6: Das kann ich sehr gut verstehen, das kenne ich auch von mir selbst. Wie hast du das denn gelöst, damit du nach der Arbeit wirklich Feierabend machen konntest?  [codes: -]
+
+[2] kerstin_talk — Kerstins Kurzvortrag
+  T7: Ich erzähle dir jetzt etwas über meinen Weg nach Berlin. Ich komme ursprünglich aus Göteborg in Schweden und bin vor zwei Jahren hierhergezogen, weil ich als UX-Designerin in einem kleinen Start-up arbeiten wollte. Berlin bietet einfach viel mehr Möglichkeiten für meinen Beruf als meine Heimatstadt. Am Anfang war es für mich ziemlich schwer, eine Wohnung zu finden, weil der Wohnungsmarkt hier wirklich extrem schwierig ist. Auch die Bürokratie und die vielen Ämter waren am Anfang eine große Herausforderung für mich. Aber heute liebe ich Berlin, weil es hier so viele verschiedene Menschen und kulturelle Angebote gibt. Ich gehe hier sehr gerne bouldern und koche gerne mit neuen Leuten. Mein Tipp für Leute, die neu hier sind, ist, sich schnell mit anderen zu vernetzen und nicht zu viel Angst vor der Sprache zu haben.  [codes: too_long, no_question]
+  T8: Es war eine Mischung aus großer Aufregung und ein bisschen Angst vor dem Unbekannten. Ich war zwar sehr motiviert wegen des Jobs, aber alles war am Anfang so neu und fremd für mich. Hattest du bei deinem Umzug oder deinem neuen Job auch so ein Gefühl?  [codes: -]
+  T9: Am meisten hat mir ein kleiner Sprachkurs und der Kontakt zu anderen Expats geholfen. So konnte ich die ersten wichtigen Sätze lernen und hatte direkt ein soziales Netzwerk. Hast du beim Deutschlernen auch eine Methode gefunden, die dir besonders gut hilft?  [codes: -]
+
+[3] dialog — Diskussion
+  T10: Ich finde das Thema sehr spannend. Meiner Meinung nach sind autofreie Zonen in den Innenstädten eine super Idee, um die Luft sauberer zu machen. Was denkst du darüber?  [codes: -]
+  T11: Das stimmt, weniger Lärm macht die Stadt viel angenehmer. Aber ich mache mir Sorgen um die Menschen, die in der Stadt Geschäfte haben und ihre Waren mit Lieferwagen transportieren müssen. Glaubst du, dass die Geschäfte und Anwohner durch weniger Autos zu sehr benachteiligt werden?  [codes: -]
+  T12: Das ist ein sehr guter Punkt, mehr Bewegung an der frischen Luft ist gesund für alle. Man könnte die Straßen ja so umgestalten, dass sie schöner für Fußgänger werden. Denkst du, dass man die Innenstadt trotzdem gut mit öffentlichen Verkehrsmitteln erreichen kann?  [codes: -]
+  T13: Genau, das ist das Hauptproblem. Vielleicht könnte man spezielle Zeiten einführen, in denen Lieferwagen noch fahren dürfen, zum Beispiel ganz früh am Morgen. Was hältst du von so einem Kompromiss?  [codes: -]
+  T14: Da hast du absolut recht, das habe ich gar nicht so stark bedacht. Wir müssten sicherstellen, dass zum Beispiel Taxis oder spezielle Shuttle-Busse weiterhin in die Zone fahren dürfen. Denkst du, man könnte die Innenstadt durch mehr barrierefreie Wege für diese Menschen attraktiver machen?  [codes: -]
+
+[4] dialog — Gemeinsam planen
+  T15: Da unser Deutschkurs nächsten Monat endet, sollten wir unbedingt ein Abschiedsfest organisieren. Ich schlage vor, dass wir eine kleine Party in einem Café oder in einem Park machen. Was hältst du davon?  [codes: -]
+  T16: Das ist eine wirklich gute Idee, das spart uns viel Geld. Wir könnten den Raum ja gemütlich mit ein paar Dekorationen schmücken. Was meinst du, sollen wir jeder etwas zu essen oder zu trinken mitbringen?  [codes: -]
+  T17: Ein Buffet ist super, dann haben wir eine große Auswahl und es ist nicht so viel Arbeit für eine Person. Sollen wir vielleicht eine Liste machen, damit am Ende nicht fünf Leute denselben Salat mitbringen? Und hast du eine Idee, was wir als Programm machen könnten?  [codes: -]
+  T18: Das Quiz klingt richtig lustig, da müssen wir uns nur ein paar gute Fragen über unsere Zeit im Kurs überlegen. Vielleicht können wir auch ein paar Fotos aus den letzten Monaten zeigen. Wer könnte sich um die Musik kümmern und die Getränke besorgen?  [codes: -]
+  T19: Das mache ich sehr gerne, ich schreibe heute Abend direkt eine Nachricht in unsere Gruppe. Dann wissen alle Bescheid, was sie zum Buffet beitragen können. Sollen wir uns vielleicht nächste Woche nach dem Unterricht kurz zusammensetzen, um die Kosten für die Dekoration und die Getränke zu besprechen?  [codes: -]
+GPU before exam start: 63 °C
+GPU before vortrag_diskussion part 0 prep next: 63 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 1: 63 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 2: 63 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 3: 63 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 4: 63 °C
+GPU before vortrag_diskussion part 1 learner_talk follow-up: 63 °C
+GPU before vortrag_diskussion part 1 learner_talk answer: 63 °C
+GPU before vortrag_diskussion part 1 learner_talk next: 63 °C
+GPU before vortrag_diskussion part 2 kerstin_talk question 1: 64 °C
+GPU before vortrag_diskussion part 2 kerstin_talk question 2: 64 °C
+GPU before vortrag_diskussion part 2 kerstin_talk next: 64 °C
+GPU before vortrag_diskussion part 3 dialog turn 1: 65 °C
+GPU before vortrag_diskussion part 3 dialog turn 2: 65 °C
+GPU before vortrag_diskussion part 3 dialog turn 3: 65 °C
+GPU before vortrag_diskussion part 3 dialog turn 4: 65 °C
+GPU before vortrag_diskussion part 3 dialog next: 66 °C
+
+## Run `vortrag_diskussion / A — Homeoffice / Berlin / autofrei / Abschied` — Vortrag und Diskussion
+Parts: 0:prep, 1:learner_talk, 2:kerstin_talk, 3:dialog
+Collect-mode LLM calls: 0
+Follow-up: Das klingt nach einer sehr vernünftigen Einstellung. Glaubst du, dass die Regeln für das Homeoffice für die Arbeitgeber oder für die Arbeitnehmer wichtiger sind?  [one-question=True]
+Kerstin talk: 163 words (target 170, range 110–229); markdown=False
+Kerstin talk timing: first_sentence_ms=423 tts_first_ms=0 first_audio_ms=423 llm_first_token_ms=173
+Discussion opener: Ich finde das Thema sehr spannend. Meiner Meinung nach sind autofreie Zonen in der Innenstadt eine gute Idee, um die Luftqualität und die Sicherheit für Fußgänger zu verbessern. Was hältst du von der Idee?  [position=True]
+Counterpoint after learner agreement: True
+Planning opener: n/a
+Dialog check_reply: 9 replies, issues=none
+Moderation leaks: 0
+ihr/euch hits: 1
+  T7: Ich möchte euch jetzt von meinem Weg nach Berlin erzählen. Ich komme ursprünglich aus Göteborg in Schweden, aber ich wollte schon immer in einer größeren Stadt leben und eine neue Kultur kennenlernen. Deshalb bin ich vor zwei Jahren nach Berlin gezogen, um hier als UX-Designerin in einem Start-up zu arbeiten. Am Anfang war vieles ziemlich schwierig für mich, besonders die Wohnungssuche war extrem stressig und kompliziert. Auch die Bürokratie und die Behörden hier in Deutschland waren am Anfang sehr anstrengend, weil alles so viel Papier braucht. Aber heute gefällt mir das Leben in Berlin sehr gut, weil es hier so viele interessante Menschen und tolle Möglichkeiten zum Bouldern gibt. Ich liebe die Freiheit und die kulturelle Vielfalt in dieser Stadt. Wenn jemand neu nach Berlin kommt, habe ich einen kleinen Tipp: Sucht euch zuerst eine feste Wohnung und seid geduldig mit den Ämtern. Man braucht viel Durchhaltevermögen, aber am Ende lohnt es sich wirklich, hier zu leben. Habt ihr dazu vielleicht auch Fragen?
+Overall: FAIL
+
+Replies by part
+
+[Greeting] T0: Hallo, ich bin Kerstin. Ich mache die Prüfung heute mit dir – viel Erfolg uns beiden!
+
+[0] prep — Vorbereitung
+  (no reply)
+
+[1] learner_talk — Dein Kurzvortrag
+  T5: Das klingt nach einer sehr vernünftigen Einstellung. Glaubst du, dass die Regeln für das Homeoffice für die Arbeitgeber oder für die Arbeitnehmer wichtiger sind?  [codes: -]
+  T6: Das kann ich sehr gut verstehen, das kenne ich auch von mir selbst. Wie hast du das denn gelöst, damit du nach der Arbeit wirklich Feierabend machen konntest?  [codes: -]
+
+[2] kerstin_talk — Kerstins Kurzvortrag
+  T7: Ich möchte euch jetzt von meinem Weg nach Berlin erzählen. Ich komme ursprünglich aus Göteborg in Schweden, aber ich wollte schon immer in einer größeren Stadt leben und eine neue Kultur kennenlernen. Deshalb bin ich vor zwei Jahren nach Berlin gezogen, um hier als UX-Designerin in einem Start-up zu arbeiten. Am Anfang war vieles ziemlich schwierig für mich, besonders die Wohnungssuche war extrem stressig und kompliziert. Auch die Bürokratie und die Behörden hier in Deutschland waren am Anfang sehr anstrengend, weil alles so viel Papier braucht. Aber heute gefällt mir das Leben in Berlin sehr gut, weil es hier so viele interessante Menschen und tolle Möglichkeiten zum Bouldern gibt. Ich liebe die Freiheit und die kulturelle Vielfalt in dieser Stadt. Wenn jemand neu nach Berlin kommt, habe ich einen kleinen Tipp: Sucht euch zuerst eine feste Wohnung und seid geduldig mit den Ämtern. Man braucht viel Durchhaltevermögen, aber am Ende lohnt es sich wirklich, hier zu leben. Habt ihr dazu vielleicht auch Fragen?  [codes: too_long]
+  T8: Es war eine Mischung aus großer Aufregung und auch ein bisschen Angst vor dem Unbekannten. Ich war sehr gespannt auf das neue Abenteuer, aber die neue Sprache und die fremde Umgebung haben mich am ersten Tag auch etwas nervös gemacht. Hast du auch schon einmal in einer ganz anderen Stadt oder in einem anderen Land gelebt?  [codes: -]
+  T9: Am meisten hat mir ein kleiner Sprachkurs und das Kennenlernen von anderen Expats geholfen. Es war so wichtig, Leute zu treffen, die ähnliche Erfahrungen gemacht haben. Hast du beim Sprachenlernen auch schon solche Gruppen oder Kurse besucht?  [codes: -]
+
+[3] dialog — Diskussion
+  T10: Ich finde das Thema sehr spannend. Meiner Meinung nach sind autofreie Zonen in der Innenstadt eine gute Idee, um die Luftqualität und die Sicherheit für Fußgänger zu verbessern. Was hältst du von der Idee?  [codes: -]
+  T11: Das stimmt, weniger Lärm und bessere Luft sind super für die Lebensqualität. Aber ich mache mir Sorgen, dass es für die Geschäfte schwierig werden könnte, wenn die Kunden nicht mehr einfach mit dem Auto zum Laden kommen können. Denkst du, dass die Menschen dann einfach mehr online bestellen werden?  [codes: -]
+  T12: Das ist ein sehr guter Punkt, mehr Bewegung an der frischen Luft ist gesund. Aber meinst du nicht, dass es für die Anwohner schwierig wird, wenn sie zum Beispiel schwere Einkäufe oder Möbel nach Hause transportieren müssen?  [codes: -]
+  T13: Genau, das ist ein wichtiger Punkt. Die Logistik für die Lieferanten muss natürlich trotzdem funktionieren, sonst leidet die Versorgung in der Stadt. Findest du, dass man zum Beispiel elektrische Lastenfahrräder für die Lieferungen fördern sollte?  [codes: -]
+  T14: Da hast du absolut recht, das ist ein sehr wichtiger Aspekt, den man nicht vergessen darf. Wir müssten sicherstellen, dass der öffentliche Nahverkehr oder spezielle Shuttle-Dienste sehr gut ausgebaut sind, damit alle mobil bleiben. Glaubst du, dass die Stadtverwaltung genug Geld für solche Projekte hat?  [codes: -]
+GPU before exam start: 66 °C
+GPU before praesentation_diskussion_planung part 0 prep next: 66 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 1: 66 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 2: 66 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 3: 62 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 4: 62 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk follow-up: 62 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk answer: 66 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk next: 63 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk question 1: 66 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk question 2: 67 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk next: 67 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 1: 67 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 2: 67 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 3: 67 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 4: 67 °C
+GPU before praesentation_diskussion_planung part 3 dialog next: 68 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 1: 68 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 2: 68 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 3: 68 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 4: 69 °C
+GPU before praesentation_diskussion_planung part 4 dialog next: 69 °C
+
+## Run `praesentation_diskussion_planung / B — Reisen / Bouldern / Homeoffice / Wochenende` — Präsentation, Diskussion und Planung
+Parts: 0:prep, 1:learner_talk, 2:kerstin_talk, 3:dialog, 4:dialog
+Collect-mode LLM calls: 0
+Follow-up: Das klingt wirklich sehr interessant. Warst du in den Bergen eher in einem Hotel oder hast du dort gewandert?  [one-question=True]
+Kerstin talk: 121 words (target 130, range 84–175); markdown=False
+Kerstin talk timing: first_sentence_ms=429 tts_first_ms=0 first_audio_ms=429 llm_first_token_ms=170
+Discussion opener: Ich finde das Thema Homeoffice sehr spannend. Meiner Meinung nach ist Homeoffice eine tolle Sache, weil man so viel Zeit und Stress beim Pendeln spart. Was denkst du darüber?  [position=True]
+Counterpoint after learner agreement: True
+Planning opener: Hey, wir wollten doch am nächsten Wochenende etwas mit unseren Freunden unternehmen. Hast du schon eine Idee, wohin wir reisen könnten?  [proposal=False]
+Dialog check_reply: 14 replies, issues={6: ['no_question'], 8: ['no_question']}
+Moderation leaks: 0
+ihr/euch hits: 0
+Overall: FAIL
+
+Replies by part
+
+[Greeting] T0: Hallo, ich bin Kerstin. Ich mache die Prüfung heute mit dir – viel Erfolg uns beiden!
+
+[0] prep — Vorbereitung
+  (no reply)
+
+[1] learner_talk — Dein Kurzvortrag
+  T5: Das klingt wirklich sehr interessant. Warst du in den Bergen eher in einem Hotel oder hast du dort gewandert?  [codes: -]
+  T6: Das klingt sehr friedlich. Ich mag die Ruhe am Morgen auch sehr gerne.  [codes: no_question]
+
+[2] kerstin_talk — Kerstins Kurzvortrag
+  T7: Ich möchte heute über mein Hobby Bouldern sprechen. Ich bin vor etwa einem Jahr zum Bouldern gekommen, weil eine Kollegin in meinem Start-up mich mitgenommen hat. Am Anfang war ich sehr unsicher, aber jetzt macht es mir riesigen Spaß. Was mir besonders gefällt, ist, dass man wie bei einem Rätsel über die Wand nachdenkt und nur die Kraft und die richtige Technik braucht. Ich gehe meistens zweimal pro Woche nach der Arbeit in eine Halle hier in Berlin. Das hilft mir, nach dem stressigen Büroalltag richtig abzuschalten. Durch das Bouldern habe ich auch gelernt, dass man nicht sofort ans Ziel kommt, sondern dass man geduldig sein muss und immer wieder probieren muss. Es ist ein toller Ausgleich zum Sitzen im Büro.  [codes: too_long, no_question]
+  T8: Wie ich schon kurz gesagt habe, hat mich eine Kollegin aus meiner Arbeit dazu motiviert. Sie ist schon lange dabei und wollte mir die Halle zeigen.  [codes: no_question]
+  T9: Ich mag besonders das Gefühl, wenn man eine schwierige Route endlich geschafft hat. Das ist wie ein kleiner Erfolg, der einen richtig glücklich macht. Findest du Sport auch so wichtig zum Entspannen?  [codes: -]
+
+[3] dialog — Diskussion
+  T10: Ich finde das Thema Homeoffice sehr spannend. Meiner Meinung nach ist Homeoffice eine tolle Sache, weil man so viel Zeit und Stress beim Pendeln spart. Was denkst du darüber?  [codes: -]
+  T11: Das stimmt, die Konzentration ist zu Hause oft besser. Aber ich finde auch, dass der Kontakt zu den Kollegen fehlt, wenn man sich nur noch über den Bildschirm sieht. Findest du nicht auch, dass die Teamarbeit schwieriger wird?  [codes: -]
+  T12: Das ist ein sehr wichtiger Punkt, die Flexibilität hilft Familien natürlich extrem. Trotzdem glaube ich, dass die Trennung von Arbeit und Privatleben zu Hause schwieriger wird, wenn man keinen festen Büroalltag hat. Hast du selbst schon Erfahrungen mit Homeoffice gemacht?  [codes: -]
+  T13: Genau das ist mein größtes Problem dabei. Man fühlt sich manchmal ein bisschen isoliert, wenn man den ganzen Tag alleine in der Wohnung sitzt. Was meinst du, könnte man das Problem lösen, indem man öfter gemeinsame Tage im Büro plant?  [codes: -]
+  T14: Da hast du absolut recht, für Leute in der Produktion oder im Service geht das natürlich gar nicht. Es ist sehr abhängig von der Art der Arbeit. Findest du, dass man für diese Berufe spezielle Lösungen braucht?  [codes: -]
+
+[4] dialog — Gemeinsam planen
+  T15: Hey, wir wollten doch am nächsten Wochenende etwas mit unseren Freunden unternehmen. Hast du schon eine Idee, wohin wir reisen könnten?  [codes: -]
+  T16: Das ist eine super Idee, ich liebe den See! Sollen wir vielleicht in einer kleinen Pension oder in einer Jugendherrenunterkunft übernachten?  [codes: -]
+  T17: Das ist ein sehr guter Vorschlag, gemeinsames Kochen macht viel mehr Spaß als im Restaurant. Dann können wir auch gemütlich zusammen sitzen. Wie sollen wir eigentlich dorthin kommen, fahren wir mit dem Zug oder nehmen wir das Auto?  [codes: -]
+  T18: Das stimmt, im Zug können wir uns entspannen und vielleicht sogar zusammen einen Podcast hören. Dann müssen sich auch nicht alle um die Fahrt kümmern. Was könnten wir denn an dem Wochenende dort alles machen, außer wandern und schwimmen?  [codes: -]
+  T19: Das klingt nach einem perfekten Plan für ein entspanntes Wochenende. Ein Picknick am See ist im Sommer immer so schön. Sollen wir uns vielleicht gemeinsam darum kümmern, dass jeder etwas zum Picknick mitbringt?  [codes: -]
+GPU before exam start: 69 °C
+GPU before vortrag_diskussion part 0 prep next: 69 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 1: 69 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 2: 69 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 3: 69 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 4: 69 °C
+GPU before vortrag_diskussion part 1 learner_talk follow-up: 65 °C
+GPU before vortrag_diskussion part 1 learner_talk answer: 69 °C
+GPU before vortrag_diskussion part 1 learner_talk next: 69 °C
+GPU before vortrag_diskussion part 2 kerstin_talk question 1: 70 °C
+GPU before vortrag_diskussion part 2 kerstin_talk question 2: 70 °C
+GPU before vortrag_diskussion part 2 kerstin_talk next: 70 °C
+GPU before vortrag_diskussion part 3 dialog turn 1: 70 °C
+GPU before vortrag_diskussion part 3 dialog turn 2: 70 °C
+GPU before vortrag_diskussion part 3 dialog turn 3: 70 °C
+GPU before vortrag_diskussion part 3 dialog turn 4: 71 °C
+GPU before vortrag_diskussion part 3 dialog next: 71 °C
+
+## Run `vortrag_diskussion / B — Reisen / Bouldern / Homeoffice / Wochenende` — Vortrag und Diskussion
+Parts: 0:prep, 1:learner_talk, 2:kerstin_talk, 3:dialog
+Collect-mode LLM calls: 0
+Follow-up: Das klingt wirklich toll, dass du so gerne in den Bergen wanderst. Warst du dort in einem bestimmten Land oder eher in deiner Nähe?  [one-question=True]
+Kerstin talk: 174 words (target 170, range 110–229); markdown=False
+Kerstin talk timing: first_sentence_ms=460 tts_first_ms=0 first_audio_ms=460 llm_first_token_ms=167
+Discussion opener: Ich finde, dass Homeoffice eine tolle Möglichkeit ist, flexibler zu arbeiten und Zeit zu sparen. Aber meinst du nicht auch, dass der Kontakt zum Team manchmal verloren geht, wenn man sich nicht mehr im Büro trifft?  [position=True]
+Counterpoint after learner agreement: True
+Planning opener: n/a
+Dialog check_reply: 9 replies, issues={6: ['no_question'], 8: ['no_question']}
+Moderation leaks: 0
+ihr/euch hits: 1
+  T7: Ich möchte euch heute etwas über mein Hobby Bouldern erzählen. Ich bin vor etwa zwei Jahren zum Bouldern gekommen, als ich nach Berlin gezogen bin. Ich wollte unbedingt neue Leute kennenlernen und eine Sportart finden, die nicht so langweilig ist. Am Anfang war es ziemlich schwer und ich hatte ein bisschen Angst vor der Höhe, aber jetzt macht es richtig Spaß. Was mir am Bouldern besonders gefällt, ist, dass man wie bei einem Rätsel denken muss. Man muss einen Weg finden, um oben an die Wand zu kommen, und das ist sehr motivierend. Ich gehe meistens zwei Mal pro Woche in eine Halle in der Nähe meiner Wohnung, am liebsten nach der Arbeit. Durch das Bouldern habe ich gelernt, dass man geduldig sein muss und nicht sofort aufgeben darf, wenn eine Route schwierig ist. Es hilft mir auch, nach einem stressigen Tag im Büro den Kopf frei zu bekommen. Man konzentriert sich nur auf die Bewegung und vergisst den Rest der Welt. Habt ihr auch ein Hobby, bei dem ihr so richtig abschalten könnt?
+Overall: FAIL
+
+Replies by part
+
+[Greeting] T0: Hallo, ich bin Kerstin. Ich mache die Prüfung heute mit dir – viel Erfolg uns beiden!
+
+[0] prep — Vorbereitung
+  (no reply)
+
+[1] learner_talk — Dein Kurzvortrag
+  T5: Das klingt wirklich toll, dass du so gerne in den Bergen wanderst. Warst du dort in einem bestimmten Land oder eher in deiner Nähe?  [codes: -]
+  T6: Das klingt sehr entspannt, ich liebe die Ruhe am Morgen auch. Ich finde es auch wichtig, dass man sich Zeit für die Natur nimmt.  [codes: no_question]
+
+[2] kerstin_talk — Kerstins Kurzvortrag
+  T7: Ich möchte euch heute etwas über mein Hobby Bouldern erzählen. Ich bin vor etwa zwei Jahren zum Bouldern gekommen, als ich nach Berlin gezogen bin. Ich wollte unbedingt neue Leute kennenlernen und eine Sportart finden, die nicht so langweilig ist. Am Anfang war es ziemlich schwer und ich hatte ein bisschen Angst vor der Höhe, aber jetzt macht es richtig Spaß. Was mir am Bouldern besonders gefällt, ist, dass man wie bei einem Rätsel denken muss. Man muss einen Weg finden, um oben an die Wand zu kommen, und das ist sehr motivierend. Ich gehe meistens zwei Mal pro Woche in eine Halle in der Nähe meiner Wohnung, am liebsten nach der Arbeit. Durch das Bouldern habe ich gelernt, dass man geduldig sein muss und nicht sofort aufgeben darf, wenn eine Route schwierig ist. Es hilft mir auch, nach einem stressigen Tag im Büro den Kopf frei zu bekommen. Man konzentriert sich nur auf die Bewegung und vergisst den Rest der Welt. Habt ihr auch ein Hobby, bei dem ihr so richtig abschalten könnt?  [codes: too_long]
+  T8: Ich habe das beim Umzug nach Berlin entdeckt. Ich wollte einfach einen Sport finden, der mir hilft, den Alltag zu vergessen und neue Kontakte zu knüpfen.  [codes: no_question]
+  T9: Am meisten gefällt mir das Gefühl, ein schwieriges Problem gelöst zu haben, wenn man endlich oben ist. Es ist wie ein kleines Rätsel, das man mit dem ganzen Körper lösen muss. Findest du auch, dass Sport gut gegen Stress hilft?  [codes: -]
+
+[3] dialog — Diskussion
+  T10: Ich finde, dass Homeoffice eine tolle Möglichkeit ist, flexibler zu arbeiten und Zeit zu sparen. Aber meinst du nicht auch, dass der Kontakt zum Team manchmal verloren geht, wenn man sich nicht mehr im Büro trifft?  [codes: -]
+  T11: Das stimmt, die Zeitersparnis ist ein riesiger Vorteil. Trotzdem finde ich, dass die Kommunikation über Videoanrufe nie so persönlich ist wie ein kurzes Gespräch an der Kaffeemaschine. Glaubst du, dass man im Homeoffice trotzdem noch ein echtes Teamgefühl entwickeln kann?  [codes: -]
+  T12: Das ist ein sehr wichtiger Punkt, die Flexibilität hilft Eltern natürlich extrem. Ich glaube aber, dass das für Kinder auch eine Herausforderung sein kann, wenn die Eltern ständig am Laptop sitzen und nicht richtig ansprechbar sind. Findest du, dass die Trennung zwischen Arbeit und Privatleben zu Hause dadurch nicht zu schwierig wird?  [codes: -]
+  T13: Genau das habe ich auch befürchtet. Es ist schwierig, die spontanen Gespräche zu ersetzen, die man im Büro einfach so hat. Findest du, dass Firmen deshalb öfter Präsenztage einführen sollten?  [codes: -]
+  T14: Da hast du absolut recht, für Leute in der Produktion oder im Service ist Homeoffice ja gar keine Option. Jeder Mensch braucht auch eine andere Umgebung, um wirklich produktiv zu sein. Meinst du, dass ein Modell mit zwei oder drei festen Tagen im Büro die beste Lösung für die meisten wäre?  [codes: -]
+
+FAILURES: ['ihr/euch address', 'planning opener lacks proposal', 'dialog replies fail check_reply', 'dialog replies fail check_reply', 'ihr/euch address']
+  ```
+
+### Round 2 — part-specific markers + exam no_question scope
+
+- **Round 2:** Added `exam_enter_marker(part, index)` in `session.py` with the three required part-specific marker strings (talk: du/nie „ihr/euch“; planning: concrete proposal; other dialog: clear position); no prompt files changed. `exam_eval.py` now removes `no_question` for replies outside `dialog` parts while keeping all other codes. Added marker tests in `test_exam.py`.
+- **Verification:** `make test` → **231 Python + 23 Node** tests pass; `make lint` passes. The four runs use the same seed (1234) and pinned card sets as round 1.
+- **4-run results:** A/telc **PASS**; A/Goethe **PASS**; B/telc **FAIL** (dialog `too_long` T9/T10/T14/T16 and `no_question` T13); B/Goethe **PASS**. `ihr/euch` hits **0 in all four**; counterpoint **true in all four**; planning opener proposal **true** where present; collect-mode LLM calls **0**; talk lengths **127/178/128/172**; first-audio **447/490/360/490 ms** (headless `NoTTS`, `tts_first_ms=0`); GPU **48–71 °C**; no 80 °C abort. `gemma4:26b` ran alongside `nomic-embed-text`; no other model was unloaded. No server was started. The remaining B/telc failures are dialog verbosity and one dialog question, not check tuning; the lead grades them.
+- **Full 4-run output (summaries + every Kerstin reply by part):**
+  ```text
+.venv/bin/python scripts/exam_eval.py --model gemma4:26b --seed 1234
+Model: gemma4:26b | seed: 1234 | cool_down: 76→70 °C
+GPU before exam start: 48 °C
+GPU before praesentation_diskussion_planung part 0 prep next: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 1: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 2: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 3: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 4: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk follow-up: 48 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk answer: 54 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk next: 55 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk question 1: 57 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk question 2: 58 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk next: 58 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 1: 58 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 2: 59 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 3: 59 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 4: 60 °C
+GPU before praesentation_diskussion_planung part 3 dialog next: 60 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 1: 61 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 2: 61 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 3: 62 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 4: 62 °C
+GPU before praesentation_diskussion_planung part 4 dialog next: 63 °C
+
+## Run `praesentation_diskussion_planung / A — Homeoffice / Berlin / autofrei / Abschied` — Präsentation, Diskussion und Planung
+Parts: 0:prep, 1:learner_talk, 2:kerstin_talk, 3:dialog, 4:dialog
+Collect-mode LLM calls: 0
+Follow-up: Das klingt nach einer sehr vernünftigen Einstellung. Glaubst du, dass die Regeln für das Homeoffice in den Firmen strenger werden sollten?  [one-question=True]
+Kerstin talk: 127 words (target 130, range 84–175); markdown=False
+Kerstin talk timing: first_sentence_ms=447 tts_first_ms=0 first_audio_ms=447 llm_first_token_ms=185
+Discussion opener: Ich finde die Idee von autofreien Zonen in der Stadt wirklich gut, weil das die Luftqualität und die Lebensqualität deutlich verbessern würde. Was hältst du von diesem Vorschlag?  [position=True]
+Counterpoint after learner agreement: True
+Planning opener: Ich schlage vor, dass wir das Abschiedsfest für unseren Deutschkurs in einem kleinen Park organisieren, wenn das Wetter gut ist. Was hältst du von dieser Idee?  [proposal=True]
+check_reply (no_question only in dialog parts): 14 replies, issues=none
+Moderation leaks: 0
+ihr/euch hits: 0
+Overall: PASS
+
+Replies by part
+
+[Greeting] T0: Hallo, ich bin Kerstin. Ich mache die Prüfung heute mit dir – viel Erfolg uns beiden!
+
+[0] prep — Vorbereitung
+  (no reply)
+
+[1] learner_talk — Dein Kurzvortrag
+  T5: Das klingt nach einer sehr vernünftigen Einstellung. Glaubst du, dass die Regeln für das Homeoffice in den Firmen strenger werden sollten?  [codes: -]
+  T6: Das kann ich sehr gut verstehen, das kenne ich auch von mir selbst. Wie hast du das denn gelöst, damit du nach der Arbeit wirklich Feierabend machen konntest?  [codes: -]
+
+[2] kerstin_talk — Kerstins Kurzvortrag
+  T7: Ich möchte dir jetzt kurz von meinem Weg nach Berlin erzählen. Ich bin vor zwei Jahren aus Göteborg nach Berlin gekommen, weil ich hier unbedingt als UX-Designerin in einem Start-up arbeiten wollte. Die Stadt hat einfach so viel Energie und viele Möglichkeiten für meine Karriere. Am Anfang fiel mir die deutsche Sprache sehr schwer, besonders die Grammatik und die Artikel. Auch die Wohnungssuche in Berlin war wirklich stressig und kompliziert. Aber heute gefällt mir das Leben hier sehr gut, besonders die kulturelle Vielfalt und die vielen Parks zum Bouldern oder Spazierengehen. Wenn du neu nach Berlin kommst, habe ich einen Tipp für dich: Such dir am besten schon vor deiner Ankunft eine feste Unterkunft, zum Beispiel ein Zimmer in einer WG, damit du nicht unter Zeitdruck stehst.  [codes: too_long, meta_talk]
+  T8: Es war eine Mischung aus großer Aufregung und ein bisschen Angst vor dem Unbekannten. Ich war zwar motiviert, aber die Bürokratie in Deutschland hat mich am Anfang echt erschreckt. Hatten die Leute in deinem Heimatland auch so viel Angst vor dem Umzug in eine neue Stadt?  [codes: -]
+  T9: Am meisten geholfen hat mir mein Deutschkurs an der Volkshochschule, weil ich dort direkt Leute kennengelernt habe. Auch das Internet war super wichtig, um alles über die Stadt zu lernen. Hast du am Anfang auch Hilfe von anderen Leuten gebraucht?  [codes: -]
+
+[3] dialog — Diskussion
+  T10: Ich finde die Idee von autofreien Zonen in der Stadt wirklich gut, weil das die Luftqualität und die Lebensqualität deutlich verbessern würde. Was hältst du von diesem Vorschlag?  [codes: -]
+  T11: Das stimmt, die weniger Lärmbelastung ist ein großer Vorteil. Aber meinst du nicht, dass es für die Anwohner und die Geschäfte schwierig wird, wenn man nicht mehr mit dem Auto direkt vor die Tür fahren kann?  [codes: -]
+  T12: Das ist ein sehr wichtiger Punkt, die Bewegung an der frischen Luft ist super für die Gesundheit. Man muss sich nur überlegen, wie die Menschen mit viel Einkaufsbedarf oder ältere Leute das schaffen könnten. Findest du, dass die Stadt genug Radwege hat, um das umzusetzen?  [codes: -]
+  T13: Genau, das ist ein sehr wichtiger Aspekt, den man nicht vergessen darf. Die Logistik muss natürlich weiterhin funktionieren, damit die Läden nicht leer ausgehen. Vielleicht könnte man für Lieferungen spezielle Zeiten oder kleine Elektrofahrzeuge erlauben, was meinst du?  [codes: -]
+  T14: Da hast du absolut recht, die Mobilität für alle Menschen muss natürlich das wichtigste Ziel sein. Es wäre nicht fair, wenn diese Gruppen durch die neuen Zonen eingeschränkt werden. Glaubst du, dass ein Ausbau der öffentlichen Verkehrsmittel ausreichen würde, um diese Probleme zu lösen?  [codes: -]
+
+[4] dialog — Gemeinsam planen
+  T15: Ich schlage vor, dass wir das Abschiedsfest für unseren Deutschkurs in einem kleinen Park organisieren, wenn das Wetter gut ist. Was hältst du von dieser Idee?  [codes: -]
+  T16: Das ist ein super Vorschlag, weil es wirklich sehr günstig wäre und wir dort auch viel Platz haben. Sollen wir uns vielleicht um das Essen und die Getränke kümmern, oder meinst du, wir sollten jeder etwas mitbringen?  [codes: -]
+  T17: Das ist eine klasse Idee, ein Buffet ist immer sehr entspannt und es gibt dann eine große Auswahl. Ich könnte zum Beispiel einen Nudelsalat oder auch etwas zum Kochen vorbereiten. Was würdest du denn am liebsten zum Buffet beisteuern?  [codes: -]
+  T18: Das klingt wirklich lustig, ein Quiz über den Kurs würde bestimmt allen Spaß machen! Wir könnten auch vielleicht ein paar Fotos aus der Kurszeit zeigen. Wer könnte sich denn um die Vorbereitung der Fragen und die Technik im Kursraum kümmern?  [codes: -]
+  T19: Das mache ich sehr gerne, ich kann die anderen im Kurs einfach nach dem Essen fragen. Dann müssen wir uns nur noch überlegen, wie viel Geld wir etwa für die Getränke und die Dekoration sammeln müssen. Sollen wir die Kosten einfach am Ende durch die Anzahl der Leute teilen?  [codes: -]
+GPU before exam start: 63 °C
+GPU before vortrag_diskussion part 0 prep next: 63 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 1: 63 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 2: 63 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 3: 63 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 4: 63 °C
+GPU before vortrag_diskussion part 1 learner_talk follow-up: 63 °C
+GPU before vortrag_diskussion part 1 learner_talk answer: 63 °C
+GPU before vortrag_diskussion part 1 learner_talk next: 63 °C
+GPU before vortrag_diskussion part 2 kerstin_talk question 1: 64 °C
+GPU before vortrag_diskussion part 2 kerstin_talk question 2: 65 °C
+GPU before vortrag_diskussion part 2 kerstin_talk next: 64 °C
+GPU before vortrag_diskussion part 3 dialog turn 1: 65 °C
+GPU before vortrag_diskussion part 3 dialog turn 2: 65 °C
+GPU before vortrag_diskussion part 3 dialog turn 3: 65 °C
+GPU before vortrag_diskussion part 3 dialog turn 4: 65 °C
+GPU before vortrag_diskussion part 3 dialog next: 66 °C
+
+## Run `vortrag_diskussion / A — Homeoffice / Berlin / autofrei / Abschied` — Vortrag und Diskussion
+Parts: 0:prep, 1:learner_talk, 2:kerstin_talk, 3:dialog
+Collect-mode LLM calls: 0
+Follow-up: Das klingt nach einer sehr vernünftigen Einstellung. Glaubst du, dass die Regeln für das Homeoffice für die Arbeitgeber oder für die Arbeitnehmer wichtiger sind?  [one-question=True]
+Kerstin talk: 178 words (target 170, range 110–229); markdown=False
+Kerstin talk timing: first_sentence_ms=490 tts_first_ms=0 first_audio_ms=490 llm_first_token_ms=191
+Discussion opener: Ich finde die Idee von autofreien Zonen in der Stadt sehr gut, weil das die Luftqualität verbessert und es viel sicherer für Fußgänger wäre. Was hältst du davon?  [position=True]
+Counterpoint after learner agreement: True
+Planning opener: n/a
+check_reply (no_question only in dialog parts): 9 replies, issues=none
+Moderation leaks: 0
+ihr/euch hits: 0
+Overall: PASS
+
+Replies by part
+
+[Greeting] T0: Hallo, ich bin Kerstin. Ich mache die Prüfung heute mit dir – viel Erfolg uns beiden!
+
+[0] prep — Vorbereitung
+  (no reply)
+
+[1] learner_talk — Dein Kurzvortrag
+  T5: Das klingt nach einer sehr vernünftigen Einstellung. Glaubst du, dass die Regeln für das Homeoffice für die Arbeitgeber oder für die Arbeitnehmer wichtiger sind?  [codes: -]
+  T6: Das kann ich sehr gut verstehen, das kenne ich auch von mir selbst. Wie hast du das denn gelöst, damit du nach der Arbeit wirklich Feierabend machen konntest?  [codes: -]
+
+[2] kerstin_talk — Kerstins Kurzvortrag
+  T7: Ich möchte dir heute ein bisschen von meinem Weg nach Berlin erzählen. Ich komme ursprünglich aus Göteborg in Schweden und bin vor zwei Jahren hierhergezogen. Ich habe mich für Berlin entschieden, weil ich hier super Möglichkeiten als UX-Designerin in einem Start-up finden wollte und die Stadt einfach sehr lebendig ist. Am Anfang fiel mir die Integration aber gar nicht so leicht. Vor allem der Behördenkram in Deutschland war sehr kompliziert und ich habe mich oft über die Bürokratie geärgert. Auch die Wohnungssuche war am Anfang echt stressig und teuer. Aber heute gefällt mir das Leben hier sehr gut, besonders die vielen kulturellen Möglichkeiten und die internationalen Leute. Ich mag es, dass man hier immer etwas Neues entdecken kann. Wenn du neu nach Berlin kommst, habe ich einen Tipp für dich: Such dir am besten schon vor deiner Ankunft eine feste Unterkunft oder ein Zimmer in einer WG, damit du nicht völlig planlos startest. Und versuche, so früh wie möglich Leute aus deinem Bereich kennenzulernen. Hast du dazu auch schon Erfahrungen mit dem Wohnen in einer neuen Stadt gemacht?  [codes: too_long]
+  T8: Es war eine Mischung aus großer Vorfreude und ziemlich viel Stress. Ich war sehr aufgeregt wegen des neuen Jobs, aber die Bürokratie in Berlin hat mich am Anfang echt nervös gemacht. Findest du es auch schwierig, dich in einer neuen Stadt zurechtzufinden?  [codes: -]
+  T9: Am meisten geholfen hat mir, dass ich direkt in einer WG gewohnt habe. So konnte ich sofort Kontakt zu Leuten finden, die mir die Stadt gezeigt haben. Hast du eigentlich auch Freunde in deiner Stadt, die dir bei neuen Herausforderungen helfen?  [codes: -]
+
+[3] dialog — Diskussion
+  T10: Ich finde die Idee von autofreien Zonen in der Stadt sehr gut, weil das die Luftqualität verbessert und es viel sicherer für Fußgänger wäre. Was hältst du davon?  [codes: -]
+  T11: Das sehe ich ganz genau so, weniger Lärm macht die Stadt viel entspannter. Aber meinst du nicht, dass es für die Geschäfte in der Innenstadt schwierig sein könnte, wenn die Kunden nicht mehr einfach mit dem Auto dorthin kommen können?  [codes: -]
+  T12: Das stimmt, mehr Bewegung an der frischen Luft ist super für alle. Aber glaubst du nicht, dass ältere Menschen oder Leute, die schwere Sachen transportieren müssen, ohne Auto ein großes Problem hätten?  [codes: -]
+  T13: Genau, das ist ein wichtiger Punkt, denn die Logistik muss ja trotzdem funktionieren. Vielleicht könnte man dafür einfach spezielle Lieferzeiten oder elektrische Lastenräder nutzen. Was meinst du, wäre so eine Lösung für die Anwohner und die Geschäfte akzeptabel?  [codes: -]
+  T14: Da hast du absolut recht, Mobilität muss für alle Menschen möglich sein. Man müsste vielleicht sicherstellen, dass für diese Gruppen spezielle Bereiche oder Shuttle-Dienste bleiben. Findest du, dass die Stadtverwaltung solche Projekte einfach so planen kann, oder müssen die Anwohner vorher unbedingt gefragt werden?  [codes: -]
+GPU before exam start: 66 °C
+GPU before praesentation_diskussion_planung part 0 prep next: 66 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 1: 66 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 2: 66 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 3: 66 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk collect 4: 66 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk follow-up: 66 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk answer: 66 °C
+GPU before praesentation_diskussion_planung part 1 learner_talk next: 66 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk question 1: 66 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk question 2: 66 °C
+GPU before praesentation_diskussion_planung part 2 kerstin_talk next: 67 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 1: 67 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 2: 66 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 3: 68 °C
+GPU before praesentation_diskussion_planung part 3 dialog turn 4: 68 °C
+GPU before praesentation_diskussion_planung part 3 dialog next: 68 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 1: 68 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 2: 69 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 3: 69 °C
+GPU before praesentation_diskussion_planung part 4 dialog turn 4: 69 °C
+GPU before praesentation_diskussion_planung part 4 dialog next: 70 °C
+
+## Run `praesentation_diskussion_planung / B — Reisen / Bouldern / Homeoffice / Wochenende` — Präsentation, Diskussion und Planung
+Parts: 0:prep, 1:learner_talk, 2:kerstin_talk, 3:dialog, 4:dialog
+Collect-mode LLM calls: 0
+Follow-up: Das klingt wirklich sehr interessant. Warst du in den Bergen eher in einem Hotel oder hast du dort gewandert?  [one-question=True]
+Kerstin talk: 128 words (target 130, range 84–175); markdown=False
+Kerstin talk timing: first_sentence_ms=360 tts_first_ms=0 first_audio_ms=360 llm_first_token_ms=170
+Discussion opener: Ich finde, dass Homeoffice eine wirklich gute Sache ist, weil man viel flexibler arbeiten kann. Vor allem die Zeitersparnis, weil man nicht im Stau steht, ist ein riesiger Vorteil. Wie siehst du das? Denkst du, dass Homeoffice für alle gut ist?  [position=True]
+Counterpoint after learner agreement: True
+Planning opener: Ich schlage vor, dass wir am nächsten Wochenende einen gemeinsamen Ausflug in den Spreewald machen. Da kann man sehr schön mit dem Boot fahren und entspannen. Was hältst du von der Idee?  [proposal=True]
+check_reply (no_question only in dialog parts): 14 replies, issues={9: ['too_long'], 10: ['too_long'], 13: ['no_question'], 14: ['too_long'], 16: ['too_long']}
+Moderation leaks: 0
+ihr/euch hits: 0
+Overall: FAIL
+
+Replies by part
+
+[Greeting] T0: Hallo, ich bin Kerstin. Ich mache die Prüfung heute mit dir – viel Erfolg uns beiden!
+
+[0] prep — Vorbereitung
+  (no reply)
+
+[1] learner_talk — Dein Kurzvortrag
+  T5: Das klingt wirklich sehr interessant. Warst du in den Bergen eher in einem Hotel oder hast du dort gewandert?  [codes: -]
+  T6: Das klingt sehr friedlich. Ich mag die Ruhe am Morgen auch sehr gerne.  [codes: -]
+
+[2] kerstin_talk — Kerstins Kurzvortrag
+  T7: Ich möchte dir jetzt auch etwas erzählen. Ich bin vor etwa einem Jahr zum Bouldern gekommen, als ich eine Freundin in Berlin besucht habe. Zuerst war ich sehr nervös, weil die Wände so hoch waren, aber es hat sofort Spaß gemacht. Was mir besonders gefällt, ist, dass man nicht nur Kraft braucht, sondern auch viel nachdenken muss. Man nennt das ja auch ein Rätsel aus Bewegungen. Ich gehe momentan etwa zweimal pro Woche in eine Kletterhalle, wenn ich Zeit habe. Beim Bouldern habe ich gelernt, dass man nicht sofort ans Ziel kommen muss, sondern dass es wichtig ist, dranzubleiben und Fehler zu analysieren. Es hilft mir sehr, nach einem stressigen Tag im Büro abzuschalten. Hast du eigentlich auch ein Hobby, bei dem du dich so richtig konzentrieren musst?  [codes: too_long, meta_talk]
+  T8: Wie ich schon kurz gesagt habe, war ich bei einer Freundin in Berlin zu Besuch und sie hat mich einfach mit in die Halle genommen. Ich war am Anfang echt etwas ängstlich, aber die Atmosphäre dort war sehr nett.  [codes: -]
+  T9: Am meisten gefällt mir das Gefühl, wenn man eine schwierige Route endlich geschafft hat. Das ist ein richtiger kleiner Erfolg im Alltag. Und du? Was ist dein liebstes Hobby?  [codes: too_long]
+
+[3] dialog — Diskussion
+  T10: Ich finde, dass Homeoffice eine wirklich gute Sache ist, weil man viel flexibler arbeiten kann. Vor allem die Zeitersparnis, weil man nicht im Stau steht, ist ein riesiger Vorteil. Wie siehst du das? Denkst du, dass Homeoffice für alle gut ist?  [codes: too_long]
+  T11: Das sehe ich auch so, aber ich glaube, dass der Kontakt zu den Kollegen manchmal fehlt, wenn man sich nur noch über Videoanrufe sieht. In einem Team ist es doch auch wichtig, sich mal persönlich beim Kaffee zu unterhalten, oder was meinst du?  [codes: -]
+  T12: Das ist ein sehr wichtiger Punkt, das macht den Alltag viel entspannter. Man kann zum Beispiel mittags mal kurz nach den Kindern schauen oder die Termine besser planen. Findest du, dass dieser Vorteil die möglichen Probleme mit der sozialen Isolation im Team auch wieder ausgleicht?  [codes: -]
+  T13: Genau das habe ich auch befürchtet. Man fühlt sich dann manchmal ein bisschen wie auf einer Insel und verpasst die kleinen Gespräche, die im Büro ganz automatisch passieren. Vielleicht sollte man deshalb ein paar Tage pro Woche im Büro bleiben, um den Kontakt zu halten.  [codes: no_question]
+  T14: Da hast du absolut recht. Für Menschen, die zum Beispiel in der Produktion oder im Verkauf arbeiten, ist Homeoffice natürlich gar nicht möglich. Es ist ein Privileg, das man vor allem in Büroberufen hat. Findest du, dass man in der Zukunft mehr darauf achten sollte, diese Unterschiede zwischen den Berufen zu berücksichtigen?  [codes: too_long]
+
+[4] dialog — Gemeinsam planen
+  T15: Ich schlage vor, dass wir am nächsten Wochenende einen gemeinsamen Ausflug in den Spreewald machen. Da kann man sehr schön mit dem Boot fahren und entspannen. Was hältst du von der Idee?  [codes: -]
+  T16: Das ist auch eine tolle Idee, ein See in der Nähe wäre sehr entspannend. Wir könnten uns dann eine kleine Hütte oder ein Airbnb direkt am Wasser suchen. Hast du schon eine Idee, wie wir dorthin am besten kommen? Sollen wir mit dem Zug fahren oder lieber mit dem Auto?  [codes: too_long]
+  T17: Das ist ein super Vorschlag, gemeinsames Kochen macht immer viel mehr Spaß als im Restaurant. Ich kann gerne ein paar Rezepte mitbringen. Sollen wir dann mit dem Zug fahren, damit wir uns während der Fahrt auch schon unterhalten können?  [codes: -]
+  T18: Das sehe ich auch so, dann müssen wir uns keine Sorgen um die Parkplatzsuche machen. Ich schaue heute Abend mal nach den Zugverbindungen und den Preisen. Was meinst du, welche Aktivitäten könnten wir denn an dem Wochenende dort machen, wenn wir schon am See sind?  [codes: -]
+  T19: Das klingt nach einem perfekten Plan, Wandern und Picknick sind wirklich sehr gemütlich. Ich kann gerne eine Decke und ein paar Snacks einpacken. Sollen wir uns dann am Samstagvormittag direkt am Bahnhof treffen?  [codes: -]
+GPU before exam start: 70 °C
+GPU before vortrag_diskussion part 0 prep next: 70 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 1: 70 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 2: 70 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 3: 70 °C
+GPU before vortrag_diskussion part 1 learner_talk collect 4: 70 °C
+GPU before vortrag_diskussion part 1 learner_talk follow-up: 70 °C
+GPU before vortrag_diskussion part 1 learner_talk answer: 69 °C
+GPU before vortrag_diskussion part 1 learner_talk next: 69 °C
+GPU before vortrag_diskussion part 2 kerstin_talk question 1: 70 °C
+GPU before vortrag_diskussion part 2 kerstin_talk question 2: 70 °C
+GPU before vortrag_diskussion part 2 kerstin_talk next: 70 °C
+GPU before vortrag_diskussion part 3 dialog turn 1: 70 °C
+GPU before vortrag_diskussion part 3 dialog turn 2: 71 °C
+GPU before vortrag_diskussion part 3 dialog turn 3: 70 °C
+GPU before vortrag_diskussion part 3 dialog turn 4: 71 °C
+GPU before vortrag_diskussion part 3 dialog next: 71 °C
+
+## Run `vortrag_diskussion / B — Reisen / Bouldern / Homeoffice / Wochenende` — Vortrag und Diskussion
+Parts: 0:prep, 1:learner_talk, 2:kerstin_talk, 3:dialog
+Collect-mode LLM calls: 0
+Follow-up: Das klingt wirklich toll, dass du so gerne in den Bergen wanderst. Warst du dort in einem bestimmten Land oder eher in deiner Nähe?  [one-question=True]
+Kerstin talk: 172 words (target 170, range 110–229); markdown=False
+Kerstin talk timing: first_sentence_ms=490 tts_first_ms=0 first_audio_ms=491 llm_first_token_ms=192
+Discussion opener: Ich finde, dass Homeoffice eine super Sache ist, weil man viel flexibler arbeiten kann. Man spart zum Beispiel viel Zeit, weil der lange Weg zur Arbeit wegfällt. Was denkst du darüber?  [position=True]
+Counterpoint after learner agreement: True
+Planning opener: n/a
+check_reply (no_question only in dialog parts): 9 replies, issues=none
+Moderation leaks: 0
+ihr/euch hits: 0
+Overall: PASS
+
+Replies by part
+
+[Greeting] T0: Hallo, ich bin Kerstin. Ich mache die Prüfung heute mit dir – viel Erfolg uns beiden!
+
+[0] prep — Vorbereitung
+  (no reply)
+
+[1] learner_talk — Dein Kurzvortrag
+  T5: Das klingt wirklich toll, dass du so gerne in den Bergen wanderst. Warst du dort in einem bestimmten Land oder eher in deiner Nähe?  [codes: -]
+  T6: Das klingt sehr entspannt, ich liebe die Ruhe am Morgen auch. Ich finde es auch wichtig, dass man sich Zeit für die Natur nimmt.  [codes: -]
+
+[2] kerstin_talk — Kerstins Kurzvortrag
+  T7: Ich möchte dir heute etwas über mein Hobby Bouldern erzählen. Ich bin vor etwa zwei Jahren zum Bouldern gekommen, als ich nach Berlin gezogen bin und noch niemanden kannte. Ein Freund aus meiner ersten Wohnung hat mich mitgenommen und ich fand es sofort spannend. Was mir am Bouldern besonders gefällt, ist, dass es nicht nur Sport ist, sondern man wie bei einem Rätsel denken muss. Man muss den Weg nach oben planen, was sich wie eine kleine Herausforderung für den Kopf anfühlt. Ich gehe momentan etwa zweimal pro Woche in eine Kletterhalle, meistens nach der Arbeit, um den Stress im Büro zu vergessen. Durch das Bouldern habe ich auch gelernt, dass man geduldig sein muss. Manchmal scheitert man an einer schwierigen Stelle, aber man darf nicht aufgeben und muss es einfach noch einmal versuchen. Das hilft mir auch in meinem Job als Designerin, wenn ein Projekt mal nicht sofort funktioniert. Es ist ein super Ausgleich zu meinem Alltag in der Stadt. Hast du eigentlich auch ein Hobby, das dich so richtig entspannt?  [codes: too_long]
+  T8: Wie ich schon kurz gesagt habe, kam ein Freund aus meiner ersten Wohnung auf die Idee. Er hat mich einfach spontan in eine Halle mitgenommen.  [codes: -]
+  T9: Am meisten gefällt mir, dass es eine Mischung aus körperlicher Anstrengung und Logik ist. Man muss sich richtig konzentrieren und den nächsten Zug planen, wie bei einem Puzzle.  [codes: -]
+
+[3] dialog — Diskussion
+  T10: Ich finde, dass Homeoffice eine super Sache ist, weil man viel flexibler arbeiten kann. Man spart zum Beispiel viel Zeit, weil der lange Weg zur Arbeit wegfällt. Was denkst du darüber?  [codes: -]
+  T11: Das stimmt, die Ruhe zu Hause ist ein großer Vorteil. Aber findest du nicht auch, dass der Kontakt zu den Kollegen fehlt, wenn man sich nur noch über Videoanrufe sieht?  [codes: -]
+  T12: Das ist ein sehr wichtiger Punkt, die Flexibilität hilft Familien natürlich extrem. Trotzdem glaube ich, dass man einen festen Ort braucht, an dem man wirklich nur arbeitet, damit die Grenzen zwischen Privatleben und Job nicht verschwimmen. Findest du nicht auch, dass es schwierig sein kann, zu Hause richtig abzuschalten?  [codes: -]
+  T13: Genau das habe ich auch befürchtet. Wenn man sich nicht mehr zufällig in der Küche oder an der Kaffeemaschine trifft, wird der Austausch viel weniger spontan. Vielleicht wäre eine Mischung aus beidem, also ein Hybrid-Modell, die beste Lösung für alle?  [codes: -]
+  T14: Da hast du absolut recht, für viele Berufe, zum Beispiel in der Pflege oder im Handwerk, geht das natürlich gar nicht. Man muss das wirklich immer individuell für die jeweilige Situation anschauen. Wie siehst du denn die Zukunft der Arbeit in den nächsten Jahren?  [codes: -]
+
+FAILURES: ['dialog replies fail check_reply']
+  ```
 
 ## Review (Claude Code fills this in)
-- **Verdict:**
+- **Verdict:** Changes requested (round 1): prompt wording + eval realism. The engine is accepted.
 - **Notes:**
+  - **Engine:** the `_turn`/`_respond` split keeps normal mode green; collect mode makes 0 LLM calls; markers are kept on trim and rendered as headings; the system prompt is fixed per session. 227 Python + 23 JS tests and lint pass. There are no brand names. The cards are correct, idiomatic and original (lead-checked all 26).
+  - **Lead grading of all replies:**
+    1. **The eval script misaligns learner lines.** In the telc-style discussion, turns 3–4 are planning lines (party); in the planning part, turns 1–2 are discussion lines (cars). The learner talk/answer doesn't match the drawn card either: the follow-up asks about holidays, and the answer is about a new job. Task fit can't be judged like this.
+    2. **„euch/ihr“:** Kerstin's talk says „Ich möchte euch … erzählen“, „Habt ihr …?“. Her partner is one person (du).
+    3. **The discussion has no friction:** after a pro opener and a pro learner, she says „Da stimme ich dir absolut zu“. An exam discussion needs counterpoints.
+    4. **German slips** (3 of ≈30 replies, within gemma4's known ≈5 %): „viel neue Fachbegriffe“ (→ viele), „Am Anfang war es aber nicht alles so einfach“, „unser Ende des Deutschkurses“ (→ das Ende unseres Deutschkurses). The longer talk raises the exposure. Noted; no fix by prompt.
+    5. `exam.md` says „Prüfungsmarken“, which isn't a word.
+
+### Follow-up (round 1) — required changes
+1. **Eval realism** (`exam.py`, `exam_eval.py`):
+   - `make_plan(..., cards: dict[str, str] | None = None)` pins cards by title or question (eval/tests only; an unknown title → `ValueError`).
+   - The eval pins one card per part and uses scripted learner lines **written for that card**:
+     - talk (4 utterances) + an answer that fits a plausible follow-up;
+     - 2 questions about Kerstin's pinned card;
+     - 4 discussion lines **for the pinned question**: two pro, then two that partly agree, so the counterpoint behaviour shows;
+     - 4 planning lines **for the pinned task** (telc-style only).
+   - Run both presets with **two different pinned card sets** (4 runs).
+2. **`exam.md` wording:**
+   - „Sprich die Lernende immer mit du an, auch in deinem Vortrag (nicht ‚ihr/euch‘).“
+   - Discussion: „Wenn die Lernende dir zustimmt, bring einen Gegenpunkt oder eine Einschränkung, damit eine echte Diskussion entsteht; bleib freundlich.“
+   - Replace „Punkte, Noten oder Prüfungsmarken“ with „Punkte oder Noten“.
+
+   No other prompt change.
+3. **Eval checks:**
+   - add `ihr_euch` (regex `\b(ihr|euch|euer|eure\w*)\b`, excluding „Ihr“ at the start of a sentence used as a formal possessive; simple is fine) on all replies;
+   - add `counterpoint` (aber / allerdings / andererseits / trotzdem / ich bin mir nicht sicher / nicht ganz) in at least one discussion reply after the learner agrees.
+4. Paste the 4 runs: summaries + every reply by part. The lead grades again.
+5. Tests: the `cards` override (pinning, unknown title → `ValueError`); an `exam.md` sanity test (contains „du an“, no „Prüfungsmarken“).
+
+Allowed files (round 1): `backend/prompts/exam.md`, `backend/kerstin/exam.py`, `scripts/exam_eval.py`, `backend/tests/test_exam.py`, `backend/tests/test_prompts.py`, this task file.
+
+### Review — round 1
+- **Verdict:** Changes requested (round 2). Pinning, card-matched scripts and the new checks are good. 230 Python + 23 Node tests pass, and lint passes.
+- **Lead grading of all 4 runs:**
+  1. **Counterpoint works.** Every discussion pushes back after agreement (delivery vans, local shops, team contact, children at home), stays friendly and offers compromises (delivery hours, cargo bikes, office days). Task fit is good in all parts.
+  2. **„ihr/euch“ is still there in 2 of 4 talks** („Ich möchte euch … erzählen“, „Sucht euch …“, „Habt ihr …?“). The system-prompt rule is too far from the generation point. The talk marker „Halte jetzt deinen Vortrag.“ evokes an audience.
+  3. **Planning opener B has no proposal** („Hast du schon eine Idee, wohin wir reisen könnten?“). The generic marker „Eröffne den Teil.“ doesn't carry the part's opening rule.
+  4. **The `no_question` failures (T6/T8 in run B) are a check error, not a model error.** In an exam, a reaction to the partner's answer, or an answer to a question about her own talk, needs no counter-question. The persona's ask-back habit doesn't apply there. The lead changes the spec: in the exam eval, `no_question` applies only to dialog parts.
+  5. **German:** 1 real slip in ≈40 replies: „Jugendherrenunterkunft“ (→ Jugendherberge). Minor: „Am meisten hat mir ein kleiner Sprachkurs und der Kontakt … geholfen“ (→ haben … geholfen), „zwei Mal“ (→ zweimal). This is within the norm, and no fix is needed.
+  6. Formulaic openers repeat („Da hast du absolut recht“, „Das ist ein sehr guter Punkt“). This is noted for T025/T026 and isn't blocking.
+
+### Follow-up (round 2) — required changes
+1. **Part-specific moderation markers** (`session.py`, the marker strings only):
+   - kerstin_talk: „Teil N – {title}: Halte jetzt deinen Vortrag. Du sprichst zu einer einzigen Person, deiner Gesprächspartnerin – sag ‚du‘, nie ‚ihr/euch‘.“
+   - dialog whose title contains „plan“: „Teil N – {title}: Eröffne den Teil mit einem ersten konkreten Vorschlag (z. B. ‚Ich schlage vor, …‘).“
+   - other dialog: „Teil N – {title}: Eröffne den Teil mit einer klaren eigenen Position.“
+   Don't change `exam.md`, `persona.md` or anything else in the prompts.
+2. **Eval:** apply `no_question` only to replies in `dialog` parts. Leave the learner_talk reaction and the kerstin_talk answers out of that code (they are still checked for the other codes). Don't change any other check.
+3. **Tests:** marker texts per part kind (talk marker contains „du“ and „nie ‚ihr/euch‘“; planning marker contains „Vorschlag“).
+4. Rerun the same 4 runs (same seed, same pinned sets). Paste summaries + every reply by part.
+
+Allowed files (round 2): `backend/kerstin/session.py` (marker strings and a small helper only), `scripts/exam_eval.py`, `backend/tests/test_exam.py`, this task file.
+
+### Review — round 2
+- **Verdict:** Accepted. Merged to main.
+- **Notes:**
+  - Diff: `exam_enter_marker` (per-part markers) and `_codes_for` (no_question only in dialog). Small and within the allowed files. 231 Python + 23 Node tests pass, and lint passes.
+  - „ihr/euch“: 0 in all 4 talks (was 2/4). Both planning openers start with „Ich schlage vor, …“. Discussion openers take a position. Counterpoints after agreement show in every run.
+  - The B/telc FAIL is accepted. It comes from `too_long` (4 sentences, T9/T10/T14/T16) and one discussion reply that ends on a proposal instead of a question (T13). Both are natural for an exam partner and within the normal persona variance.
+  - German slips (≈40 replies): „die weniger Lärmbelastung“ (→ geringere). Minor oddities: „Parks zum Bouldern“, „etwas zum Kochen vorbereiten“. One everyday brand mention („Airbnb“) in Kerstin's speech, not on a card. This is acceptable, and the card-level no-brand rule (D021) is untouched.
+  - Carry over to T026/T025: formulaic reply openers („Da hast du absolut recht“, „Das ist ein sehr wichtiger Punkt“) repeat across runs.

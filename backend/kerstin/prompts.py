@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
+from .exam import ExamPlan
+
 
 @dataclass(frozen=True)
 class Scenario:
@@ -15,6 +17,27 @@ class Scenario:
     title: str
     description: str
     opener: str
+
+
+def _format_exam_cards(plan: ExamPlan) -> str:
+    blocks: list[str] = []
+    for index, part in enumerate(plan.parts, 1):
+        card = part.card or {}
+        owner = "Karte von Kerstin" if part.kind == "kerstin_talk" else "Karte der Lernenden"
+        blocks.append(f"### Teil {index} – {part.title} ({owner})")
+        if "question" in card:
+            blocks.append(f"Frage: {card['question']}")
+            blocks.append("Aspekte:")
+            blocks.extend(f"- {aspect}" for aspect in card.get("aspects", []))
+        else:
+            label = "Situation" if "situation" in card else "Titel"
+            blocks.append(f"{label}: {card.get('situation') or card.get('title')}")
+            values = card.get("points") or []
+            if values:
+                blocks.append("Punkte:")
+                blocks.extend(f"- {point}" for point in values)
+        blocks.append("")
+    return "\n".join(blocks).rstrip()
 
 
 class PromptStore:
@@ -57,6 +80,27 @@ class PromptStore:
             "Üben und korrigiere nicht. Bleib natürlich; höchstens jede zweite "
             "Antwort folgt einem Impuls."
         )
+
+    def exam_system_prompt(self, plan: ExamPlan) -> str:
+        persona = (self.dir / "persona.md").read_text(encoding="utf-8")
+        prompt = persona.replace(
+            "{scenario}",
+            "Wir machen eine B2-Sprechübung zu zweit. Ein Moderator führt durch "
+            "die Teile; du bist Mitprüfling.",
+        )
+        talk_words = next(
+            (
+                part.talk_words
+                for part in plan.parts
+                if part.kind == "kerstin_talk" and part.talk_words
+            ),
+            130,
+        )
+        cards = _format_exam_cards(plan)
+        addendum = (self.dir / "exam.md").read_text(encoding="utf-8")
+        addendum = addendum.replace("{talk_words}", str(talk_words))
+        addendum = addendum.replace("{cards}", cards)
+        return prompt + "\n\n" + addendum
 
     def feedback_prompt(self, transcript: str, lang: str = "en") -> str:
         labels = {

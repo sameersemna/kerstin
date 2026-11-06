@@ -8,8 +8,9 @@ from array import array
 
 from kerstin.audio import pcm16_rms_dbfs
 from kerstin.config import BACKEND_DIR
+from kerstin.exam import MODERATION_PREFIX, is_moderation, load_presets, make_plan
 from kerstin.prompts import PromptStore
-from kerstin.session import Deps, Session
+from kerstin.session import Deps, Session, format_feedback_transcript
 from kerstin.thermal import ThermalStatus
 
 
@@ -30,14 +31,18 @@ class FakeLLM:
         chat_delay=0.0,
         chat_text="### Was gut war\n- Gute Aussprache",
         chat_error=None,
+        scripts=None,
     ):
         self.pieces = pieces
+        self.scripts = [list(script) for script in scripts] if scripts else None
         self.delay = delay
         self.warmup_delay = warmup_delay
         self.chat_delay = chat_delay
         self.chat_text = chat_text
         self.chat_error = chat_error
         self.last_messages = None
+        self.last_stream_max_tokens = None
+        self.stream_calls = 0
         self.last_chat_messages = None
         self.warmup_calls = []
         self.chat_calls = 0
@@ -49,9 +54,12 @@ class FakeLLM:
         self.loaded_calls = 0
         self.unloaded = []
 
-    async def stream_chat(self, messages):
+    async def stream_chat(self, messages, max_tokens=None):
+        self.stream_calls += 1
         self.last_messages = messages
-        for p in self.pieces:
+        self.last_stream_max_tokens = max_tokens
+        pieces = self.scripts.pop(0) if self.scripts else self.pieces
+        for p in pieces:
             if self.delay:
                 await asyncio.sleep(self.delay)
             yield p
@@ -149,6 +157,7 @@ def make_session(
     ollama_max_loaded=2,
     mistakes=None,
     focus=None,
+    exam=None,
 ):
     sent_json, sent_bytes = [], []
 
@@ -180,6 +189,7 @@ def make_session(
         send_bytes=sb,
         scenario_key="freies_gespraech",
         focus=focus or [],
+        exam=exam,
     ), sent_json, sent_bytes
 
 
@@ -804,3 +814,280 @@ async def test_start_focus_is_strict_and_uses_the_mistake_log():
     assert mistakes.summary_days == []
     assert await _focus_for_start(deps, True) == ["verbposition", "kasus"]
     assert mistakes.summary_days == [30]
+
+
+EXAM_CATALOG = load_presets(BACKEND_DIR / "prompts")
+
+
+def exam_plan(key="praesentation_diskussion_planung", seed=1234):
+    return make_plan(key, EXAM_CATALOG, seed)
+
+
+async def test_full_telc_style_exam_flow():
+    llm = FakeLLM(
+        ["Hallo."],
+        scripts=[
+            ["Was war deine wichtigste Erfahrung?"],
+            ["Das klingt spannend, danke!"],
+            ["Ich bin nach Berlin gekommen, weil ich hier studieren wollte. " * 8],
+            ["Ja, am Anfang war es schwierig."],
+            ["Ich habe viele Freunde im Kurs gefunden."],
+            ["Ich finde, Städte sollten mehr Platz für Fahrräder haben."],
+            ["Das sehe ich ähnlich."],
+            ["Gute Idee, wie viel würde das kosten?"],
+            ["Wir könnten zuerst einen Ort suchen."],
+            ["Dann machen wir eine Liste mit Aufgaben."],
+            ["Das klingt fair, ich übernehme die Getränke."],
+        ],
+    )
+    plan = exam_plan()
+    stt = FakeSTT("Ich halte jetzt meinen Vortrag.")
+    s, js, _ = make_session(llm, stt=stt, llm_warmup=False, exam=plan)
+
+    await s.start()
+    session = js[0]
+    assert session["type"] == "session"
+    assert session["focus"] == []
+    assert session["exam"]["preset"] == plan.preset
+    assert [part["kind"] for part in session["exam"]["parts"]] == [
+        "prep",
+        "learner_talk",
+        "kerstin_talk",
+        "dialog",
+        "dialog",
+    ]
+    assert js[-1]["type"] == "exam_part" and js[-1]["index"] == 0
+    assert llm.stream_calls == 0
+
+    await s.exam_next()
+    assert js[-1]["type"] == "exam_part" and js[-1]["index"] == 1
+    assert js[-1]["kind"] == "learner_talk"
+    assert s._collecting()
+    assert llm.stream_calls == 0
+
+    for index in range(4):
+        stt.text = f"Mein Vortrag Punkt {index + 1}."
+        await s.handle_audio(PCM_1S)
+        await s._turn_task
+    collected = [m for m in js if m["type"] == "collected"]
+    assert len(collected) == 4
+    assert llm.stream_calls == 0
+
+    await s.exam_next()
+    assert llm.stream_calls == 1
+    assert not s._collecting()
+    assert any(m["type"] == "reply_text" for m in js)
+    assert s.part_index == 1
+
+    stt.text = "Das war die Erfahrung mit meinem ersten Job."
+    await s.handle_audio(PCM_1S)
+    await s._turn_task
+    assert llm.stream_calls == 2
+
+    await s.exam_next()
+    assert s.part_index == 2
+    part2 = next(m for m in js if m["type"] == "exam_part" and m["index"] == 2)
+    assert part2["kind"] == "kerstin_talk"
+    assert part2["card"] == {"title": plan.parts[2].card["title"]}
+    assert llm.stream_calls == 3
+    assert llm.last_stream_max_tokens == 450
+
+    for text in ("Wie war das für dich?", "Was hast du daraus gelernt?"):
+        stt.text = text
+        await s.handle_audio(PCM_1S)
+        await s._turn_task
+    assert llm.stream_calls == 5
+
+    await s.exam_next()
+    assert s.part_index == 3
+    assert any(m["type"] == "exam_part" and m["index"] == 3 for m in js)
+    assert llm.stream_calls == 6
+
+    for text in ("Ich finde das auch wichtig.", "Aber was ist mit den Kosten?"):
+        stt.text = text
+        await s.handle_audio(PCM_1S)
+        await s._turn_task
+    assert llm.stream_calls == 8
+
+    await s.exam_next()
+    assert s.part_index == 4
+    assert any(m["type"] == "exam_part" and m["index"] == 4 for m in js)
+    assert llm.stream_calls == 9
+
+    for text in ("Wir könnten das im Kursraum machen.", "Ich frage die anderen."):
+        stt.text = text
+        await s.handle_audio(PCM_1S)
+        await s._turn_task
+    assert llm.stream_calls == 11
+
+    await s.exam_next()
+    assert js[-1] == {"type": "exam_part", "kind": "done"}
+    assert llm.stream_calls == 11
+    assert any(is_moderation(m) for m in s.history)
+
+
+async def test_collect_mode_makes_no_llm_calls_and_grows_history():
+    llm = FakeLLM(["Hallo."])
+    plan = exam_plan()
+    stt = FakeSTT("Ein Satz.")
+    s, js, _ = make_session(llm, stt=stt, llm_warmup=False, exam=plan)
+
+    await s.start()
+    await s.exam_next()
+    before = len(s.history)
+    for index in range(4):
+        stt.text = f"Satz {index + 1}."
+        await s.handle_audio(PCM_1S)
+        await s._turn_task
+
+    assert llm.stream_calls == 0
+    assert len(s.history) == before + 4
+    assert len([m for m in js if m["type"] == "collected"]) == 4
+
+
+async def test_follow_up_happens_exactly_once():
+    llm = FakeLLM(
+        ["Hallo."],
+        scripts=[["Welche Erfahrung war wichtig?"], ["Danke für die Antwort."], ["Mein Vortrag."]],
+    )
+    plan = exam_plan()
+    stt = FakeSTT("Ein Satz.")
+    s, _js, _ = make_session(llm, stt=stt, llm_warmup=False, exam=plan)
+
+    await s.start()
+    await s.exam_next()
+    for index in range(4):
+        stt.text = f"Satz {index + 1}."
+        await s.handle_audio(PCM_1S)
+        await s._turn_task
+    await s.exam_next()
+    assert s.part_index == 1
+    assert s._collect_followup_done
+    assert llm.stream_calls == 1
+
+    stt.text = "Meine Antwort."
+    await s.handle_audio(PCM_1S)
+    await s._turn_task
+    assert llm.stream_calls == 2
+    await s.exam_next()
+    assert s.part_index == 2
+    assert llm.stream_calls == 3
+
+
+async def test_exam_uses_one_system_prompt_for_warmup_and_turns():
+    llm = FakeLLM(["Hallo."])
+    plan = exam_plan()
+    s, _, _ = make_session(llm, exam=plan)
+    await s.start()
+    assert s._warmup_task is not None
+    await s._warmup_task
+    await s._respond(1)
+    assert llm.warmup_calls[0][0]["content"] == s._system
+    assert llm.last_messages[0]["content"] == s._system
+    assert "Karte von Kerstin" in s._system
+
+
+async def test_exam_ignores_focus():
+    llm = FakeLLM(["Hallo."])
+    s, js, _ = make_session(llm, exam=exam_plan(), focus=["kasus"], llm_warmup=False)
+    await s.start()
+    assert js[0]["focus"] == []
+    assert "Gesprächsimpulse" not in s._system
+
+
+async def test_exam_next_outside_exam_mode_is_an_error():
+    llm = FakeLLM(["Hallo."])
+    s, js, _ = make_session(llm)
+    await s.exam_next()
+    assert js == [{"type": "error", "message": "exam_next outside exam mode"}]
+    assert llm.stream_calls == 0
+
+
+async def test_exam_part_handles_a_hot_kerstin_says_turn():
+    llm = FakeLLM(["Hallo."])
+    thermal = FakeThermalGuard(ThermalStatus("hot", 82))
+    s, js, _ = make_session(llm, thermal=thermal, exam=exam_plan(), llm_warmup=False)
+
+    await s._kerstin_says("Teil 2 – Kerstins Kurzvortrag beginnt.")
+
+    assert js == [{"type": "thermal", "state": "hot", "temp_c": 82, "turn": 1}]
+    assert llm.stream_calls == 0
+    assert s.history and is_moderation(s.history[0])
+
+
+async def test_moderation_markers_are_kept_when_trimming():
+    llm = FakeLLM(["Hallo."])
+    s, _, _ = make_session(llm, exam=exam_plan(), llm_warmup=False)
+    s.deps.history_max_turns = 2
+    s._system = "SYSTEM"
+    s.history = [
+        {"role": "assistant", "content": "alt"},
+        {"role": "user", "content": "normal"},
+        {"role": "user", "content": MODERATION_PREFIX + "Teil 2 – Diskussion"},
+        {"role": "assistant", "content": "neu"},
+        {"role": "user", "content": "spät"},
+    ]
+
+    messages = s._messages()
+
+    assert messages[0] == {"role": "system", "content": "SYSTEM"}
+    assert {"role": "user", "content": MODERATION_PREFIX + "Teil 2 – Diskussion"} in messages
+
+
+async def test_feedback_transcript_renders_markers_as_headings():
+    transcript = format_feedback_transcript(
+        [
+            {"role": "user", "content": "Ich habe einen Fehler gemacht."},
+            {"role": "user", "content": MODERATION_PREFIX + "Teil 2 – Diskussion"},
+            {"role": "assistant", "content": "Das klingt gut."},
+        ]
+    )
+
+    assert "Lernende Person: Ich habe einen Fehler gemacht." in transcript
+    assert "--- Teil 2 – Diskussion ---" in transcript
+    assert "Lernende Person: [Moderation]" not in transcript
+
+
+async def test_feedback_ignores_markers_for_learner_lines():
+    llm = FakeLLM(["Hallo."])
+    s, js, _ = make_session(llm, exam=exam_plan(), llm_warmup=False)
+    s.history = [
+        {"role": "user", "content": MODERATION_PREFIX + "Teil 2 – Diskussion"},
+        {"role": "assistant", "content": "Hallo!"},
+    ]
+
+    await s.feedback()
+
+    assert js == [{"type": "feedback", "markdown": "_Noch keine Äußerungen._"}]
+    assert llm.chat_calls == 0
+
+
+async def test_feedback_transcript_has_no_marker_as_learner_line():
+    llm = FakeLLM(["Hallo."], chat_text="### Feedback")
+    s, _, _ = make_session(llm, exam=exam_plan(), llm_warmup=False)
+    s.history = [
+        {"role": "user", "content": "Ich war im Kino."},
+        {"role": "user", "content": MODERATION_PREFIX + "Teil 2 – Diskussion"},
+    ]
+
+    await s.feedback()
+
+    prompt = llm.last_chat_messages[0]["content"]
+    assert "--- Teil 2 – Diskussion ---" in prompt
+    assert "Lernende Person: [Moderation]" not in prompt
+
+
+async def test_hint_context_ignores_markers():
+    llm = FakeLLM(["Hallo."], chat_text="**der Termin**")
+    s, _, _ = make_session(llm, exam=exam_plan(), llm_warmup=False)
+    s.history = [
+        {"role": "user", "content": "Ich habe einen Termin."},
+        {"role": "user", "content": MODERATION_PREFIX + "Teil 2 – Diskussion"},
+    ]
+
+    await s.hint("appointment")
+    await s._hint_task
+
+    prompt = llm.last_chat_messages[0]["content"]
+    assert "Moderation" not in prompt
+    assert "Ich habe einen Termin." in prompt
