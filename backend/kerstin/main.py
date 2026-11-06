@@ -37,6 +37,7 @@ deps: Deps | None = None
 
 FRONTEND_VENDOR_FILES = (
     "vad-web/bundle.min.js",
+    "vad-web/vad.worklet.bundle.min.js",
     "vad-web/silero_vad_legacy.onnx",
     "vad-web/LICENSE",
     "onnxruntime-web/ort.js",

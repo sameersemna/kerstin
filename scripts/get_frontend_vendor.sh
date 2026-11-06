@@ -86,6 +86,7 @@ install_package() {
 install_package \
   "vad-web" "$VAD_VERSION" "$VAD_URL" "$VAD_SHA512" "$VAD_LICENSE_URL" "$VENDOR/vad-web" \
   "package/dist/bundle.min.js" "bundle.min.js" \
+  "package/dist/vad.worklet.bundle.min.js" "vad.worklet.bundle.min.js" \
   "package/dist/silero_vad_legacy.onnx" "silero_vad_legacy.onnx"
 
 install_package \

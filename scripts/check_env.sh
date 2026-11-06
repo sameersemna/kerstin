@@ -39,6 +39,7 @@ echo "Frontend"
 VENDOR_MISSING=0
 for file in \
   vad-web/bundle.min.js \
+  vad-web/vad.worklet.bundle.min.js \
   vad-web/silero_vad_legacy.onnx \
   vad-web/LICENSE \
   onnxruntime-web/ort.js \

@@ -64,10 +64,11 @@ The page loads the VAD, ONNX runtime and Silero model from Kerstin's own server 
 
 ## Worker report (Kilo Code fills this in)
 - **Changed files:** `scripts/get_frontend_vendor.sh` (new), `Makefile`, `.gitignore`, `frontend/index.html`, `frontend/app.js`, `backend/kerstin/main.py`, `scripts/check_env.sh`, `backend/tests/test_vendor.py` (new), `README.md`, `docs/LICENSES.md`, `docs/ARCHITECTURE.md`, `docs/STATUS.md`, this task file.
-- **How tested:** `make test` → 253 Python tests + 33 Node tests passed; `make lint` → ruff passed. `make vendor` downloaded and extracted the pinned assets; the second run printed both `exists` lines and did not download. A scratch copy with an edited vad-web SHA-512 exited 1 with `ERROR: SHA-512 mismatch for vad-web-0.0.22` and left no `frontend/vendor` directory. `grep -rn "jsdelivr\|unpkg\|https://" frontend/*.html frontend/*.js` has no hits. The blocked Chromium run logged only same-origin requests and `window.vad` was an object with state `hört zu …`. `/health` returned `true`, then `false` with `frontend/vendor` moved away, then `true` after restore. `make check` printed `[ok] vendor assets`. The `.wasm` response is `application/wasm`; the `.onnx` response is `application/octet-stream`.
+- **How tested:** `make test` → 253 Python tests + 33 Node tests passed; `make lint` → ruff passed. `make vendor` downloaded and extracted the pinned assets; the second run printed both `exists` lines and did not download. A scratch copy with an edited vad-web SHA-512 exited 1 with `ERROR: SHA-512 mismatch for vad-web-0.0.22` and left no `frontend/vendor` directory. `grep -rn "jsdelivr\|unpkg\|https://" frontend/*.html frontend/*.js` has no hits. The blocked Chromium run logged only same-origin requests, loaded the worklet from `/vendor/vad-web/`, and `window.vad` was an object with state `hört zu …`. `/health` returned `true`, then `false` with `frontend/vendor` moved away, then `true` after restore. `make check` printed `[ok] vendor assets`. The `.wasm` response is `application/wasm`; the `.onnx` response is `application/octet-stream`.
 - **Page request log (unblocked, port 8771):**
   - `/npm/onnxruntime-web@1.14.0/dist/ort.js` — 507,289 bytes, `application/javascript`
   - `/npm/@ricky0123/vad-web@0.0.22/dist/bundle.min.js` — 5,115 bytes, `application/javascript`
+  - `/npm/@ricky0123/vad-web@0.0.22/dist/vad.worklet.bundle.min.js` — 2,585 bytes, `application/javascript` (the AudioWorklet fetch is delayed past the initial page capture)
   - `/npm/@ricky0123/vad-web@0.0.22/dist/silero_vad_legacy.onnx` — 721,513 bytes, `application/octet-stream`
   - `/npm/onnxruntime-web@1.14.0/dist/ort-wasm-simd.wasm` — 1,814,356 bytes, `application/wasm`
   - Plus `vad-web/LICENSE` (1,896 bytes) and `onnxruntime-web/LICENSE` (1,073 bytes). The HTTP sizes above are transfer sizes; installed files are larger because the tarballs are compressed (e.g. `ort.js` 3,966,081 bytes, `ort-wasm-simd.wasm` 10,014,674 bytes on disk).
@@ -96,6 +97,10 @@ EXTERNAL_REQUESTS
 (none)
 
 CDN_REQUESTS
+```
+- The AudioWorklet fetch is not exposed as a page request by CDP, but the same blocked run's server access log shows it loading from the vendor directory:
+```text
+INFO:     127.0.0.1:59442 - "GET /vendor/vad-web/vad.worklet.bundle.min.js HTTP/1.1" 200 OK
 ```
 - **MIME and health headers:**
 ```text
