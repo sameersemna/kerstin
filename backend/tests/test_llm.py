@@ -78,6 +78,79 @@ async def test_chat_temperature_override() -> None:
     assert payloads[1]["options"]["temperature"] == 0.8
 
 
+async def test_chat_model_and_keep_alive_overrides() -> None:
+    payloads: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": "ok"}})
+
+    llm = make_llm(handler, ollama_model="gemma4:26b")
+    try:
+        await llm.chat(
+            [{"role": "user", "content": "Hallo"}],
+            model="gemma4:31b",
+            keep_alive="0",
+        )
+    finally:
+        await llm.client.aclose()
+
+    assert payloads[0]["model"] == "gemma4:31b"
+    assert payloads[0]["keep_alive"] == "0"
+
+
+async def test_loaded_models_parses_ps() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert str(request.url).endswith("/api/ps")
+        return httpx.Response(
+            200,
+            json={
+                "models": [
+                    {"name": "gemma4:26b"},
+                    {"model": "llama3.2:1b"},
+                ]
+            },
+        )
+
+    llm = make_llm(handler)
+    try:
+        assert await llm.loaded_models() == ["gemma4:26b", "llama3.2:1b"]
+    finally:
+        await llm.client.aclose()
+
+
+async def test_unload_posts_keep_alive_zero() -> None:
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["url"] = str(request.url)
+        seen["payload"] = json.loads(request.content)
+        return httpx.Response(200, json={"response": ""})
+
+    llm = make_llm(handler)
+    try:
+        await llm.unload("gemma4:31b")
+    finally:
+        await llm.client.aclose()
+
+    assert seen["method"] == "POST"
+    assert seen["url"] == "http://ollama.test/api/generate"
+    assert seen["payload"] == {"model": "gemma4:31b", "keep_alive": 0}
+
+
+async def test_unload_swallows_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="boom")
+
+    llm = make_llm(handler)
+    try:
+        await llm.unload("gemma4:31b")
+    finally:
+        await llm.client.aclose()
+
+
 async def test_warmup_payload() -> None:
     seen: dict = {}
 

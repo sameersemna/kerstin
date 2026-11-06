@@ -53,6 +53,10 @@ class Deps:
     stt_min_rms_dbfs: float = -55.0
     stt_filter: bool = True
     feedback_lang: str = "en"
+    ollama_model: str = "gemma4:26b"
+    feedback_model: str | None = None
+    feedback_temperature: float = 0.3
+    ollama_max_loaded: int = 2
     hint_temperature: float = 0.2
     thermal: ThermalGuard | None = None
 
@@ -175,8 +179,43 @@ class Session:
         transcript = format_feedback_transcript(self.history)
         await self.send_json({"type": "status", "state": "feedback_running"})
         prompt = self.deps.prompts.feedback_prompt(transcript, lang)
-        text = await self.deps.llm.chat([{"role": "user", "content": prompt}], max_tokens=1200)
+
+        chat_model = self.deps.ollama_model
+        model = self.deps.feedback_model or chat_model
+        keep_alive: str | None = None
+        if model != chat_model:
+            try:
+                loaded = await self.deps.llm.loaded_models()
+            except Exception as exc:  # noqa: BLE001 — fail safe, not fail open
+                log.info("feedback model fallback (ps failed: %s)", type(exc).__name__)
+                model = chat_model
+            else:
+                others = [name for name in loaded if name not in (chat_model, model)]
+                if len(others) + 1 > self.deps.ollama_max_loaded:
+                    log.info("feedback model fallback (slots busy)")
+                    model = chat_model
+                else:
+                    if (
+                        chat_model in loaded
+                        and len(others) + 2 > self.deps.ollama_max_loaded
+                    ):
+                        await self.deps.llm.unload(chat_model)
+                    keep_alive = "0"
+
+        started = time.perf_counter()
+        text = await self.deps.llm.chat(
+            [{"role": "user", "content": prompt}],
+            max_tokens=1200,
+            temperature=self.deps.feedback_temperature,
+            model=model,
+            keep_alive=keep_alive,
+        )
         await self.send_json({"type": "feedback", "markdown": strip_think(text).strip()})
+        log.info(
+            "feedback ok (model=%s ms=%d)",
+            model,
+            int((time.perf_counter() - started) * 1000),
+        )
 
     async def close(self) -> None:
         hint_task = self._hint_task
