@@ -37,7 +37,11 @@ def classify(error: FeedbackError) -> str:
     sentence_end = _has(text, r"\bam ende\b") and _has(
         text, r"\b(satz|verb|nebensatz|clause)\b"
     )
-    if sentence_end or _has(
+    # "X occupies the first position, so the verb must follow" (inversion)
+    inversion = _has(text, r"\b(first|erste[nr]?) (position|stelle)\b") and _has(
+        text, r"\bverb\b"
+    )
+    if sentence_end or inversion or _has(
         text,
         r"\bword order\b",
         r"\bwortstellung\b",

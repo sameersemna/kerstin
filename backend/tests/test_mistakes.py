@@ -13,6 +13,10 @@ from kerstin.mistakes import CATEGORIES, MistakeLog, classify
 REAL_CORPUS = [
     # EN
     (
+        'In German, "Meiner Meinung nach" occupies the first position, so the verb must follow immediately.',
+        "verbposition",
+    ),
+    (
         "The preposition „mit“ always requires the dative case.",
         "kasus",
     ),

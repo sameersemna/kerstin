@@ -182,7 +182,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
             elif kind == "end" and session:
                 await session.feedback(
                     data.get("feedback_lang"),
-                    save_mistakes=bool(data.get("save_mistakes", False)),
+                    save_mistakes=data.get("save_mistakes") is True,
                 )
             elif kind == "ping":
                 await send_json({"type": "pong"})

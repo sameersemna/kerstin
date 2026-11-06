@@ -139,5 +139,15 @@ Tick "Fehler-Kategorien speichern", have a short conversation with a deliberate 
 - **Open questions:** None. The browser manual check remains for Sameer after merge.
 
 ## Review (Claude Code fills this in)
-- **Verdict:**
+- **Verdict:** Accepted with two lead one-liners (2026-11-06).
 - **Notes:**
+  - **Privacy as specified:**
+    - the schema has no text column;
+    - `summary()` opens read-only and never creates the file;
+    - nothing is written unless `save_mistakes`;
+    - "Alle löschen" deletes and VACUUMs;
+    - the 180-day prune cascades (foreign keys on);
+    - logs contain counts and exception types only.
+  - "Off writes nothing" was shown. 194 Python + 23 JS tests and lint pass.
+  - **Lead fix 1:** the classifier missed a real T016 explanation, „Meiner Meinung nach occupies the first position, so the verb must follow immediately“ → `sonstiges`. Added an inversion rule (first/erste position|Stelle + verb → `verbposition`) and put the line in the corpus (now 31 real lines).
+  - **Lead fix 2:** `save_mistakes` is parsed as `data.get("save_mistakes") is True`. Before, `bool()` turned the string `"false"` into an opt-in.

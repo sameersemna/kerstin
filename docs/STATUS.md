@@ -28,7 +28,7 @@ Since T006: the first clause (≥ 4 words at `,` `;` `:` `–`) is spoken early.
 T015 latency with `gemma4:26b` (fixed seed, `--runs 2`): first audio p50/p90 1384/1661 ms server-side → est. real 2152/2429 ms with the VAD tail. The T002 table above is the `qwen3:14b` baseline.
 
 ## Works (verified in a dev sandbox)
-- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 173 Python + 23 JS (`node --test`: mic gate, Markdown renderer) passed.
+- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 194 Python + 23 JS (`node --test`: mic gate, Markdown renderer) passed.
 - App starts; `/health`, `/api/scenarios`, `/`, static files served; WebSocket `start` → session + opener text.
 
 ## Not yet verified
@@ -41,6 +41,7 @@ T015 latency with `gemma4:26b` (fixed seed, `--runs 2`): first audio p50/p90 138
 - STT filter (T013): an utterance consisting *only* of "Vielen Dank", "Tschüss" or "Amen" is dropped as a likely Whisper hallucination (whisper.cpp outputs these for clicks/noise even at speech level). Gate threshold −55 dBFS: tune it against the "Pegel" shown in the UI.
 - Feedback 💡 explanations in English or German (T017, D008): UI selector "Erklärungen", remembered per browser, sent with `end`; server default `KERSTIN_FEEDBACK_LANG=en`. Feedback quality (T016, `make feedback-eval`, 5 planted-error cases, gemma4:26b, revised prompt): DE 14/15 errors found, 0 wrong corrections; EN 13/15, 1 wrong correction (non-word "gefossen"); 0 false corrections of correct German, 0 ungrounded/Kerstin quotes, 0 LaTeX noise. Fixed preposition verbs (*sich kümmern um*) are the weak spot.
 - Feedback runs at temperature 0.3 on the chat model (T011, D019): EN/DE recall 93 % on the planted-error eval, 0 wrong corrections, ≈8.5 s p50. `KERSTIN_FEEDBACK_MODEL` exists (eviction-guarded) but is unset; gemma4:31b was too slow/hot.
+- Mistake log (T020, D020): opt-in checkbox (default off) stores grammar categories per session in `data/mistakes.sqlite3` (no learner text); "Deine Schwerpunkte" shows 90-day counts; "Alle löschen" wipes it. Categories come from keyword rules on the 💡 explanation (31-line real corpus, 100 %). No auth yet: anyone who can reach the server can read the counts or delete them (D010).
 - Hint box "Wie sagt man …?" (T022, D018): typed query → 2-line German answer (headword with article/plural or forms + example), text only, not in history/feedback; p50 ≈0.9–1.2 s; a concurrent hint delays a turn by ≈0.7 s (`OLLAMA_NUM_PARALLEL=1`). Quality (`make hint-eval`, 20 hold-out queries): 17/20 fully correct, 1/20 wrong ("sich auskommen mit"); the UI warns that answers may contain errors.
 - Feedback is rendered from a Markdown subset by `frontend/markdown.js` (T004, D017; DOM-only, links/images/HTML show as text).
 - Echo (T014): speaker mode (default) pauses the mic while Kerstin speaks; interrupt with space bar or "Unterbrechen". Headphone mode keeps voice barge-in. Server drops transcripts ≥ 6 words that are ≥ 80 % Kerstin's last reply (`echo`). Not yet verified by ear without headphones (Sameer's manual check).
