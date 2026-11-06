@@ -182,6 +182,13 @@ def _has_counterpoint(text: str) -> bool:
     )
 
 
+def _codes_for(reply: Reply, plan) -> list[str]:
+    codes = check_reply(reply.text)
+    if reply.part is not None and plan.parts[reply.part].kind != "dialog":
+        codes = [code for code in codes if code != "no_question"]
+    return codes
+
+
 def _first_reply(replies: list[Reply], part_index: int) -> Reply | None:
     return next((reply for reply in replies if reply.part == part_index), None)
 
@@ -394,9 +401,9 @@ def print_preset(label: str, plan, replies: list[Reply], collect_calls: int) -> 
         for reply in replies
         if reply.part is not None and reply.turn != talk_turn and reply.text
     ]
-    dialog_codes = {reply.turn: check_reply(reply.text) for reply in normal}
+    dialog_codes = {reply.turn: _codes_for(reply, plan) for reply in normal}
     bad = {turn: codes for turn, codes in dialog_codes.items() if codes}
-    print(f"Dialog check_reply: {len(normal)} replies, issues={bad or 'none'}")
+    print(f"check_reply (no_question only in dialog parts): {len(normal)} replies, issues={bad or 'none'}")
     if bad:
         failures.append("dialog replies fail check_reply")
 
@@ -428,7 +435,7 @@ def print_replies(plan, replies: list[Reply]) -> None:
             print("  (no reply)")
             continue
         for reply in grouped:
-            codes = check_reply(reply.text)
+            codes = _codes_for(reply, plan)
             print(f"  T{reply.turn}: {reply.text}  [codes: {', '.join(codes) or '-'}]")
 
 

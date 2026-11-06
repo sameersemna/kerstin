@@ -9,6 +9,7 @@ import pytest
 
 from kerstin.config import BACKEND_DIR
 from kerstin.exam import MODERATION_PREFIX, is_moderation, load_presets, make_plan
+from kerstin.session import exam_enter_marker
 
 
 def catalog() -> dict:
@@ -123,3 +124,23 @@ def test_make_plan_unknown_pinned_title_raises():
             1,
             cards={"talk_topics": "Diese Karte gibt es nicht"},
         )
+
+
+def test_exam_enter_markers_are_part_specific():
+    plan = make_plan("praesentation_diskussion_planung", catalog(), 1)
+
+    talk = exam_enter_marker(plan.parts[2], 2)
+    assert talk
+    assert "du" in talk
+    assert "nie ‚ihr/euch‘" in talk
+
+    planning = exam_enter_marker(plan.parts[4], 4)
+    assert planning
+    assert "Vorschlag" in planning
+
+    discussion = exam_enter_marker(plan.parts[3], 3)
+    assert discussion
+    assert "klaren eigenen Position" in discussion
+
+    assert exam_enter_marker(plan.parts[0], 0) is None
+    assert exam_enter_marker(plan.parts[1], 1) is None

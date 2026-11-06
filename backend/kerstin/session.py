@@ -18,7 +18,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from .audio import pcm16_duration_s, pcm16_rms_dbfs
-from .exam import MODERATION_PREFIX, ExamPlan, is_moderation
+from .exam import MODERATION_PREFIX, ExamPart, ExamPlan, is_moderation
 from .feedback_checks import parse_errors
 from .llm import Message, OllamaLLM
 from .mistakes import CATEGORIES, MistakeLog, classify
@@ -80,6 +80,26 @@ class TurnMetrics:
     first_audio_ms: int = 0  # from end of learner speech (server receive) to first audio sent
     total_ms: int = 0
     sentences: int = 0
+
+
+def exam_enter_marker(part: ExamPart, index: int) -> str | None:
+    if part.kind == "kerstin_talk":
+        return (
+            f"Teil {index + 1} – {part.title}: Halte jetzt deinen Vortrag. "
+            "Du sprichst zu einer einzigen Person, deiner Gesprächspartnerin – "
+            "sag ‚du‘, nie ‚ihr/euch‘."
+        )
+    if part.kind == "dialog":
+        if "plan" in part.title.lower():
+            return (
+                f"Teil {index + 1} – {part.title}: Eröffne den Teil mit einem "
+                "ersten konkreten Vorschlag (z. B. ‚Ich schlage vor, …‘)."
+            )
+        return (
+            f"Teil {index + 1} – {part.title}: Eröffne den Teil mit einer "
+            "klaren eigenen Position."
+        )
+    return None
 
 
 @dataclass
@@ -563,14 +583,11 @@ class Session:
             }
         )
         log.info("exam part %s %s", index, part.kind)
-        if part.kind == "kerstin_talk":
+        marker = exam_enter_marker(part, index)
+        if marker is not None:
             await self._kerstin_says(
-                f"Teil {index + 1} – {part.title}: Halte jetzt deinen Vortrag.",
-                max_tokens=450,
-            )
-        elif part.kind == "dialog":
-            await self._kerstin_says(
-                f"Teil {index + 1} – {part.title}: Eröffne den Teil."
+                marker,
+                max_tokens=450 if part.kind == "kerstin_talk" else None,
             )
 
     async def exam_next(self) -> None:
