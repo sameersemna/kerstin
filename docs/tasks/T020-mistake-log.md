@@ -99,13 +99,55 @@ This is 14 files. Storage, protocol and UI form one opt-in feature (lead-approve
 Tick "Fehler-Kategorien speichern", have a short conversation with a deliberate *weil … Verb* mistake, and press "Beenden & Feedback". "Deine Schwerpunkte" shows "Verbposition · 1". Then "Alle löschen" → click again → the list is empty.
 
 ## Worker report (Kilo Code fills this in)
-- **Changed files:**
-- **How tested:**
+- **Changed files:** `backend/kerstin/mistakes.py` (new), `backend/kerstin/config.py`, `backend/kerstin/session.py`, `backend/kerstin/main.py`, `backend/tests/test_mistakes.py` (new), `backend/tests/test_api_mistakes.py` (new), `backend/tests/test_session.py`, `frontend/index.html`, `frontend/app.js`, `frontend/style.css`, `docs/PROTOCOL.md`, `.env.example`, `.gitignore` (`data/` only), and this task file.
+- **How tested:** `make test` → **194 Python + 23 Node** tests passed; `make lint` passed; `node --check frontend/app.js` passed. New tests cover the 30-line real classifier corpus (plus 6 made-up `wortwahl`/`sonstiges` lines), record/summary/order/days/pruning/clear/schema/lazy-file behavior, the session opt-in/opt-out/DB-error/thermal/no-learner-lines paths, and the enabled/disabled HTTP API.
 - **Measurements (if any):**
-- **Deviations from spec / extra files touched:**
-- **New dependencies (+license):**
-- **Open questions:**
+  - **Classifier:** 30 real 💡 lines (EN + DE) from the T016/T011/T017 reports plus 6 made-up lines → **100%** expected categories. The only keyword adjustment: bare `am Ende` now needs sentence/verb context (`Satz|Verb|Nebensatz|Clause`); the real T016 explanation *„… deshalb muss am Ende ein ‚n‘ an ‚Fahrräder‘ stehen“* is about a noun ending and was otherwise misclassified as Verbposition.
+  - **Off (default):** scripted `Session.feedback(save_mistakes=False)` with a temp path printed:
+    ```text
+    path exists: False
+    parent exists: False
+    mistakes_saved: []
+    project data exists: False
+    ```
+  - **On:** scripted `end` after two learner turns with a dative error and a subordinate-clause verb-order error; `KERSTIN_MISTAKE_LOG_PATH=/tmp/kilo/t020-on/mistakes.sqlite3`; `mistakes_saved` was `{"count": 2}`; summary was `{"sessions": 1, "categories": [{"key": "kasus", "label": "Kasus", "count": 1}, {"key": "verbposition", "label": "Verbposition", "count": 1}]}`.
+  - **Schema (pasted):**
+    ```sql
+    CREATE TABLE sessions (
+                    id INTEGER PRIMARY KEY,
+                    created_at TEXT NOT NULL,
+                    scenario TEXT NOT NULL,
+                    lang TEXT NOT NULL
+                );
+    CREATE TABLE mistakes (
+                    session_id INTEGER NOT NULL
+                        REFERENCES sessions(id) ON DELETE CASCADE,
+                    category TEXT NOT NULL
+                );
+    ```
+  - **Rows (pasted):**
+    ```text
+    session_id  category
+    ----------  ----------
+    1           kasus
+    1           verbposition
+    ```
+    The session row is `2026-11-06T08:59:08+00:00 | freies_gespraech | en`; no learner sentence, correction or explanation is stored.
+  - **Delete:** `GET /api/mistakes` before DELETE had 1 session and the two categories; `DELETE /api/mistakes` → `{"cleared": true}`; the next GET was `{"enabled": true, "sessions": 0, "categories": []}`. The temp DB and its `/tmp` directory were removed. No server was started, so port 8771/8770 was untouched.
+- **Deviations from spec / extra files touched:** The classifier keyword refinement above is the only spec deviation. The pre-existing `.gitignore` `*.prs` line was left as is; this task added `data/`. `sqlite3` is stdlib, so no dependency change.
+- **New dependencies (+license):** None.
+- **Open questions:** None. The browser manual check remains for Sameer after merge.
 
 ## Review (Claude Code fills this in)
-- **Verdict:**
+- **Verdict:** Accepted with two lead one-liners (2026-11-06).
 - **Notes:**
+  - **Privacy as specified:**
+    - the schema has no text column;
+    - `summary()` opens read-only and never creates the file;
+    - nothing is written unless `save_mistakes`;
+    - "Alle löschen" deletes and VACUUMs;
+    - the 180-day prune cascades (foreign keys on);
+    - logs contain counts and exception types only.
+  - "Off writes nothing" was shown. 194 Python + 23 JS tests and lint pass.
+  - **Lead fix 1:** the classifier missed a real T016 explanation, „Meiner Meinung nach occupies the first position, so the verb must follow immediately“ → `sonstiges`. Added an inversion rule (first/erste position|Stelle + verb → `verbposition`) and put the line in the corpus (now 31 real lines).
+  - **Lead fix 2:** `save_mistakes` is parsed as `data.get("save_mistakes") is True`. Before, `bool()` turned the string `"false"` into an opt-in.

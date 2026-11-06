@@ -6,6 +6,8 @@
 const $ = (id) => document.getElementById(id);
 const logEl = $("log"), stateEl = $("state"), metricsEl = $("metrics"), feedbackEl = $("feedback");
 const hintListEl = $("hintList"), hintInputEl = $("hintInput"), hintBtn = $("hintBtn");
+const mistakeBoxEl = $("mistakeBox"), saveMistakesEl = $("saveMistakes");
+const mistakeSummaryEl = $("mistakeSummary"), clearMistakesBtn = $("clearMistakes");
 
 let ws = null;
 let vadInstance = null;
@@ -27,6 +29,9 @@ const HINT_ERRORS = {
 };
 const MIC_MODE_KEY = "kerstin.micMode";
 const FEEDBACK_LANG_KEY = "kerstin.feedbackLang";
+const SAVE_MISTAKES_KEY = "kerstin.saveMistakes";
+let clearMistakesArmed = false;
+let clearMistakesTimer = null;
 try {
   const savedMode = localStorage.getItem(MIC_MODE_KEY);
   if (savedMode === "speakers" || savedMode === "headphones") micMode = savedMode;
@@ -34,6 +39,7 @@ try {
   if (savedFeedbackLang === "en" || savedFeedbackLang === "de") {
     feedbackLang = savedFeedbackLang;
   }
+  saveMistakesEl.checked = localStorage.getItem(SAVE_MISTAKES_KEY) === "1";
 } catch {}
 
 // ---------- UI helpers ----------
@@ -133,6 +139,62 @@ function resolveHint(msg) {
   }
   renderHints();
 }
+
+// ---------- mistake summary ----------
+function resetClearMistakesPrompt() {
+  clearMistakesArmed = false;
+  if (clearMistakesTimer) clearTimeout(clearMistakesTimer);
+  clearMistakesTimer = null;
+  clearMistakesBtn.textContent = "Alle löschen";
+}
+
+function renderMistakes(data) {
+  mistakeBoxEl.hidden = !data.enabled;
+  if (!data.enabled) return;
+  const items = data.categories.map((category) => {
+    const item = document.createElement("li");
+    item.textContent = `${category.label} · ${category.count}`;
+    return item;
+  });
+  if (!items.length) {
+    const empty = document.createElement("li");
+    empty.className = "mistake-empty";
+    empty.textContent = "Noch keine Einträge.";
+    items.push(empty);
+  }
+  mistakeSummaryEl.replaceChildren(...items);
+}
+
+async function loadMistakes() {
+  try {
+    const response = await fetch("/api/mistakes");
+    if (!response.ok) throw new Error("summary failed");
+    renderMistakes(await response.json());
+  } catch {
+    mistakeBoxEl.hidden = true;
+  }
+}
+
+async function clearMistakes() {
+  try {
+    const response = await fetch("/api/mistakes", { method: "DELETE" });
+    if (response.ok) await loadMistakes();
+  } catch {}
+}
+
+clearMistakesBtn.onclick = () => {
+  if (!clearMistakesArmed) {
+    clearMistakesArmed = true;
+    clearMistakesBtn.textContent = "Wirklich löschen?";
+    clearMistakesTimer = setTimeout(resetClearMistakesPrompt, 5000);
+    return;
+  }
+  resetClearMistakesPrompt();
+  clearMistakes();
+};
+saveMistakesEl.onchange = () => {
+  try { localStorage.setItem(SAVE_MISTAKES_KEY, saveMistakesEl.checked ? "1" : "0"); } catch {}
+};
 
 // ---------- audio playback ----------
 function maybePlaybackIdle() {
@@ -283,6 +345,9 @@ function handle(msg) {
       }
       setState("fertig", "idle");
       break;
+    case "mistakes_saved":
+      loadMistakes();
+      break;
     case "error":
       if (micGate) micGate.replyFinished(msg.turn);
       setState("Fehler: " + msg.message, "speaking");
@@ -341,7 +406,11 @@ function end() {
   stopPlayback();
   if (micGate) micGate.userInterrupt();
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: "end", feedback_lang: feedbackLang }));
+    ws.send(JSON.stringify({
+      type: "end",
+      feedback_lang: feedbackLang,
+      save_mistakes: saveMistakesEl.checked,
+    }));
   }
   $("endBtn").disabled = true;
   $("startBtn").disabled = false;
@@ -398,3 +467,4 @@ document.addEventListener("keydown", (e) => {
   interruptSpeaking();
 });
 loadScenarios();
+loadMistakes();

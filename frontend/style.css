@@ -70,6 +70,13 @@ aside { display: flex; flex-direction: column; gap: 12px; }
 .hint-answer p { margin: 4px 0; }
 .hint-note { margin: 8px 0 0; color: var(--muted); font-size: .75rem; }
 .hint-error { color: var(--warn); margin-top: 4px; }
+.mistake-box { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.mistake-box h2 { margin: 0 0 8px; font-size: 1rem; }
+.mistake-toggle { display: flex; gap: 6px; align-items: flex-start; font-size: .82rem; color: var(--muted); }
+.mistake-toggle input { margin-top: 3px; }
+#mistakeSummary { margin: 8px 0; padding-left: 20px; font-size: .9rem; }
+#mistakeSummary li { margin: 3px 0; }
+.mistake-empty { color: var(--muted); font-size: .82rem; margin: 8px 0; }
 .feedback { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: .92rem; }
 .feedback h3, .feedback h4 { margin: 0 0 6px; line-height: 1.3; }
 .feedback h3 { font-size: 1.08rem; }

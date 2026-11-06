@@ -42,6 +42,15 @@
         <div id="hintList"></div>
         <p class="hint-note">KI-Antwort – kann Fehler enthalten. Im Zweifel im Wörterbuch prüfen.</p>
       </div>
+      <div id="mistakeBox" class="mistake-box" hidden>
+        <h2>Deine Schwerpunkte</h2>
+        <label class="mistake-toggle">
+          <input type="checkbox" id="saveMistakes" />
+          Fehler-Kategorien speichern (lokal, ohne deine Sätze)
+        </label>
+        <ul id="mistakeSummary"></ul>
+        <button id="clearMistakes">Alle löschen</button>
+      </div>
       <div id="feedback" class="feedback" hidden></div>
     </aside>
   </main>

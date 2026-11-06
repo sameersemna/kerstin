@@ -10,7 +10,7 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 | **binary** | One complete learner utterance: 16 kHz, mono, signed 16-bit little-endian PCM, no header. Implicitly starts turn `n+1` and cancels any running turn. |
 | `{"type":"interrupt"}` | Learner barged in; cancel the running turn. |
 | `{"type":"hint","query"}` | Typed word/phrase lookup; text only, outside the conversation. |
-| `{"type":"end","feedback_lang"?:"en"\|"de"}` | End the conversation and request feedback. Invalid values use the server default. |
+| `{"type":"end","feedback_lang"?:"en"\|"de","save_mistakes"?}` | End the conversation and request feedback. Invalid values use the server default. `save_mistakes` is opt-in and defaults to `false`. |
 | `{"type":"ping"}` | Keepalive → `pong`. |
 
 ## Server → client
@@ -28,6 +28,7 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 | `{"type":"reply_interrupted","turn"}` | Reply cancelled by barge-in. |
 | `{"type":"metrics","turn","audio_s","audio_dbfs","stt_ms","llm_first_token_ms","first_sentence_ms","tts_first_ms","first_audio_ms","total_ms","sentences"}` | Timings (ms measured from server receiving the utterance). `audio_dbfs` = input RMS level (dBFS, one decimal). `first_sentence_ms` = first spoken chunk (early clause or sentence) available to the consumer; `tts_first_ms` = duration of that first chunk's TTS call. |
 | `{"type":"feedback","markdown"}` | End-of-session report. |
+| `{"type":"mistakes_saved","count","error"?:"failed"}` | Optional feedback follow-up when the learner opted in. `count` is the number of category rows stored; an error does not affect the feedback. |
 | `{"type":"hint","query","markdown"}` or `{"type":"hint","query","error":"too_long"\|"thermal"\|"failed","temp_c"?}` | Hint answer or short error. No `turn`; never affects turn state, history or feedback. |
 | `{"type":"error","message","turn"?}` | Error. |
 | `{"type":"pong"}` | Reply to ping. |
@@ -38,4 +39,6 @@ Both sides start at 0 after `session`. Each binary utterance from the client inc
 ## HTTP
 - `GET /health` → Ollama reachability, model presence, configured backends, `gpu_temp_c` (number or null) and `thermal` (`ok|hot|unknown|disabled`).
 - `GET /api/scenarios` → `[{"key","title"}]`.
+- `GET /api/mistakes` → `{"enabled": bool, "sessions": n, "categories": [{"key","label","count"}]}`. The summary covers the last 90 days; a missing database reads as zeros and is not created.
+- `DELETE /api/mistakes` → `{"cleared": true}`; returns 404 when the log is disabled.
 - `GET /` → browser client.
