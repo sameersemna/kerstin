@@ -1,0 +1,234 @@
+{
+  "_note": "Lead-owned HOLD-OUT set for the exam score (T025). Written after score.md was frozen. NEVER iterate a prompt against it: run it once per prompt change, after the calibration set (score_cases.json). MIX = good content, many grammar errors (diagnostic, not in level checks).",
+  "topics": {
+    "arbeit": {
+      "card": {
+        "title": "Arbeit im Homeoffice",
+        "points": [
+          "Situation in deinem Heimatland",
+          "Vor- und Nachteile",
+          "eigene Erfahrung",
+          "deine Meinung"
+        ]
+      },
+      "question": "Sollen Unternehmen vier Tage pro Woche arbeiten?",
+      "kerstin": [
+        "Ich finde die Vier-Tage-Woche super, weil die Leute dann erholter und motivierter sind. Was meinst du?",
+        "Aber viele kleine Firmen können sich das doch gar nicht leisten, oder?",
+        "Und wäre es nicht stressig, die gleiche Arbeit in vier Tagen zu schaffen?"
+      ]
+    },
+    "lernen": {
+      "card": {
+        "title": "Lernen und Bildung",
+        "points": [
+          "Schule in deinem Heimatland",
+          "was dir geholfen hat",
+          "Herausforderungen",
+          "deine Meinung"
+        ]
+      },
+      "question": "Sollten Schulen mehr praktische Fächer anbieten?",
+      "kerstin": [
+        "Ich finde, Schulen sollten mehr praktische Fächer wie Kochen oder Finanzen anbieten. Wie siehst du das?",
+        "Aber dafür müsste man andere Fächer kürzen. Welche würdest du streichen?",
+        "Und wer soll diese Fächer unterrichten? Dafür gibt es ja kaum Lehrkräfte."
+      ]
+    },
+    "reisen": {
+      "card": {
+        "title": "Reisen und Urlaub",
+        "points": [
+          "beliebte Reiseziele",
+          "eigene Erfahrung",
+          "Vor- und Nachteile",
+          "deine Meinung"
+        ]
+      },
+      "question": "Sollten alle Studierenden ein Auslandssemester machen?",
+      "kerstin": [
+        "Ich finde, alle Studierenden sollten ein Auslandssemester machen, weil man dabei so viel lernt. Was denkst du?",
+        "Aber ein Auslandssemester ist ziemlich teuer. Ist das nicht unfair für Studierende mit wenig Geld?",
+        "Und manche verlieren dadurch ein Semester. Lohnt sich das trotzdem?"
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "arbeit_B1",
+      "topic": "arbeit",
+      "level": "B1",
+      "talk": [
+        "Heute ich spreche über Homeoffice. In mein Heimatland nicht so viele Leute arbeiten zu Hause, nur in große Firmen.",
+        "Homeoffice hat Vorteil, man muss nicht fahren mit dem Bus und man hat mehr Zeit für die Familie. Aber man ist allein und manchmal das Internet ist schlecht.",
+        "Ich habe letztes Jahr zu Hause gearbeitet für drei Monate. Ich bin viel geschlafen und ich habe nicht so viel gemacht.",
+        "Meine Meinung ist, Homeoffice ist gut, aber nicht jeden Tag. Zwei Tag ist genug."
+      ],
+      "discussion": [
+        "Ja, ich finde auch gut. Mehr Freizeit ist immer schön für die Leute.",
+        "Ja, das ist ein Problem. Kleine Firma hat nicht viel Geld und nicht viel Mitarbeiter.",
+        "Vielleicht ja. Man muss mehr arbeiten in einem Tag und dann man ist müde."
+      ]
+    },
+    {
+      "id": "arbeit_B2",
+      "topic": "arbeit",
+      "level": "B2",
+      "talk": [
+        "Ich möchte über das Arbeiten im Homeoffice sprechen. In meinem Heimatland ist Homeoffice seit der Pandemie viel verbreiteter als früher, vor allem in der IT-Branche und bei Banken.",
+        "Ein klarer Vorteil ist, dass man keine Zeit für den Arbeitsweg verliert und seinen Tag flexibler planen kann. Auf der anderen Seite fehlt oft der persönliche Kontakt, und manche Menschen haben Schwierigkeiten, sich zu Hause zu konzentrieren.",
+        "Ich selbst arbeite zwei Tage pro Woche von zu Hause. Am Anfang hatte ich kein richtigen Arbeitsplatz und habe am Küchentisch gearbeitet, was auf Dauer ziemlich unbequem war.",
+        "Ich bin der Meinung, dass eine Mischung aus Büro und Homeoffice am besten ist, weil man so die Vorteile von beiden Modelle nutzen kann."
+      ],
+      "discussion": [
+        "Ich finde die Idee auch interessant, aber ich bin skeptisch, ob das in allen Branchen funktioniert. Im Krankenhaus zum Beispiel ist das sicher schwierig.",
+        "Das stimmt, für kleine Betriebe wäre es ein großes Risiko. Vielleicht könnte der Staat solche Firmen am Anfang finanziell unterstützen.",
+        "Ja, das könnte passieren, wenn man einfach die gleiche Arbeit in weniger Zeit machen muss. Deshalb müsste man auch die Abläufe effizienter organisieren, sonst steigt nur der Stress."
+      ]
+    },
+    {
+      "id": "arbeit_C1",
+      "topic": "arbeit",
+      "level": "C1",
+      "talk": [
+        "Ich möchte mich heute dem Thema Homeoffice widmen. In meinem Heimatland galt das Arbeiten von zu Hause lange als Privileg weniger Führungskräfte; inzwischen ist es in vielen Bürojobs zur Selbstverständlichkeit geworden.",
+        "Der offensichtliche Gewinn liegt in der Zeitersparnis und der größeren Autonomie. Weniger offensichtlich, aber nicht minder relevant, sind die Kosten: Die informelle Kommunikation leidet, und die Grenze zwischen Beruf und Privatleben verschwimmt zusehends.",
+        "Ich habe das am eigenen Leib erfahren, als ich während eines Projekts monatelang ausschließlich remote gearbeitet habe und abends kaum noch abschalten konnte.",
+        "Mein Fazit fällt deshalb differenziert aus: Homeoffice ist ein wertvolles Instrument, sofern Unternehmen klare Regeln für Erreichbarkeit schaffen und den persönlichen Austausch bewusst pflegen."
+      ],
+      "discussion": [
+        "Im Prinzip sehe ich das ähnlich, allerdings hängt viel davon ab, ob die Arbeitszeit tatsächlich reduziert oder nur komprimiert wird.",
+        "Das ist ein berechtigter Einwand. Gerade im Handwerk dürfte sich eine Vier-Tage-Woche ohne zusätzliches Personal kaum stemmen lassen.",
+        "Genau darin sehe ich die eigentliche Gefahr. Wenn man lediglich Stunden verdichtet, ohne Prozesse zu hinterfragen, verpufft der Erholungseffekt sehr schnell."
+      ]
+    },
+    {
+      "id": "arbeit_B2_offtask",
+      "topic": "arbeit",
+      "level": "B2",
+      "talk": [
+        "Ich spreche über Arbeit. Am Wochenende koche ich sehr gern, am liebsten Gerichte aus meiner Heimat.",
+        "Letzten Samstag habe ich zum Beispiel für sechs Freunde gekocht, und alle waren begeistert, obwohl ein Gericht ziemlich scharf war.",
+        "Ich finde, beim Kochen kann man sich gut entspannen, weil man sich nur auf eine Sache konzentriert.",
+        "Außerdem lernt man dabei viel über andere Kulturen, deshalb probiere ich gern neue Rezepte aus."
+      ],
+      "discussion": [
+        "Ich finde die Idee auch interessant, aber ich bin skeptisch, ob das in allen Branchen funktioniert. Im Krankenhaus zum Beispiel ist das sicher schwierig.",
+        "Das stimmt, für kleine Betriebe wäre es ein großes Risiko. Vielleicht könnte der Staat solche Firmen am Anfang finanziell unterstützen.",
+        "Ja, das könnte passieren, wenn man einfach die gleiche Arbeit in weniger Zeit machen muss. Deshalb müsste man auch die Abläufe effizienter organisieren, sonst steigt nur der Stress."
+      ]
+    },
+    {
+      "id": "lernen_B1",
+      "topic": "lernen",
+      "level": "B1",
+      "talk": [
+        "Ich möchte über Lernen sprechen. In mein Land die Schule ist sehr streng und die Schüler muss viel auswendig lernen.",
+        "Mir hat geholfen meine Lehrerin in Englisch, sie war sehr nett und hat immer erklärt langsam.",
+        "Für mich die Grammatik ist schwer, besonders der Artikel. Ich vergesse immer, ist es der oder die.",
+        "Ich denke, Lernen ist wichtig für das ganze Leben, nicht nur in die Schule."
+      ],
+      "discussion": [
+        "Ja, gute Idee. Ich kann nicht kochen, weil in die Schule wir haben das nicht gelernt.",
+        "Hm, vielleicht weniger Geschichte. Geschichte ist langweilig für viele Schüler.",
+        "Das weiß ich nicht. Vielleicht kommen Leute von die Firmen und sie unterrichten."
+      ]
+    },
+    {
+      "id": "lernen_B2",
+      "topic": "lernen",
+      "level": "B2",
+      "talk": [
+        "Ich spreche heute über Lernen und Bildung. In meinem Heimatland ist das Schulsystem ziemlich traditionell, das heißt, die Schüler lernen viel auswendig und es gibt wenig Gruppenarbeit.",
+        "Was mir beim Lernen am meisten geholfen hat, waren regelmäßige Wiederholungen und ein Lernpartner, mit dem ich mich jede Woche getroffen habe.",
+        "Eine große Herausforderung war für mich, neben der Arbeit genug Zeit für den Deutschkurs zu finden. Manchmal war ich abends so müde, dass ich mich kaum konzentrieren konnte.",
+        "Meiner Meinung nach sollte die Schule nicht nur Wissen vermitteln, sondern den Schülern auch zeigen, wie man selbstständig lernt."
+      ],
+      "discussion": [
+        "Ich finde die Idee grundsätzlich gut, weil viele junge Leute nach der Schule nicht wissen, wie man eine Steuererklärung macht.",
+        "Das ist schwierig. Vielleicht könnte man in den höheren Klassen etwas weniger Stunden für Kunst einplanen, aber ich weiß, dass das nicht allen gefällt.",
+        "Gute Frage. Man könnte Experten aus der Praxis einladen, zum Beispiel jemand von einer Bank, der den Schülern die wichtigste Grundlagen erklärt."
+      ]
+    },
+    {
+      "id": "lernen_C1",
+      "topic": "lernen",
+      "level": "C1",
+      "talk": [
+        "Ich möchte heute über Bildung sprechen, und zwar aus einer sehr persönlichen Perspektive. Das Schulsystem in meinem Heimatland ist stark auf Prüfungen ausgerichtet, was dazu führt, dass Wissen oft nur kurzfristig abrufbar ist.",
+        "Geholfen hat mir rückblickend vor allem eine Lehrerin, die uns ermutigt hat, Fragen zu stellen, statt Antworten bloß zu reproduzieren.",
+        "Als größte Herausforderung habe ich den Übergang an die Universität empfunden, wo plötzlich Eigenverantwortung gefragt war, auf die mich die Schule kaum vorbereitet hatte.",
+        "Insofern bin ich überzeugt, dass Bildung weniger an Lehrplänen als an der Fähigkeit gemessen werden sollte, sich neues Wissen selbstständig zu erschließen."
+      ],
+      "discussion": [
+        "Dem stimme ich im Kern zu, wenngleich ich davor warnen würde, Schule auf reine Lebenspraxis zu reduzieren.",
+        "Streichen würde ich ungern etwas; eher würde ich praktische Inhalte in bestehende Fächer integrieren, etwa Haushaltsrechnung in den Mathematikunterricht.",
+        "Das ist zweifellos ein Engpass. Kooperationen mit Fachleuten von außen könnten hier eine Brücke schlagen, zumindest so lange, bis die Lehrerausbildung nachgezogen hat."
+      ]
+    },
+    {
+      "id": "lernen_MIX",
+      "topic": "lernen",
+      "level": "MIX",
+      "talk": [
+        "Ich möchte über Bildung sprechen. In mein Heimatland das Schulsystem ist sehr auf Prüfungen fokussiert, deshalb die Schüler lernen viel auswendig, aber sie verstehen nicht immer die Zusammenhänge.",
+        "Mir hat am meisten geholfen eine Lehrerin, die hat uns motiviert, kritische Fragen zu stellen und eigene Meinung zu entwickeln.",
+        "Die größte Herausforderung für mich war der Wechsel zur Universität, weil dort man muss alles selbstständig organisieren und niemand kontrolliert die Hausaufgaben.",
+        "Meiner Meinung nach Bildung soll nicht nur Wissen vermitteln, sondern auch die Fähigkeit, das Wissen in die Praxis anwenden."
+      ],
+      "discussion": [
+        "Grundsätzlich ich stimme zu, weil viele Jugendliche wissen nicht, wie man ein Budget plant oder ein Mietvertrag versteht.",
+        "Ich würde nicht streichen, sondern die praktische Inhalte in Mathematik oder Wirtschaft integrieren, zum Beispiel mit realistische Beispiele.",
+        "Man könnte Experten von Banken oder Krankenkassen einladen, die erklären den Schülern konkret, wie das funktioniert."
+      ]
+    },
+    {
+      "id": "reisen_B1",
+      "topic": "reisen",
+      "level": "B1",
+      "talk": [
+        "Ich erzähle über Reisen. In meinem Land die Leute fahren gern ans Meer oder sie besuchen die Familie im Dorf.",
+        "Letzten Sommer ich bin nach Italien gefahren mit meine Schwester. Wir haben viel Pizza gegessen und wir haben gesehen das Kolosseum.",
+        "Reisen ist gut, weil man lernt neue Kultur kennen. Aber es kostet viel Geld und der Flug ist manchmal lange.",
+        "Ich finde, jeder Mensch soll einmal in ein anderes Land reisen."
+      ],
+      "discussion": [
+        "Ja, das ist eine gute Idee. Man lernt die Sprache und man hat neue Freunde.",
+        "Ja, das ist teuer. Vielleicht die Universität kann helfen mit Geld.",
+        "Ich glaube ja. Ein Semester ist nicht so viel, die Erfahrung ist mehr wichtig."
+      ]
+    },
+    {
+      "id": "reisen_B2",
+      "topic": "reisen",
+      "level": "B2",
+      "talk": [
+        "Mein Thema ist Reisen und Urlaub. In meinem Heimatland sind vor allem Strandurlaube beliebt, aber in den letzten Jahren reisen immer mehr junge Leute auch in die Berge oder machen Städtereisen.",
+        "Letzten Sommer habe ich mit zwei Freundinnen eine Rundreise durch Portugal gemacht. Wir haben in günstige Hostels übernachtet, was praktisch war, aber manchmal auch ein bisschen laut.",
+        "Der größte Vorteil vom Reisen ist, dass man seinen Horizont erweitert und andere Lebensweisen kennenlernt. Ein Nachteil ist natürlich die Belastung für die Umwelt, besonders wenn man oft fliegt.",
+        "Ich denke, dass man nicht jedes Jahr weit weg fliegen muss, sondern auch in der Nähe interessante Orte entdecken kann, die man noch nie besucht hat."
+      ],
+      "discussion": [
+        "Ich finde es eine gute Idee, aber ich würde es nicht für alle verpflichtend machen. Manche Studierende haben Familie oder müssen neben dem Studium arbeiten.",
+        "Ja, das ist ein wichtiger Punkt. Deshalb sollten die Universitäten mehr Stipendien anbieten, damit auch Studenten mit wenig Geld eine Chance haben, im Ausland zu studieren.",
+        "Ich glaube schon, weil man im Ausland viele Erfahrungen sammelt, die später für den Beruf wichtig sind. Ein Semester länger zu studieren ist meiner Meinung nach kein große Problem."
+      ]
+    },
+    {
+      "id": "reisen_C1",
+      "topic": "reisen",
+      "level": "C1",
+      "talk": [
+        "Ich möchte heute über das Reisen sprechen. In meinem Heimatland hat sich das Reiseverhalten in den letzten Jahren spürbar gewandelt: Während früher der klassische Pauschalurlaub dominierte, suchen viele inzwischen nach individuellen, möglichst authentischen Erfahrungen.",
+        "Ich selbst habe nach dem Studium drei Monate in Südostasien verbracht, eine Zeit, die meinen Blick auf vieles, was ich zuvor für selbstverständlich gehalten hatte, nachhaltig verändert hat.",
+        "So bereichernd solche Erfahrungen sind, so wenig lässt sich ausblenden, dass der Massentourismus vielerorts zu steigenden Mieten und überlasteten Ökosystemen führt.",
+        "Ich halte es daher für entscheidend, bewusster zu reisen – seltener, dafür länger, und mit der Bereitschaft, sich wirklich auf einen Ort einzulassen."
+      ],
+      "discussion": [
+        "Als Empfehlung würde ich das sofort unterschreiben, als Pflicht hingegen nicht, da die Lebensumstände der Studierenden schlicht zu unterschiedlich sind.",
+        "Absolut, und genau hier sehe ich die Hochschulen in der Verantwortung. Ohne gezielte Förderung bliebe ein Auslandssemester ein Privileg derjenigen, die es sich ohnehin leisten können.",
+        "Aus meiner Sicht eindeutig ja. Ein verlorenes Semester lässt sich verschmerzen, die interkulturelle Kompetenz, die man dabei erwirbt, hingegen kaum anderweitig nachholen."
+      ]
+    }
+  ]
+}

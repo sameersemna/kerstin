@@ -145,7 +145,7 @@ def _check(label: str, ok: bool, detail: str) -> bool:
 
 
 async def run(args: argparse.Namespace) -> int:
-    data = json.loads(CASES_PATH.read_text(encoding="utf-8"))
+    data = json.loads(Path(args.cases).read_text(encoding="utf-8"))
     settings = Settings(ollama_model=args.model, score_seed=args.seed)
     store = PromptStore(BACKEND_DIR / "prompts")
     llm = OllamaLLM(settings)
@@ -197,7 +197,8 @@ async def run(args: argparse.Namespace) -> int:
         for score in variants.values()
         if score is not None
     )
-    if not _check("parse", parsed_count == 30, f"{parsed_count}/30 parsed"):
+    total_runs = len(data["cases"]) * len(VARIANTS)
+    if not _check("parse", parsed_count == total_runs, f"{parsed_count}/{total_runs} parsed"):
         failures.append("parse")
 
     topic_order = True
@@ -282,8 +283,9 @@ async def run(args: argparse.Namespace) -> int:
     if not _check("overall", overall_ok, overall_detail):
         failures.append("overall")
 
-    off = results["wohnen_B2_offtask"]["orig"]
-    on = results["wohnen_B2"]["orig"]
+    off_id = next(case["id"] for case in data["cases"] if case["id"].endswith("_offtask"))
+    off = results[off_id]["orig"]
+    on = results[off_id.removesuffix("_offtask")]["orig"]
     off_task = _by_key(off, "aufgabe")
     on_task = _by_key(on, "aufgabe")
     off_words = _by_key(off, "wortschatz")
@@ -334,15 +336,15 @@ async def run(args: argparse.Namespace) -> int:
         ]
         if overall and max(overall.count(value) for value in set(overall)) >= 2:
             stable_cases += 1
-    stability_ok = spread_ok and stable_cases >= 9
+    stability_ok = spread_ok and stable_cases >= len(data["cases"]) - 1
     if not _check(
         "stability",
         stability_ok,
-        f"max criterion spread={widest}; overall stable in {stable_cases}/10 cases",
+        f"max criterion spread={widest}; overall stable in {stable_cases}/{len(data["cases"])} cases",
     ):
         failures.append("stability")
 
-    evidence_total = 30 * len(CRITERIA)
+    evidence_total = total_runs * len(CRITERIA)
     evidence_dropped = sum(
         score.dropped_evidence
         for variants in results.values()
@@ -386,6 +388,7 @@ async def run(args: argparse.Namespace) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", default="gemma4:26b", help="Ollama model")
+    parser.add_argument("--cases", default=str(CASES_PATH), help="cases JSON (calibration or scripts/score_holdout.json)")
     parser.add_argument("--seed", type=int, default=7, help="fixed scoring seed")
     parser.add_argument("--cool-at", type=float, default=COOL_AT_C)
     parser.add_argument("--cool-to", type=float, default=COOL_TO_C)

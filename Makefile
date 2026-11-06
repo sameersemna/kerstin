@@ -57,5 +57,5 @@ hint-eval:        ## hint quality eval (20 hold-out cases; needs Ollama)
 exam-eval:        ## B2 exam engine eval (both presets; needs Ollama)
 	$(PY) scripts/exam_eval.py $(EXAM_ARGS)
 
-score-eval:      ## exam rubric calibration eval (needs Ollama)
+score-eval:      ## exam rubric calibration eval (needs Ollama); hold-out: make score-eval SCORE_ARGS="--cases scripts/score_holdout.json"
 	$(PY) scripts/score_eval.py $(SCORE_ARGS)

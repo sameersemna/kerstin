@@ -341,3 +341,25 @@ All score checks passed.
 6. Rerun `make score-eval` **once** after the changes and paste it in full. **No further prompt iteration against the calibration cases.** If checks fail, report it; the lead decides after the hold-out run.
 
 Allowed files (round 1): `backend/prompts/score.md`, `backend/kerstin/score.py`, `backend/kerstin/session.py` (the `exam_score` fields only), `frontend/app.js`, `frontend/style.css`, `scripts/score_eval.py`, `backend/tests/test_score.py`, `backend/tests/test_exam.py`, `docs/PROTOCOL.md`, this task file.
+
+### Review — round 1
+- **Verdict:** Accepted. Merged to main after a lead hold-out run and small eval fixes.
+- **Notes:**
+  - **Calibration (Kilo, one run):** all checks pass. Overall B1 = 1, B2 = 3, C1 = 4. The off-task case is caught. Stability ≤ 1 band, 3.3 % of quotes dropped, p50 5.3 s.
+  - **Lead hold-out run** (`scripts/score_holdout.json`, written after `score.md` was frozen, 0 six-word overlaps with the prompt; 3 new topics × B1/B2/C1 + `arbeit_B2_offtask` + diagnostic `lernen_MIX`, gemma4:26b, run on an idle GPU):
+    - order, levels, overall, offtask, stability and evidence all PASS. Overall B1 = 1, B2 = 3, C1 = 4 in all 3 topics. The off-task cooking talk gets Aufgabe 1 while its grammar stays at 3.
+    - `lernen_MIX` (good content, many grammar errors): Aufgabe 3, Grammatik 1. The criteria are now independent.
+    - The only FAIL („parse 33/30“) was a hardcoded 30/10 in the eval script; the lead fixed it to count cases.
+  - **Lead grading of the grammar error lists:**
+    - hold-out: 0 false positives in 31 listed errors; misses „jemand von einer Bank“ (→ jemanden) and „in günstige Hostels“;
+    - calibration: 1 false positive („die Zugfahrt in manche Länder“ is correct) plus a missed „etwas ganz anderes zu sehen“.
+    - Conclusion: the error list under-reports rather than over-reports, which is the safer direction for a ceiling.
+  - **Known limits (documented):**
+    - the STT-style `noisy` variant drops C1 by one band (real whisper output keeps punctuation);
+    - the off-task talk still gets Kohärenz 3 (coherent, just off-topic — acceptable);
+    - latency on the hold-out was p50 7.5 s and max 20 s (first call includes a model load; the GPU was shared earlier). This runs after the feedback, so it doesn't count against the 1.5 s turn budget.
+  - **Lead eval fixes:**
+    - counts derived from the case file;
+    - `--cases` option;
+    - the off-task check finds any `*_offtask` case;
+    - hold-out set committed with a "never iterate against it" note.
