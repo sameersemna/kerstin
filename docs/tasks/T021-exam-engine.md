@@ -249,5 +249,35 @@ All automatic checks passed.
 - **Open questions:** The T026 UI is out of scope; the browser/manual check remains for Sameer. The lead grades all cards and the pasted Kerstin replies.
 
 ## Review (Claude Code fills this in)
-- **Verdict:**
+- **Verdict:** Changes requested (round 1): prompt wording + eval realism. The engine is accepted.
 - **Notes:**
+  - **Engine:** the `_turn`/`_respond` split keeps normal mode green; collect mode makes 0 LLM calls; markers are kept on trim and rendered as headings; the system prompt is fixed per session. 227 Python + 23 JS tests and lint pass. There are no brand names. The cards are correct, idiomatic and original (lead-checked all 26).
+  - **Lead grading of all replies:**
+    1. **The eval script misaligns learner lines.** In the telc-style discussion, turns 3–4 are planning lines (party); in the planning part, turns 1–2 are discussion lines (cars). The learner talk/answer doesn't match the drawn card either: the follow-up asks about holidays, and the answer is about a new job. Task fit can't be judged like this.
+    2. **„euch/ihr“:** Kerstin's talk says „Ich möchte euch … erzählen“, „Habt ihr …?“. Her partner is one person (du).
+    3. **The discussion has no friction:** after a pro opener and a pro learner, she says „Da stimme ich dir absolut zu“. An exam discussion needs counterpoints.
+    4. **German slips** (3 of ≈30 replies, within gemma4's known ≈5 %): „viel neue Fachbegriffe“ (→ viele), „Am Anfang war es aber nicht alles so einfach“, „unser Ende des Deutschkurses“ (→ das Ende unseres Deutschkurses). The longer talk raises the exposure. Noted; no fix by prompt.
+    5. `exam.md` says „Prüfungsmarken“, which isn't a word.
+
+### Follow-up (round 1) — required changes
+1. **Eval realism** (`exam.py`, `exam_eval.py`):
+   - `make_plan(..., cards: dict[str, str] | None = None)` pins cards by title or question (eval/tests only; an unknown title → `ValueError`).
+   - The eval pins one card per part and uses scripted learner lines **written for that card**:
+     - talk (4 utterances) + an answer that fits a plausible follow-up;
+     - 2 questions about Kerstin's pinned card;
+     - 4 discussion lines **for the pinned question**: two pro, then two that partly agree, so the counterpoint behaviour shows;
+     - 4 planning lines **for the pinned task** (telc-style only).
+   - Run both presets with **two different pinned card sets** (4 runs).
+2. **`exam.md` wording:**
+   - „Sprich die Lernende immer mit du an, auch in deinem Vortrag (nicht ‚ihr/euch‘).“
+   - Discussion: „Wenn die Lernende dir zustimmt, bring einen Gegenpunkt oder eine Einschränkung, damit eine echte Diskussion entsteht; bleib freundlich.“
+   - Replace „Punkte, Noten oder Prüfungsmarken“ with „Punkte oder Noten“.
+
+   No other prompt change.
+3. **Eval checks:**
+   - add `ihr_euch` (regex `\b(ihr|euch|euer|eure\w*)\b`, excluding „Ihr“ at the start of a sentence used as a formal possessive; simple is fine) on all replies;
+   - add `counterpoint` (aber / allerdings / andererseits / trotzdem / ich bin mir nicht sicher / nicht ganz) in at least one discussion reply after the learner agrees.
+4. Paste the 4 runs: summaries + every reply by part. The lead grades again.
+5. Tests: the `cards` override (pinning, unknown title → `ValueError`); an `exam.md` sanity test (contains „du an“, no „Prüfungsmarken“).
+
+Allowed files (round 1): `backend/prompts/exam.md`, `backend/kerstin/exam.py`, `scripts/exam_eval.py`, `backend/tests/test_exam.py`, `backend/tests/test_prompts.py`, this task file.
