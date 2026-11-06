@@ -1,0 +1,1 @@
+"""Kokoro German TTS sidecar."""

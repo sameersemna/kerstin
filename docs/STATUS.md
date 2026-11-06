@@ -14,6 +14,7 @@ _Last updated: 2026-11-06 (T031 systemd user service merged)_
 
 - HTTPS on the LAN (T032): Uvicorn TLS with a local CA (`make certs`). Verified with curl and a `wss://` smoke test from the GB10; Sameer's check from the Mac is still pending. Names in the cert: `promaxgb10-6116.fritz.box` (recommended), `.local`, `192.168.178.55`, `localhost`.
 - systemd user service (T031): `make service-install` installs `kerstin.service`, restarts on failure with a 3-start/5-minute limit, logs to journald; `make service-status`, `make logs`, `make service-uninstall`.
+- Kokoro German TTS sidecar (T012): optional `KERSTIN_TTS_BACKEND=http` path on port 8880 with pinned Thorsten/Kerstin/Victoria voices; Piper remains the default pending Sameer's A/B decision.
 - mDNS caveat: avahi advertises the Docker bridge (`172.30.0.1`) for `promaxgb10-6116.local`, so prefer the `.fritz.box` name or the IP.
 
 ## Latency baseline (T002, `make bench`, 20 warm turns, qwen3:14b)

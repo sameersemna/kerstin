@@ -1,4 +1,4 @@
-.PHONY: setup voice vendor certs run test test-js lint check smoke bench persona-eval feedback-eval hint-eval exam-eval score-eval service-install service-uninstall service-status logs
+.PHONY: setup voice vendor certs run test test-js lint check smoke bench persona-eval feedback-eval hint-eval exam-eval score-eval service-install service-uninstall service-status logs kokoro-setup kokoro-voices kokoro-run
 
 VENV ?= .venv
 PY := $(VENV)/bin/python
@@ -10,6 +10,8 @@ HINT_ARGS ?=
 EXAM_ARGS ?=
 SCORE_ARGS ?=
 SERVICE_ARGS ?=
+KOKORO_DEVICE ?= cpu
+KOKORO_THREADS ?= 4
 
 setup:            ## create venv and install backend + piper + dev deps (then: make voice && make vendor)
 	python3 -m venv $(VENV)
@@ -75,3 +77,14 @@ service-status:  ## systemd status + /health for Kerstin's user service
 
 logs:            ## follow Kerstin's journal
 	journalctl --user -u kerstin -f
+
+kokoro-setup:    ## create .venv-kokoro and install pinned Kokoro/CUDA torch (sidecar only)
+	python3 -m venv .venv-kokoro
+	.venv-kokoro/bin/pip install -U pip
+	.venv-kokoro/bin/pip install -r tts_server/requirements.txt
+
+kokoro-voices:   ## download pinned Kokoro German voices into voices/kokoro (gitignored)
+	bash scripts/get_kokoro_voices.sh
+
+kokoro-run:      ## run the Kokoro sidecar on 127.0.0.1:8880 (KOKORO_DEVICE=cpu|cuda)
+	KOKORO_DEVICE=$(KOKORO_DEVICE) KOKORO_THREADS=$(KOKORO_THREADS) .venv-kokoro/bin/python -m tts_server.server

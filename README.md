@@ -21,6 +21,19 @@ make run            # http://127.0.0.1:8770
 make test           # unit tests, no GPU needed
 ```
 
+## Optional Kokoro voice
+
+Piper remains the default. Kokoro German is an optional sidecar for comparison:
+
+```bash
+make kokoro-setup           # separate .venv-kokoro (CUDA torch + German forks)
+make kokoro-voices          # pinned Thorsten/Kerstin/Victoria weights; gitignored
+make kokoro-run             # 127.0.0.1:8880, KOKORO_DEVICE=cpu by default
+KERSTIN_TTS_BACKEND=http KERSTIN_TTS_VOICE=kerstin make run
+```
+
+`KOKORO_DEVICE=cuda` is explicit; if CUDA is unavailable the sidecar exits instead of silently falling back. The A/B bench is `scripts/tts_ab.py`; it writes audio only with `--out DIR`.
+
 ## Run as a service
 
 Stop a manual `make run` first. Then install Kerstin as a systemd **user** service:

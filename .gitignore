@@ -13,3 +13,5 @@ recordings/
 certs/
 data/
 frontend/vendor/
+.venv-kokoro/
+voices/kokoro/
