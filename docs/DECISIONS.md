@@ -64,3 +64,14 @@ The mistake log (T020) stores per session only date, scenario, feedback language
 
 ## D021 · 2026-11-06 · Accepted — Exam training: two data-driven presets, Kerstin as fellow candidate, original content
 Sameer chose both formats as presets: one modelled on the telc-style B2 oral (presentation → partner presentation → discussion → planning) and one on the Goethe-style B2 oral (talk → partner talk → discussion). One generic engine (part kinds `prep`, `learner_talk` with collect mode, `kerstin_talk`, `dialog`) driven by `backend/prompts/exam.json`. Kerstin is the learner's fellow candidate (consistent with D002). All tasks are original; no official material, wording or brand names in prompts/UI ("angelehnt an gängige B2-Prüfungsformate – keine offizielle Prüfung"); timings are training approximations. Persona-contract exception: Kerstin's own talk in `kerstin_talk` may exceed 3 sentences (≈130–170 words); everything else keeps 1–3 sentences and no corrections. The system prompt stays fixed per session (all cards included); part changes are `[Moderation]` user messages, rendered as headings in the feedback. Split: T021 engine + content + eval, T026 UI, T025 rubric scoring with calibration.
+
+## D022 · 2026-11-06 · Accepted — Exam score is a text-only estimate on an own 4-band scale
+After an exam, `exam_score` gives an estimate for four independent criteria (Aufgabenerfüllung, Kohärenz, Wortschatz, Grammatik) on our own scale: 1 „unter B2“, 2 „B2 knapp“, 3 „B2 sicher“, 4 „über B2“.
+- **Not an official score:** no official point tables, no pass/fail, and no "telc/Goethe score". The UI always says it's an estimate from the transcript and that pronunciation and fluency aren't rated.
+- **Overall band:** `floor(mean)` of the four bands, computed in code. The median was rejected because it showed B1 learners „B2 knapp“.
+- **Grammar ceiling:** the LLM lists verbatim grammar-error snippets; code verifies them and caps grammar by error density per 100 learner words (≥ 3.0 → 1, ≥ 1.5 → 2, ≥ 0.5 → 3).
+- **Evidence:** every quoted piece of evidence must appear verbatim in the learner's text, or it is dropped.
+- **Settings:** temperature 0, fixed seed (`KERSTIN_SCORE_SEED`).
+- **Privacy:** nothing is stored.
+- **Validation:** `scripts/score_cases.json` (calibration) and `scripts/score_holdout.json` (hold-out, never iterated against), both lead-written; run with `make score-eval`.
+

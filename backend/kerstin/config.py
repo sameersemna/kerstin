@@ -84,6 +84,7 @@ class Settings(BaseSettings):
     feedback_lang: Literal["en", "de"] = "en"
     feedback_model: str | None = None  # None/empty -> ollama_model
     feedback_temperature: float = 0.3
+    score_seed: int = 7
 
     # --- Mistake log (opt-in; categories only, never learner text) ---
     mistake_log_path: Path = PROJECT_DIR / "data" / "mistakes.sqlite3"

@@ -17,6 +17,7 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
+from . import score as scoring
 from .audio import pcm16_duration_s, pcm16_rms_dbfs
 from .exam import MODERATION_PREFIX, ExamPart, ExamPlan, is_moderation
 from .feedback_checks import parse_errors
@@ -63,6 +64,7 @@ class Deps:
     ollama_model: str = "gemma4:26b"
     feedback_model: str | None = None
     feedback_temperature: float = 0.3
+    score_seed: int = 7
     ollama_max_loaded: int = 2
     hint_temperature: float = 0.2
     mistakes: MistakeLog | None = None
@@ -245,6 +247,43 @@ class Session:
         await self.send_json({"type": "status", "state": "feedback_running"})
         prompt = self.deps.prompts.feedback_prompt(transcript, lang)
 
+        model, keep_alive = await self._feedback_model_choice()
+
+        started = time.perf_counter()
+        text = await self.deps.llm.chat(
+            [{"role": "user", "content": prompt}],
+            max_tokens=1200,
+            temperature=self.deps.feedback_temperature,
+            model=model,
+            keep_alive=keep_alive,
+        )
+        markdown = strip_think(text).strip()
+        await self.send_json({"type": "feedback", "markdown": markdown})
+        log.info(
+            "feedback ok (model=%s ms=%d)",
+            model,
+            int((time.perf_counter() - started) * 1000),
+        )
+
+        if self.exam is not None:
+            await self._score_exam(lang)
+
+        if save_mistakes and self.deps.mistakes is not None:
+            categories = [classify(error) for error in parse_errors(markdown)]
+            try:
+                count = await self.deps.mistakes.record(
+                    self.scenario_key, lang, categories
+                )
+            except Exception as exc:  # noqa: BLE001 — feedback already sent
+                log.warning("mistakes save failed (%s)", type(exc).__name__)
+                await self.send_json(
+                    {"type": "mistakes_saved", "count": 0, "error": "failed"}
+                )
+            else:
+                log.info("mistakes saved (n=%d)", count)
+                await self.send_json({"type": "mistakes_saved", "count": count})
+
+    async def _feedback_model_choice(self) -> tuple[str, str | None]:
         chat_model = self.deps.ollama_model
         model = self.deps.feedback_model or chat_model
         keep_alive: str | None = None
@@ -266,37 +305,88 @@ class Session:
                     ):
                         await self.deps.llm.unload(chat_model)
                     keep_alive = "0"
+        return model, keep_alive
 
+    async def _score_exam(self, lang: str) -> None:
+        if self.exam is None:
+            return
+        learner = scoring.learner_text(self.history)
+        if len(learner.split()) < 60:
+            await self.send_json(
+                {"type": "exam_score", "error": "zu wenig Material für eine Einschätzung"}
+            )
+            log.info("exam score skipped: too little material")
+            return
+
+        thermal = await self._thermal_check()
+        if thermal is not None and thermal.state == "hot":
+            await self.send_json(
+                {
+                    "type": "exam_score",
+                    "error": "GPU zu warm – Einschätzung gerade nicht möglich",
+                    "temp_c": thermal.temp_c,
+                }
+            )
+            log.info("exam score thermal hot (gpu=%g °C)", thermal.temp_c)
+            return
+
+        await self.send_json({"type": "status", "state": "score_running"})
         started = time.perf_counter()
-        text = await self.deps.llm.chat(
-            [{"role": "user", "content": prompt}],
-            max_tokens=1200,
-            temperature=self.deps.feedback_temperature,
-            model=model,
-            keep_alive=keep_alive,
+        model, keep_alive = await self._feedback_model_choice()
+        prompt = scoring.score_prompt(self.deps.prompts, self.history, self.exam, lang)
+        parsed = None
+        for attempt in (1, 2):
+            try:
+                raw = await self.deps.llm.chat(
+                    [{"role": "user", "content": prompt}],
+                    max_tokens=700,
+                    temperature=0.0,
+                    model=model,
+                    keep_alive=keep_alive,
+                    fmt="json",
+                    seed=self.deps.score_seed,
+                )
+            except Exception as exc:  # noqa: BLE001 — scoring must not break feedback
+                log.info("exam score failed (%s)", type(exc).__name__)
+                break
+            parsed = scoring.parse_score(strip_think(raw).strip(), learner)
+            if parsed is not None:
+                break
+            log.info("exam score parse failed (attempt=%d)", attempt)
+
+        if parsed is None:
+            await self.send_json(
+                {"type": "exam_score", "error": "Einschätzung konnte nicht erstellt werden"}
+            )
+            return
+
+        await self.send_json(
+            {
+                "type": "exam_score",
+                "criteria": [
+                    {
+                        "key": criterion.key,
+                        "label": criterion.label,
+                        "band": criterion.band,
+                        "band_label": criterion.band_label,
+                        "reason": criterion.reason,
+                        "evidence": criterion.evidence,
+                    }
+                    for criterion in parsed.criteria
+                ],
+                "overall_band": parsed.overall_band,
+                "overall_label": parsed.overall_label,
+                "error_density": parsed.error_density,
+                "grammar_errors": parsed.grammar_errors,
+                "note": scoring.SCORE_NOTE,
+            }
         )
-        markdown = strip_think(text).strip()
-        await self.send_json({"type": "feedback", "markdown": markdown})
         log.info(
-            "feedback ok (model=%s ms=%d)",
+            "exam score ok (model=%s ms=%d dropped_evidence=%d)",
             model,
             int((time.perf_counter() - started) * 1000),
+            parsed.dropped_evidence,
         )
-
-        if save_mistakes and self.deps.mistakes is not None:
-            categories = [classify(error) for error in parse_errors(markdown)]
-            try:
-                count = await self.deps.mistakes.record(
-                    self.scenario_key, lang, categories
-                )
-            except Exception as exc:  # noqa: BLE001 — feedback already sent
-                log.warning("mistakes save failed (%s)", type(exc).__name__)
-                await self.send_json(
-                    {"type": "mistakes_saved", "count": 0, "error": "failed"}
-                )
-            else:
-                log.info("mistakes saved (n=%d)", count)
-                await self.send_json({"type": "mistakes_saved", "count": count})
 
     async def close(self) -> None:
         hint_task = self._hint_task
