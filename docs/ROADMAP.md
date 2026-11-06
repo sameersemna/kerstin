@@ -34,7 +34,7 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 
 ## Phase 4 — Ops on the shared GB10
 - [x] T030 **Thermal guard** (D016): before each GPU job read `nvidia-smi` temp (cached); ≥ 80 °C → pause sessions/turns/feedback until ≤ 74 °C, tell the learner; read-only, never cap clocks. Task file: `docs/tasks/T030-thermal-guard.md`.
-- [ ] T031 **systemd user service** + log rotation; start on boot optional.
+- [x] T031 **systemd user service** + log rotation; start on boot optional.
 - [x] T032 **HTTPS on LAN** (Uvicorn TLS + local CA, D010): `make certs`, `KERSTIN_TLS_*` (2026-11-04).
 
 ## Phase 5 — Going public (only after Sameer decides)

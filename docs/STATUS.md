@@ -1,6 +1,6 @@
 # Status
 
-_Last updated: 2026-11-06 (T003 vendored browser assets merged)_
+_Last updated: 2026-11-06 (T031 systemd user service merged)_
 
 ## Works on the GB10 (T001, 2026-11-04)
 - End-to-end headless: `make smoke` passes. German utterance → whisper.cpp (`:8768`, `language=de`) → Ollama → Piper → WAV over `/ws`.
