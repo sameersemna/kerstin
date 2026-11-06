@@ -12,3 +12,4 @@ recordings/
 .DS_Store
 certs/
 data/
+frontend/vendor/

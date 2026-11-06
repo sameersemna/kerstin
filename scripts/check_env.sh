@@ -35,6 +35,24 @@ if [[ "${KERSTIN_TTS_BACKEND:-piper}" == "piper" ]]; then
   [[ -f "$VOICE" ]] && ok "voice $VOICE" || bad "voice missing -> make voice"
 fi
 
+echo "Frontend"
+VENDOR_MISSING=0
+for file in \
+  vad-web/bundle.min.js \
+  vad-web/vad.worklet.bundle.min.js \
+  vad-web/silero_vad_legacy.onnx \
+  vad-web/LICENSE \
+  onnxruntime-web/ort.js \
+  onnxruntime-web/ort-wasm-simd.wasm \
+  onnxruntime-web/LICENSE; do
+  [[ -f "frontend/vendor/$file" ]] || VENDOR_MISSING=1
+done
+if (( VENDOR_MISSING == 0 )); then
+  ok "vendor assets"
+else
+  bad "vendor assets missing -> make vendor"
+fi
+
 if [[ -n "${KERSTIN_TLS_CERTFILE:-}" ]]; then
   echo "TLS"
   TLS_KEY="${KERSTIN_TLS_KEYFILE:-}"

@@ -10,6 +10,7 @@ _Last updated: 2026-11-05 (T013 STT robustness merged)_
 - GPU stayed at 47–59 °C during smoke runs.
 
 - Browser path works (Sameer, 2026-11-04): mic → vad-web (CDN) → reply audio over the SSH tunnel.
+- Browser assets vendored (T003): `make vendor` downloads vad-web 0.0.22 + onnxruntime-web 1.14.0 (SHA-pinned) into `frontend/vendor/`; no CDN at runtime. Headless check with jsDelivr blocked passed; Sameer's browser check on the vendored files is pending. Only `ort-wasm-simd.wasm` is shipped (browsers without WASM SIMD, e.g. Safari < 16.4, will fail VAD init).
 
 - HTTPS on the LAN (T032): Uvicorn TLS with a local CA (`make certs`). Verified with curl and a `wss://` smoke test from the GB10; Sameer's check from the Mac is still pending. Names in the cert: `promaxgb10-6116.fritz.box` (recommended), `.local`, `192.168.178.55`, `localhost`.
 - mDNS caveat: avahi advertises the Docker bridge (`172.30.0.1`) for `promaxgb10-6116.local`, so prefer the `.fritz.box` name or the IP.

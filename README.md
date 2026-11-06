@@ -13,6 +13,7 @@ Browser (mic + Silero VAD) ──PCM──▶ FastAPI /ws ──▶ Whisper ─�
 ```bash
 make setup          # venv + deps, creates .env from .env.example
 make voice          # download de_DE-thorsten-medium Piper voice
+make vendor         # download pinned browser VAD/ONNX assets into frontend/vendor
 ollama pull gemma4:26b
 # edit .env: point KERSTIN_STT_URL at your Whisper server
 make check          # Ollama, STT, voice, GPU temperature

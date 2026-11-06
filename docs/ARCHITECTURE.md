@@ -4,7 +4,7 @@
 
 | Layer | Where | File | Default engine |
 |---|---|---|---|
-| Mic + turn detection | Browser | `frontend/app.js` | Silero VAD via `@ricky0123/vad-web` |
+| Mic + turn detection | Browser | `frontend/app.js` | Silero VAD via vendored `@ricky0123/vad-web` |
 | Transport | Browser ↔ server | `/ws`, `docs/PROTOCOL.md` | WebSocket, binary PCM up, binary WAV down |
 | Session / turn orchestration | Server | `backend/kerstin/session.py` | — |
 | Speech-to-text | Server | `backend/kerstin/stt.py` | HTTP to existing Whisper server (`HttpSTT`) or `LocalSTT` (faster-whisper) |

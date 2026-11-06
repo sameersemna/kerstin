@@ -712,6 +712,11 @@ function handle(msg) {
 
 // ---------- start / stop ----------
 async function start() {
+  if (!window.vad) {
+    setState("Fehlende Dateien – bitte ‚make vendor‘ ausführen", "idle");
+    startBtn.disabled = false;
+    return;
+  }
   startBtn.disabled = true;
   setHintEnabled(false);
   audioCtx = audioCtx || new AudioContext();
@@ -721,9 +726,9 @@ async function start() {
   resetScore();
   if (!ws || ws.readyState !== WebSocket.OPEN) await connect();
 
-  vadInstance = await vad.MicVAD.new({
-    baseAssetPath: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.22/dist/",
-    onnxWASMBasePath: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/",
+  vadInstance = await window.vad.MicVAD.new({
+    baseAssetPath: "vendor/vad-web/",
+    onnxWASMBasePath: "vendor/onnxruntime-web/",
     positiveSpeechThreshold: 0.6,
     negativeSpeechThreshold: 0.45,
     redemptionFrames: 8,     // ~0.5-0.8 s of silence ends the utterance (tune in docs/LATENCY.md)
