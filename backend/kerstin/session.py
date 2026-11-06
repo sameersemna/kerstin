@@ -414,6 +414,17 @@ class Session:
             log.info("turn %s thermal hot (gpu=%g °C)", turn_id, thermal.temp_c)
             return
 
+        if (
+            self.exam is not None
+            and self.part_index < len(self.exam.parts)
+            and self.exam.parts[self.part_index].kind == "prep"
+        ):
+            await self.send_json(
+                {"type": "stt_empty", "turn": turn_id, "reason": "prep"}
+            )
+            log.info("turn %s dropped: prep", turn_id)
+            return
+
         await self.send_json({"type": "status", "state": "transcribing", "turn": turn_id})
         text = await self.deps.stt.transcribe(pcm16)
         m.stt_ms = ms()

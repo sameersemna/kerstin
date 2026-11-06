@@ -23,7 +23,7 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 | `{"type":"transcript","turn","text"}` | What STT heard. |
 | `{"type":"collected","turn"}` | Exam collect mode: the utterance was stored and no LLM call was made. |
 | `{"type":"exam_part","index"?, "kind","title"?,"seconds"?,"ui_text"?,"card"?}` | Exam part entered. `card` is the learner's card for `prep`/`learner_talk`/`dialog`, Kerstin's card title only for `kerstin_talk`, or `null`; `kind:"done"` has no index/card. |
-| `{"type":"stt_empty","turn","reason"?}` | Nothing recognized. Optional `reason`: `too_short`, `too_quiet`, `tags_only`, `hallucination`, `echo` or `empty`. |
+| `{"type":"stt_empty","turn","reason"?}` | Nothing recognized. Optional `reason`: `too_short`, `too_quiet`, `prep`, `tags_only`, `hallucination`, `echo` or `empty`. |
 | `{"type":"thermal","state":"hot","temp_c","turn"?}` | GPU too hot; no new STT/LLM work. `turn` is absent for `start`/`feedback`. |
 | `{"type":"reply_text","turn","text"}` | One sentence of Kerstin's reply (sent just before its audio). Turn 0 = opener. |
 | **binary** | `[4-byte big-endian uint32 turn id][WAV file]` — one sentence of audio. Drop if turn id < current turn. |
@@ -42,6 +42,7 @@ Both sides start at 0 after `session`. Each binary utterance from the client inc
 ## HTTP
 - `GET /health` → Ollama reachability, model presence, configured backends, `gpu_temp_c` (number or null) and `thermal` (`ok|hot|unknown|disabled`).
 - `GET /api/scenarios` → `[{"key","title"}]`.
+- `GET /api/exams` → `[{"key","title","note"}]` from the exam presets; `[]` if the exam file cannot be loaded.
 - `GET /api/mistakes` → `{"enabled": bool, "sessions": n, "categories": [{"key","label","count"}]}`. The summary covers the last 90 days; a missing database reads as zeros and is not created.
 - `DELETE /api/mistakes` → `{"cleared": true}`; returns 404 when the log is disabled.
 - `GET /` → browser client.

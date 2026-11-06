@@ -100,12 +100,15 @@ Sameer can pick an exam preset in the browser and go through a full practice exa
 - [ ] Worker report filled in. No new dependencies.
 
 ## Worker report (Kilo Code fills this in)
-- **Changed files:**
-- **How tested:**
-- **Measurements (if any):**
-- **Deviations from spec / extra files touched:**
-- **New dependencies (+license):**
-- **Open questions:**
+- **Changed files:** `backend/kerstin/main.py` (`GET /api/exams`), `backend/kerstin/session.py` (prep guard), `frontend/exam_ui.js` (new), `frontend/app.js`, `frontend/index.html`, `frontend/style.css`, `frontend/tests/exam_ui.test.js` (new), `backend/tests/test_exam.py`, `backend/tests/test_api_exams.py` (new), `docs/PROTOCOL.md`.
+- **How tested:** `make test` → 234 Python tests + 33 Node tests passed; `make lint` → ruff passed. `node --test frontend/tests/exam_ui.test.js` → 10 passed. `/api/exams` on `127.0.0.1:8771` returns both presets with title and note. Headless Chromium loaded the page and populated both exam options; `#examPanel` stayed hidden before start. Headless WebSocket walkthrough (port 8771, `KERSTIN_TTS_BACKEND=none`, `KERSTIN_LLM_WARMUP=false`, configured `qwen3:14b`):
+  - `praesentation_diskussion_planung`: session (prep, learner_talk, kerstin_talk, dialog, dialog) → greeting `reply_done` → exam_part 0 prep → 1 learner_talk → follow-up `reply_done` → 2 kerstin_talk → 3 dialog → 4 dialog → `exam_part kind:"done"`.
+  - `vortrag_diskussion`: session (prep, learner_talk, kerstin_talk, dialog) → greeting `reply_done` → exam_part 0 prep → 1 learner_talk → follow-up `reply_done` → 2 kerstin_talk → 3 dialog → `exam_part kind:"done"`.
+  - No errors or thermal messages. The walkthrough sent no learner audio, so it exercised the server's follow-up path but not a real `collected` turn; the `collected` UI path is covered by the server test and the pure-logic tests.
+- **Measurements (if any):** No UI latency benchmark. GPU stayed 51–56 °C during the walkthrough; `qwen3:14b` loaded (~9.8 GB VRAM) and was left to its configured keep-alive. `grep -n innerHTML frontend/app.js` shows only the three pre-existing hits (no new card/option rendering).
+- **Deviations from spec / extra files touched:** None. The pre-existing `.gitignore` change was left untouched and is not staged. The temporary walkthrough script lives in `/tmp/kilo`, not the repo.
+- **New dependencies (+license):** None.
+- **Open questions:** Sameer still needs the real voice run. The headless walkthrough used `qwen3:14b` with TTS disabled, so it validates protocol/part sequencing, not speech or the browser audio/mic gate.
 
 ## Review (Claude Code fills this in)
 - **Verdict:**

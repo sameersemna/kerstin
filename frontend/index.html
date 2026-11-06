@@ -13,6 +13,9 @@
   <header>
     <h1>Kerstin <span class="sub">Deutsch sprechen · B2</span></h1>
     <div class="controls">
+      <select id="mode" aria-label="Modus">
+        <option value="">Freies Gespräch</option>
+      </select>
       <select id="scenario" aria-label="Szenario"></select>
       <select id="micMode" aria-label="Mikrofon-Modus">
         <option value="speakers">Lautsprecher (Mikro pausiert, während Kerstin spricht)</option>
@@ -29,7 +32,19 @@
   </header>
 
   <main>
-    <section id="log" aria-live="polite"></section>
+    <div class="conversation">
+      <section id="examPanel" class="exam-panel" aria-live="polite" hidden>
+        <h2 id="examTitle"></h2>
+        <p id="examNote" class="exam-note"></p>
+        <p id="examPart" class="exam-part"></p>
+        <p id="examUiText" class="exam-ui-text"></p>
+        <div id="examCard" class="exam-card" hidden></div>
+        <p id="examClock" class="exam-clock"></p>
+        <button id="examNextBtn" type="button" disabled></button>
+        <p id="examDoneMsg" class="exam-done" hidden>Prüfung beendet – hol dir jetzt dein Feedback.</p>
+      </section>
+      <section id="log" aria-live="polite"></section>
+    </div>
     <aside>
       <div id="state" class="state idle">bereit</div>
       <div id="metrics" class="metrics">–</div>
@@ -65,6 +80,7 @@
   </footer>
 
   <script src="mic_gate.js"></script>
+  <script src="exam_ui.js"></script>
   <script src="markdown.js"></script>
   <script src="app.js"></script>
 </body>
