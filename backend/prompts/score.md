@@ -16,9 +16,6 @@ Für Band 1 genügt nicht die inhaltliche Aufgabe: Häufige oder wiederkehrende 
 - wortschatz – Wortschatz: Prüfe Bandbreite, Präzision und Angemessenheit der Wortwahl für das Thema. Einzelne Wiederholungen sind weniger wichtig als fehlende Ausdrucksmittel. Wenn die Wortwahl überwiegend aus wenigen Alltagswörtern besteht, kaum themenspezifische Ausdrücke enthält und sich wiederholt, ist Band 1 angemessen, auch wenn die Aussagen verständlich sind. Einige themenspezifische, aber begrenzte Ausdrücke sind Band 2; variabler und treffender Wortschatz Band 3; präziser, idiomatischer und differenzierter Wortschatz Band 4. Fehlen themenspezifische Ausdrücke und wiederholen sich Alltagswörter, bleibe bei Band 1.
 - grammatik – Grammatik: Prüfe Kasus, Verbformen, Verbstellung, Kongruenz und Satzbau. Mehrere klare oder wiederkehrende Fehler in grundlegenden Strukturen sind Band 1, auch wenn die Aussagen verständlich bleiben. Band 2 setzt überwiegend korrekte Grundstrukturen mit nur wenigen, klar isolierbaren Fehlern voraus; überwiegend korrekte Strukturen mit einzelnen Fehlern sind Band 3; komplexe, sichere und nahezu fehlerfreie Strukturen Band 4. Auch der Versuch komplexerer Strukturen zählt.
 
-## Konsistenzprüfung vor der Ausgabe
-Prüfe deine Bänder vor dem Schreiben: Ist `grammatik` Band 1 oder 2, setze `aufgabe` und `kohaerenz` auf höchstens Band 2. Ist `wortschatz` Band 1, setze `aufgabe` und `kohaerenz` ebenfalls auf höchstens Band 2. Die sprachliche Umsetzung begrenzt die Inhaltskriterien. Wenn du bei Grammatik auffällige oder mehrere klare Fehler in Wortstellung, Kasus, Verbform oder Kongruenz nennst, setze `grammatik` auf 1. Wenn du bei Wortschatz überwiegend Alltagswörter und nur einzelne Themenwörter nennst, setze `wortschatz` auf 1.
-
 Der Kurzvortrag der Lernenden umfasst etwa {talk_words} Wörter. Bewerte die Aufgabenerfüllung nicht an einer idealen Länge, sondern an der Behandlung der Kartenpunkte und der Aufgabe.
 
 Bewerte die gesamte Leistung. Einzelne fehlende Sätze oder eine andere Schreibweise dürfen die Bänder nicht um mehr als eine Stufe verändern.
@@ -32,9 +29,15 @@ Bewerte die gesamte Leistung. Einzelne fehlende Sätze oder eine andere Schreibw
 - Bei Grammatik mit Band 1 bis 3 wähle möglichst ein Zitat, das einen klaren Fehler enthält.
 - Schreibe jede Begründung in {explanation_language} und halte sie auf einen Satz.
 
+## Grammatikfehler
+- Liste jeden klaren Grammatikfehler in den Zeilen der Lernenden: Kasus, Verbform, Verbstellung, Kongruenz, Präposition, Artikel oder Genus.
+- Jeder Eintrag ist ein wörtlicher Ausschnitt aus dem Transkript der Lernenden mit höchstens 8 Wörtern, der den Fehler enthält.
+- Nenne keine Stil- oder Wortwahlpräferenzen, sondern nur eindeutige Grammatikfehler.
+- Höchstens 15 Einträge; wenn es keine gibt, schreibe [].
+
 ## Ausgabe
 Antworte ausschließlich mit gültigem JSON und verwende genau diese Schlüssel:
-{"aufgabe":{"band":1,"reason":"…","evidence":"…"},"kohaerenz":{"band":1,"reason":"…","evidence":"…"},"wortschatz":{"band":1,"reason":"…","evidence":"…"},"grammatik":{"band":1,"reason":"…","evidence":"…"}}
+{"aufgabe":{"band":1,"reason":"…","evidence":"…"},"kohaerenz":{"band":1,"reason":"…","evidence":"…"},"wortschatz":{"band":1,"reason":"…","evidence":"…"},"grammatik":{"band":1,"reason":"…","evidence":"…"},"grammar_errors":["…"]}
 
 Berechne keine Gesamtnote; sie wird außerhalb deiner Antwort berechnet.
 

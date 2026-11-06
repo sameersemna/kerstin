@@ -177,10 +177,16 @@ async def run(args: argparse.Namespace) -> int:
                     print(f"{case['id']:20} {variant:5} parse=FAIL ms={elapsed_ms}")
                     continue
                 bands = _bands(parsed)
+                extra = (
+                    f" density={parsed.error_density} errors={parsed.grammar_errors}"
+                    if variant == "orig"
+                    else ""
+                )
                 print(
                     f"{case['id']:20} {variant:5} "
                     f"bands={bands} overall={parsed.overall_band} "
-                    f"ms={elapsed_ms} dropped={parsed.dropped_evidence} attempt={attempt}"
+                    f"ms={elapsed_ms} dropped={parsed.dropped_evidence} "
+                    f"attempt={attempt}{extra}"
                 )
     finally:
         await llm.client.aclose()
@@ -245,6 +251,36 @@ async def run(args: argparse.Namespace) -> int:
     )
     if not _check("levels", levels_ok, level_detail):
         failures.append("levels")
+
+    overall_cases = {
+        "B1": level_cases["B1"],
+        "B2": level_cases["B2"],
+        "C1": level_cases["C1"],
+    }
+    overall_ok = (
+        all(
+            results[case_id]["orig"] is not None
+            and results[case_id]["orig"].overall_band == 1
+            for case_id in overall_cases["B1"]
+        )
+        and all(
+            results[case_id]["orig"] is not None
+            and results[case_id]["orig"].overall_band in (2, 3)
+            for case_id in overall_cases["B2"]
+        )
+        and all(
+            results[case_id]["orig"] is not None
+            and results[case_id]["orig"].overall_band >= 3
+            for case_id in overall_cases["C1"]
+        )
+    )
+    overall_detail = "; ".join(
+        f"{case_id}:{None if results[case_id]['orig'] is None else results[case_id]['orig'].overall_band}"
+        for case_ids in overall_cases.values()
+        for case_id in case_ids
+    )
+    if not _check("overall", overall_ok, overall_detail):
+        failures.append("overall")
 
     off = results["wohnen_B2_offtask"]["orig"]
     on = results["wohnen_B2"]["orig"]

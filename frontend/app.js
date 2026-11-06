@@ -361,6 +361,18 @@ function renderExamScore(message) {
     if (criterion.evidence) evidence.textContent = `„${criterion.evidence}“`;
     row.appendChild(evidence);
     rows.push(row);
+    if (criterion.key === "grammatik") {
+      const errorRow = document.createElement("tr");
+      const errorCell = document.createElement("td");
+      errorCell.colSpan = 4;
+      errorCell.className = "score-grammar-count";
+      const count = Array.isArray(message.grammar_errors)
+        ? message.grammar_errors.length
+        : 0;
+      errorCell.textContent = `Erkannte Grammatikfehler: ${count}`;
+      errorRow.appendChild(errorCell);
+      rows.push(errorRow);
+    }
   }
   scoreRowsEl.replaceChildren(...rows);
   scoreTableEl.hidden = rows.length === 0;

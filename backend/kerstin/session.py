@@ -376,6 +376,8 @@ class Session:
                 ],
                 "overall_band": parsed.overall_band,
                 "overall_label": parsed.overall_label,
+                "error_density": parsed.error_density,
+                "grammar_errors": parsed.grammar_errors,
                 "note": scoring.SCORE_NOTE,
             }
         )

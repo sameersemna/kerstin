@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from pathlib import Path
 
@@ -47,6 +48,7 @@ def payload(**overrides):
             "reason": "Die Strukturen sind sicher.",
             "evidence": "Ich wohne seit zwei Jahren in Berlin",
         },
+        "grammar_errors": [],
     }
     values.update(overrides)
     return values
@@ -104,11 +106,11 @@ def test_parse_score_evidence_is_case_and_punctuation_insensitive():
     assert all(criterion.evidence is not None for criterion in score.criteria)
 
 
-def test_overall_band_is_median_rounded_down():
+def test_overall_band_is_floor_of_mean():
     assert overall_band([1, 2, 3, 4]) == 2
     assert overall_band([1, 1, 4, 4]) == 2
     assert overall_band([2, 3, 3, 4]) == 3
-    assert overall_band([3, 4, 4, 4]) == 4
+    assert overall_band([3, 4, 4, 4]) == 3
 
 
 def test_learner_text_excludes_kerstin_and_markers():
@@ -160,3 +162,77 @@ def test_score_prompt_has_no_six_word_sequence_from_holdout_cases():
             sequences.add(" ".join(words[index : index + 6]))
     hits = [sequence for sequence in sequences if f" {sequence} " in f" {prompt} "]
     assert not hits, f"hold-out sequences leaked into score.md: {hits[:3]}"
+
+
+def _density_score(learner: str, errors: list[str], grammar_band: int = 4):
+    data = payload(
+        grammatik={
+            **payload()["grammatik"],
+            "band": grammar_band,
+            "evidence": "fehler eins",
+        },
+        grammar_errors=errors,
+    )
+    return parse_score(json.dumps(data), learner)
+
+
+def test_grammar_density_ceiling_thresholds():
+    words_100 = ["fehler eins", "fehler zwei", "fehler drei"] + ["wort"] * 94
+    words_200 = ["fehler eins", "fehler zwei", "fehler drei"] + ["wort"] * 194
+    words_200_one = ["fehler eins"] + ["wort"] * 198
+
+    score = _density_score(" ".join(words_100), ["fehler eins", "fehler zwei", "fehler drei"])
+    assert score is not None
+    assert score.error_density == 3.0
+    assert score.criteria[-1].band == 1
+
+    score = _density_score(" ".join(words_100), ["fehler eins", "fehler zwei"])
+    assert score is not None
+    assert score.error_density == 2.0
+    assert score.criteria[-1].band == 2
+
+    score = _density_score(" ".join(words_200), ["fehler eins", "fehler zwei", "fehler drei"])
+    assert score is not None
+    assert score.error_density == 1.5
+    assert score.criteria[-1].band == 2
+
+    score = _density_score(" ".join(words_100), ["fehler eins"])
+    assert score is not None
+    assert score.error_density == 1.0
+    assert score.criteria[-1].band == 3
+
+    score = _density_score(" ".join(words_200_one), ["fehler eins"])
+    assert score is not None
+    assert score.error_density == 0.5
+    assert score.criteria[-1].band == 3
+
+    score = _density_score(" ".join(words_100), [])
+    assert score is not None
+    assert score.error_density == 0.0
+    assert score.criteria[-1].band == 4
+
+
+def test_unverified_grammar_snippet_is_dropped():
+    learner = "fehler eins " + " ".join(["wort"] * 99)
+    score = _density_score(learner, ["fehler eins", "Ich habe nie in Berlin gewohnt"])
+    assert score is not None
+    assert score.grammar_errors == ["fehler eins"]
+    assert score.dropped_evidence >= 1
+
+
+def test_missing_grammar_errors_is_empty_and_warns(caplog):
+    data = payload()
+    del data["grammar_errors"]
+    with caplog.at_level(logging.WARNING, logger="kerstin.score"):
+        score = parse_score(json.dumps(data), LEARNER)
+    assert score is not None
+    assert score.grammar_errors == []
+    assert "grammar_errors" in caplog.text
+
+
+def test_grammar_evidence_is_swapped_for_capped_band():
+    learner = "fehler eins " + " ".join(["wort"] * 99)
+    score = _density_score(learner, ["fehler eins"], grammar_band=2)
+    assert score is not None
+    assert score.criteria[-1].band == 2
+    assert score.criteria[-1].evidence == "fehler eins"

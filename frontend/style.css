@@ -110,5 +110,6 @@ aside { display: flex; flex-direction: column; gap: 12px; }
 .score-table th, .score-table td { text-align: left; vertical-align: top; padding: 5px 6px 5px 0; border-top: 1px solid var(--border); }
 .score-table thead th { color: var(--muted); font-weight: 600; }
 .score-table th[scope="row"] { white-space: nowrap; }
+.score-grammar-count { color: var(--muted); font-size: .78rem; padding-top: 2px; border-top: 0; }
 .score-message { margin: 0; color: var(--muted); }
 footer { padding: 10px 16px; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--border); }

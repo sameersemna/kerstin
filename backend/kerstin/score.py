@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+import logging
+import math
 import re
-import statistics
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -12,6 +13,8 @@ from .exam import MODERATION_PREFIX, ExamPlan, is_moderation
 
 if TYPE_CHECKING:
     from .prompts import PromptStore
+
+log = logging.getLogger(__name__)
 
 CRITERIA = {
     "aufgabe": "Aufgabenerfüllung",
@@ -47,6 +50,8 @@ class ExamScore:
     criteria: list[CriterionScore]
     overall_band: int
     overall_label: str
+    error_density: float
+    grammar_errors: list[str]
     dropped_evidence: int
 
 
@@ -126,7 +131,7 @@ def _band(value: object) -> int | None:
 def overall_band(bands: list[int]) -> int:
     if not bands:
         raise ValueError("overall_band needs at least one band")
-    return int(statistics.median(bands))
+    return math.floor(sum(bands) / len(bands))
 
 
 def parse_score(raw: str, learner: str) -> ExamScore | None:
@@ -166,10 +171,59 @@ def parse_score(raw: str, learner: str) -> ExamScore | None:
                 evidence=kept,
             )
         )
+    raw_errors = data.get("grammar_errors")
+    if not isinstance(raw_errors, list):
+        log.warning("score output missing or invalid grammar_errors; treating as []")
+        raw_errors = []
+    grammar_errors: list[str] = []
+    normalised_learner_words = len(learner.split())
+    for snippet in raw_errors[:15]:
+        if not isinstance(snippet, str):
+            dropped += 1
+            continue
+        snippet = snippet.strip()
+        normalised_snippet = _normalise(snippet)
+        if normalised_snippet and normalised_snippet in normalised_learner:
+            grammar_errors.append(snippet)
+        else:
+            dropped += 1
+
+    density = (
+        len(grammar_errors) / normalised_learner_words * 100
+        if normalised_learner_words
+        else 0.0
+    )
+    if density >= 3.0:
+        ceiling = 1
+    elif density >= 1.5:
+        ceiling = 2
+    elif density >= 0.5:
+        ceiling = 3
+    else:
+        ceiling = 4
+
+    grammar_index = list(CRITERIA).index("grammatik")
+    grammar = criteria[grammar_index]
+    final_band = min(grammar.band, ceiling)
+    grammar_evidence = grammar.evidence
+    if final_band <= 3 and grammar_errors:
+        grammar_evidence = grammar_errors[0]
+    criteria[grammar_index] = CriterionScore(
+        key=grammar.key,
+        label=grammar.label,
+        band=final_band,
+        band_label=BANDS[final_band],
+        reason=grammar.reason,
+        evidence=grammar_evidence,
+    )
+
     bands = [criterion.band for criterion in criteria]
+    overall = overall_band(bands)
     return ExamScore(
         criteria=criteria,
-        overall_band=overall_band(bands),
-        overall_label=BANDS[overall_band(bands)],
+        overall_band=overall,
+        overall_label=BANDS[overall],
+        error_density=round(density, 1),
+        grammar_errors=grammar_errors,
         dropped_evidence=dropped,
     )

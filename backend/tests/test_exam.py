@@ -252,6 +252,7 @@ SCORE_JSON = json.dumps(
             "reason": "Die Strukturen sind sicher.",
             "evidence": "Trotzdem möchte ich vorerst hier bleiben",
         },
+        "grammar_errors": [],
     }
 )
 
@@ -338,6 +339,8 @@ async def test_exam_feedback_is_followed_by_exam_score():
     assert [criterion["band"] for criterion in score["criteria"]] == [2, 3, 3, 4]
     assert score["overall_band"] == 3
     assert score["overall_label"] == "B2 sicher"
+    assert score["error_density"] == 0.0
+    assert score["grammar_errors"] == []
     assert score["note"]
     assert llm.chat_calls == 2
     assert llm.last_chat_temperature == 0.0
