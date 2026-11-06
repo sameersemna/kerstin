@@ -113,3 +113,19 @@ Sameer can pick an exam preset in the browser and go through a full practice exa
 ## Review (Claude Code fills this in)
 - **Verdict:**
 - **Notes:**
+- **Verdict:** Accepted. Merged to main after one lead fix.
+- **Notes:**
+  - The diff matches the spec:
+    - `/api/exams` never returns a 500;
+    - the prep guard runs before STT;
+    - `exam_ui.js` is pure and fully tested;
+    - the card is built with `createElement`/`textContent`;
+    - the free-conversation start payload is unchanged (`exam` is added only when a preset is selected);
+    - turn sync is centralised in `syncTurn`;
+    - `collected` releases the mic gate.
+
+    234 Python + 33 Node tests pass, and lint passes.
+  - **Lead fix:** `examBlocksSpeech()` used `examSession || modeEl.value`. Changing the mode select during a running free conversation would have muted the learner. Now only an active exam session blocks speech.
+  - **Known, accepted:** pressing „Weiter“ while Kerstin speaks stops playback, and the server interrupts. Audio frames already in flight for that turn could still play briefly; normal interrupts behave the same way.
+  - **Not verified:** real audio, the speaker-mode mic gate on server-started turns, and the 30 s auto-finish. These need Sameer's voice run.
+  - The walkthrough used the `.env` model (`qwen3:14b`), not the default `gemma4:26b`.
