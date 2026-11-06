@@ -18,7 +18,9 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from .audio import pcm16_duration_s, pcm16_rms_dbfs
+from .feedback_checks import parse_errors
 from .llm import Message, OllamaLLM
+from .mistakes import MistakeLog, classify
 from .prompts import PromptStore
 from .stt import STT
 from .stt_filter import clean_transcript, is_echo
@@ -58,6 +60,7 @@ class Deps:
     feedback_temperature: float = 0.3
     ollama_max_loaded: int = 2
     hint_temperature: float = 0.2
+    mistakes: MistakeLog | None = None
     thermal: ThermalGuard | None = None
 
 
@@ -158,7 +161,7 @@ class Session:
 
         self._hint_task = asyncio.create_task(self._hint(query))
 
-    async def feedback(self, lang: str | None = None) -> None:
+    async def feedback(self, lang: str | None = None, save_mistakes: bool = False) -> None:
         await self.interrupt()
 
         if lang not in (None, "en", "de"):
@@ -210,12 +213,28 @@ class Session:
             model=model,
             keep_alive=keep_alive,
         )
-        await self.send_json({"type": "feedback", "markdown": strip_think(text).strip()})
+        markdown = strip_think(text).strip()
+        await self.send_json({"type": "feedback", "markdown": markdown})
         log.info(
             "feedback ok (model=%s ms=%d)",
             model,
             int((time.perf_counter() - started) * 1000),
         )
+
+        if save_mistakes and self.deps.mistakes is not None:
+            categories = [classify(error) for error in parse_errors(markdown)]
+            try:
+                count = await self.deps.mistakes.record(
+                    self.scenario_key, lang, categories
+                )
+            except Exception as exc:  # noqa: BLE001 — feedback already sent
+                log.warning("mistakes save failed (%s)", type(exc).__name__)
+                await self.send_json(
+                    {"type": "mistakes_saved", "count": 0, "error": "failed"}
+                )
+            else:
+                log.info("mistakes saved (n=%d)", count)
+                await self.send_json({"type": "mistakes_saved", "count": count})
 
     async def close(self) -> None:
         hint_task = self._hint_task

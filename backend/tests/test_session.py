@@ -95,6 +95,18 @@ class FakeTTS:
         return b"RIFF" + text.encode()
 
 
+class FakeMistakeLog:
+    def __init__(self, error=None):
+        self.calls = []
+        self.error = error
+
+    async def record(self, scenario, lang, categories):
+        self.calls.append((scenario, lang, list(categories)))
+        if self.error:
+            raise self.error
+        return len(categories)
+
+
 class CountingSTT:
     def __init__(self, text=""):
         self.text = text
@@ -127,6 +139,7 @@ def make_session(
     feedback_model=None,
     feedback_temperature=0.3,
     ollama_max_loaded=2,
+    mistakes=None,
 ):
     sent_json, sent_bytes = [], []
 
@@ -150,6 +163,7 @@ def make_session(
         feedback_model=feedback_model,
         feedback_temperature=feedback_temperature,
         ollama_max_loaded=ollama_max_loaded,
+        mistakes=mistakes,
     )
     return Session(deps=deps, send_json=sj, send_bytes=sb, scenario_key="freies_gespraech"), sent_json, sent_bytes
 
@@ -630,3 +644,104 @@ async def test_feedback_model_needs_no_unload_with_free_slots():
     assert llm.last_chat_model == "gemma4:31b"
     assert llm.last_chat_keep_alive == "0"
     assert llm.last_chat_temperature == 0.3
+
+
+FEEDBACK_WITH_ERRORS = """### Was gut war
+- Gute Aussprache
+
+### Wichtigste Fehler
+1. ❌ mit ein Freund
+   ✅ mit einem Freund
+   💡 The preposition "mit" always requires the dative case.
+2. ❌ weil ich bin seit zwei Wochen im Team
+   ✅ weil ich seit zwei Wochen im Team bin
+   💡 In a subordinate clause starting with "weil", the verb must go to the end.
+"""
+
+
+async def test_feedback_saves_mistake_categories_when_opted_in():
+    llm = FakeLLM(["Hallo."], chat_text=FEEDBACK_WITH_ERRORS)
+    mistakes = FakeMistakeLog()
+    s, js, _ = make_session(llm, mistakes=mistakes)
+    s.history.append({"role": "user", "content": "Ich war im Kino."})
+
+    await s.feedback(save_mistakes=True)
+
+    assert mistakes.calls == [
+        ("freies_gespraech", "en", ["kasus", "verbposition"])
+    ]
+    saved = [m for m in js if m["type"] == "mistakes_saved"]
+    assert saved == [{"type": "mistakes_saved", "count": 2}]
+    assert any(m["type"] == "feedback" for m in js)
+
+
+async def test_feedback_does_not_save_mistakes_by_default():
+    llm = FakeLLM(["Hallo."], chat_text=FEEDBACK_WITH_ERRORS)
+    mistakes = FakeMistakeLog()
+    s, js, _ = make_session(llm, mistakes=mistakes)
+    s.history.append({"role": "user", "content": "Ich war im Kino."})
+
+    await s.feedback()
+
+    assert mistakes.calls == []
+    assert not any(m["type"] == "mistakes_saved" for m in js)
+
+
+async def test_feedback_zero_errors_records_a_practice_session():
+    llm = FakeLLM(["Hallo."], chat_text="### Was gut war\n- Gute Aussprache")
+    mistakes = FakeMistakeLog()
+    s, js, _ = make_session(llm, mistakes=mistakes)
+    s.history.append({"role": "user", "content": "Ich war im Kino."})
+
+    await s.feedback(save_mistakes=True)
+
+    assert mistakes.calls == [("freies_gespraech", "en", [])]
+    assert [m for m in js if m["type"] == "mistakes_saved"] == [
+        {"type": "mistakes_saved", "count": 0}
+    ]
+
+
+async def test_feedback_survives_mistake_log_error(caplog):
+    llm = FakeLLM(["Hallo."], chat_text=FEEDBACK_WITH_ERRORS)
+    mistakes = FakeMistakeLog(error=RuntimeError("boom"))
+    s, js, _ = make_session(llm, mistakes=mistakes)
+    s.history.append({"role": "user", "content": "Ich war im Kino."})
+
+    with caplog.at_level(logging.WARNING, logger="kerstin.session"):
+        await s.feedback(save_mistakes=True)
+
+    assert any(m["type"] == "feedback" for m in js)
+    assert [m for m in js if m["type"] == "mistakes_saved"] == [
+        {"type": "mistakes_saved", "count": 0, "error": "failed"}
+    ]
+    assert "RuntimeError" in caplog.text
+    assert "boom" not in caplog.text
+
+
+async def test_feedback_thermal_does_not_save_mistakes():
+    llm = FakeLLM(["Hallo."], chat_text=FEEDBACK_WITH_ERRORS)
+    mistakes = FakeMistakeLog()
+    thermal = FakeThermalGuard(ThermalStatus("hot", 82))
+    s, js, _ = make_session(llm, mistakes=mistakes, thermal=thermal)
+    s.history.append({"role": "user", "content": "Ich war im Kino."})
+
+    await s.feedback(save_mistakes=True)
+
+    assert mistakes.calls == []
+    assert not any(m["type"] == "mistakes_saved" for m in js)
+    assert llm.chat_calls == 0
+
+
+async def test_feedback_without_learner_lines_does_not_save_mistakes():
+    llm = FakeLLM(["Hallo."], chat_text=FEEDBACK_WITH_ERRORS)
+    mistakes = FakeMistakeLog()
+    s, js, _ = make_session(llm, mistakes=mistakes)
+
+    await s.feedback(save_mistakes=True)
+
+    assert mistakes.calls == []
+    assert [m for m in js if m["type"] == "feedback"] == [
+        {"type": "feedback", "markdown": "_Noch keine Äußerungen._"}
+    ]
+    assert not any(m["type"] == "mistakes_saved" for m in js)
+    assert llm.chat_calls == 0

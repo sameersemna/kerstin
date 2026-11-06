@@ -85,6 +85,11 @@ class Settings(BaseSettings):
     feedback_model: str | None = None  # None/empty -> ollama_model
     feedback_temperature: float = 0.3
 
+    # --- Mistake log (opt-in; categories only, never learner text) ---
+    mistake_log_path: Path = PROJECT_DIR / "data" / "mistakes.sqlite3"
+    mistake_log_enabled: bool = True  # server allows it; the learner opts in in the UI
+    mistake_log_max_days: int = 180
+
     # --- Frontend ---
     frontend_dir: Path = PROJECT_DIR / "frontend"
 
@@ -92,6 +97,7 @@ class Settings(BaseSettings):
         "piper_voice_path",
         "prompts_dir",
         "frontend_dir",
+        "mistake_log_path",
         "tls_certfile",
         "tls_keyfile",
         "tls_ca_certfile",

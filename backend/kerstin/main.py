@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__
 from .config import settings
 from .llm import OllamaLLM
+from .mistakes import MistakeLog
 from .prompts import PromptStore
 from .session import Deps, Session
 from .stt import make_stt
@@ -51,6 +52,11 @@ async def lifespan(app: FastAPI):
         feedback_temperature=settings.feedback_temperature,
         ollama_max_loaded=settings.ollama_max_loaded,
         hint_temperature=settings.hint_temperature,
+        mistakes=(
+            MistakeLog(settings.mistake_log_path, settings.mistake_log_max_days)
+            if settings.mistake_log_enabled
+            else None
+        ),
         thermal=(
             ThermalGuard(settings.thermal_hot_c, settings.thermal_resume_c)
             if settings.thermal_guard
@@ -96,6 +102,24 @@ async def scenarios() -> JSONResponse:
     return JSONResponse(
         [{"key": s.key, "title": s.title} for s in deps.prompts.scenarios().values()]
     )
+
+
+@app.get("/api/mistakes")
+async def mistakes_summary() -> JSONResponse:
+    assert deps is not None
+    if deps.mistakes is None:
+        return JSONResponse({"enabled": False, "sessions": 0, "categories": []})
+    summary = await deps.mistakes.summary()
+    return JSONResponse({"enabled": True, **summary})
+
+
+@app.delete("/api/mistakes")
+async def clear_mistakes() -> JSONResponse:
+    assert deps is not None
+    if deps.mistakes is None:
+        raise HTTPException(status_code=404, detail="mistake log disabled")
+    await deps.mistakes.clear()
+    return JSONResponse({"cleared": True})
 
 
 @app.get("/kerstin-ca.crt")
@@ -156,7 +180,10 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 else:
                     await send_json({"type": "error", "message": "send 'start' first"})
             elif kind == "end" and session:
-                await session.feedback(data.get("feedback_lang"))
+                await session.feedback(
+                    data.get("feedback_lang"),
+                    save_mistakes=bool(data.get("save_mistakes", False)),
+                )
             elif kind == "ping":
                 await send_json({"type": "pong"})
             else:
