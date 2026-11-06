@@ -75,3 +75,8 @@ After an exam, `exam_score` gives an estimate for four independent criteria (Auf
 - **Privacy:** nothing is stored.
 - **Validation:** `scripts/score_cases.json` (calibration) and `scripts/score_holdout.json` (hold-out, never iterated against), both lead-written; run with `make score-eval`.
 
+
+## D023 · 2026-11-06 · Accepted — Kerstin runs as a systemd user service; logs go to journald
+- **Service:** a user unit (`make service-install`), not a system unit: no root, same account as the other GB10 projects. The installer only manages units whose name starts with `kerstin` and that carry its marker line. It never touches other units, `sudo`, linger or `journald.conf`.
+- **Restarts:** `Restart=on-failure`, at most 3 starts per 5 min, so a crash loop can't keep reloading models onto the shared GPU.
+- **Logs:** journald only. No log files of our own, no logrotate. Rotation is journald's system-wide size limit. The journal is persistent, so the T013 rule is binding: no learner or Kerstin text in INFO/WARNING logs (checked in T031 with the smoke sentence).
