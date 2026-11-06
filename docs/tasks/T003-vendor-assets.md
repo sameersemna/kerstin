@@ -123,5 +123,11 @@ true   # after restoring it
 - **Open questions:** None.
 
 ## Review (Claude Code fills this in)
-- **Verdict:**
+- **Verdict:** Accepted (2026-11-06) with two small lead fixes.
 - **Notes:**
+  - Verified: 253 Python + 33 JS tests and ruff pass. Both pinned SHA-512 values match the registry's `dist.integrity`. Neither tarball contains a LICENSE, so the deviation is justified. A clean `make vendor` is byte-identical to the worker's files, and a second run is a no-op. No CDN URL is left in `frontend/`.
+  - Lead fix 1: the upstream LICENSE downloads are now pinned by SHA-256 too. Every byte the script fetches is now verified. A wrong hash exits 1 and leaves no `frontend/vendor/`.
+  - Lead fix 2: STATUS line restored. The 2026-11-04 browser check used the CDN, so T003 is a separate line instead of a rewrite of history.
+  - Known limit: only `ort-wasm-simd.wasm` is shipped, which is what the page fetched. Browsers without WASM SIMD (Safari < 16.4) would fail VAD init. Acceptable for current browsers; add `ort-wasm.wasm` if that ever matters.
+  - The file list lives in both `main.py` and `check_env.sh`. Acceptable (bash can't import it), but keep them in sync.
+  - Pending: Sameer's real-browser check on the vendored files.
