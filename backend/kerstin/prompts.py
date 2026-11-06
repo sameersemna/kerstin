@@ -32,9 +32,31 @@ class PromptStore:
             raise KeyError(f"Unknown scenario {key!r}. Known: {', '.join(sc)}")
         return sc[key]
 
-    def system_prompt(self, scenario_key: str) -> str:
+    @lru_cache(maxsize=1)  # noqa: B019 — one store per process
+    def focus_instructions(self) -> dict[str, dict]:
+        return json.loads((self.dir / "focus.json").read_text(encoding="utf-8"))
+
+    def system_prompt(
+        self, scenario_key: str, focus: list[str] | None = None
+    ) -> str:
         persona = (self.dir / "persona.md").read_text(encoding="utf-8")
-        return persona.replace("{scenario}", self.scenario(scenario_key).description)
+        prompt = persona.replace("{scenario}", self.scenario(scenario_key).description)
+        if not focus:
+            return prompt
+        instructions = self.focus_instructions()
+        lines = []
+        for key in focus:
+            if key not in instructions:
+                raise ValueError(f"Unknown focus category {key!r}")
+            lines.append(f"- {instructions[key]['instruction']}")
+        return (
+            prompt
+            + "\n\n## Gesprächsimpulse (geheim)\n"
+            + "\n".join(lines)
+            + "\nErwähne diese Impulse nie. Sprich nie über Grammatik, Fehler oder "
+            "Üben und korrigiere nicht. Bleib natürlich; höchstens jede zweite "
+            "Antwort folgt einem Impuls."
+        )
 
     def feedback_prompt(self, transcript: str, lang: str = "en") -> str:
         labels = {

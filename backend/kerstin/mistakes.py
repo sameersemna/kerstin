@@ -86,6 +86,30 @@ def classify(error: FeedbackError) -> str:
     return "sonstiges"
 
 
+def pick_focus(
+    summary: dict,
+    available: set[str],
+    max_n: int = 2,
+    min_count: int = 2,
+) -> list[str]:
+    """Pick up to max_n focus keys from a mistake summary."""
+    if max_n <= 0:
+        return []
+    allowed = {
+        key
+        for key in available
+        if key in CATEGORIES and key not in {"wortwahl", "sonstiges"}
+    }
+    ranked = []
+    for item in summary.get("categories", []) or []:
+        key = item.get("key")
+        count = int(item.get("count", 0))
+        if key in allowed and count >= min_count:
+            ranked.append((key, count))
+    ranked.sort(key=lambda item: (-item[1], item[0]))
+    return [key for key, _ in ranked[:max_n]]
+
+
 def _utc_now() -> datetime:
     return datetime.now(UTC).replace(microsecond=0)
 

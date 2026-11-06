@@ -95,13 +95,151 @@ This is 16 files, but each change is small and they form one feature (lead-appro
 With "Fehler-Kategorien speichern" on, do two short sessions with a few *weil … Verb* mistakes. Then tick "Im Gespräch gezielt üben" and start a new session. It should show „Heute im Fokus: Verbposition“, Kerstin should ask more *warum*-type questions, and she should never mention grammar or practising.
 
 ## Worker report (Kilo Code fills this in)
-- **Changed files:**
-- **How tested:**
+- **Changed files:** `backend/prompts/focus.json` (new), `backend/kerstin/prompts.py`, `backend/kerstin/mistakes.py` (`pick_focus` only), `backend/kerstin/session.py` (start/system prompt/focus), `backend/kerstin/main.py` (start wiring), `backend/kerstin/reply_checks.py` (`has_meta_talk` only), `backend/tests/test_mistakes.py`, `backend/tests/test_prompts.py`, `backend/tests/test_session.py`, `backend/tests/test_reply_checks.py`, `scripts/persona_eval.py`, `frontend/index.html`, `frontend/app.js`, `frontend/style.css`, `docs/PROTOCOL.md` (`start`/`session` rows only), and this task file.
+- **How tested:** `make test` → **206 Python + 23 Node** tests passed; `make lint` passed; `node --check frontend/app.js` passed. New tests cover `pick_focus` order/ties/min_count/available/max_n/empty and text-category exclusion; no-focus prompt byte-identity; focus block instruction order; unknown focus key; warm-up and turn using the identical system string; focus labels in `session`; strict `use_focus:"true"` rejection and fake-log focus resolution; and `has_meta_talk` word boundaries. `persona_eval.py` ran 3 × 30 replies with `gemma4:26b`, `--seed 1234`, `--pause 2`, and `cool_down()` before every warm-up/turn. The model was already loaded; the other project's model remained loaded and was not unloaded.
 - **Measurements (if any):**
-- **Deviations from spec / extra files touched:**
-- **New dependencies (+license):**
-- **Open questions:**
+  - **Eval commands:** `make persona-eval EVAL_ARGS='--model gemma4:26b --seed 1234'`; `... --focus verbposition`; `... --focus perfekt_hilfsverb,praeposition`.
+  - **Invite rates (same cues):**
 
+    | run | focus | verbposition cues | perfekt+praeposition cues | warm first-token p50 |
+    |---|---|---:|---:|---:|
+    | (a) | none | 7/30 = 23% | 4/30 = 13% | 152 ms |
+    | (b) | verbposition | 14/30 = 47% | 3/30 = 10% | 162 ms |
+    | (c) | perfekt_hilfsverb,praeposition | 8/30 = 27% | 6/30 = 20% | 166 ms |
+
+    Target met: (b) 47% > (a) 23% for verbposition; (c) 20% > (a) 13% for its cues; focus p50 is +10/+14 ms, under the +50 ms limit. Cues were not changed after seeing these results.
+  - **(a) summary (no focus):**
+    ```text
+Summary
+model: gemma4:26b
+focus: none
+code                 count
+--------------------------
+too_long                 3
+no_question              0
+markdown_or_emoji        0
+digits                   0
+english                  0
+correction               0
+meta_talk                3
+
+total replies: 30
+mean sentences/reply: 2.97
+mean words/reply: 31.90
+invite rate (focus cues): n/a (no focus)
+llm_first_token_ms p50 (warm): 152
+GPU: start 52 °C, end 60 °C
+    ```
+  - **(b) summary (`verbposition`):**
+    ```text
+Summary
+model: gemma4:26b
+focus: verbposition
+code                 count
+--------------------------
+too_long                 3
+no_question              0
+markdown_or_emoji        0
+digits                   0
+english                  0
+correction               0
+meta_talk                1
+
+total replies: 30
+mean sentences/reply: 2.90
+mean words/reply: 32.63
+invite rate (focus cues): 14/30 = 47%
+llm_first_token_ms p50 (warm): 162
+GPU: start 57 °C, end 63 °C
+    ```
+  - **(c) summary (`perfekt_hilfsverb,praeposition`):**
+    ```text
+Summary
+model: gemma4:26b
+focus: perfekt_hilfsverb, praeposition
+code                 count
+--------------------------
+too_long                 3
+no_question              0
+markdown_or_emoji        0
+digits                   0
+english                  0
+correction               0
+meta_talk                2
+
+total replies: 30
+mean sentences/reply: 3.03
+mean words/reply: 33.90
+invite rate (focus cues): 6/30 = 20%
+llm_first_token_ms p50 (warm): 166
+GPU: start 61 °C, end 62 °C
+    ```
+  - **`check_reply`:** `too_long=3` in all three runs; `correction=0`, `no_question=0`, `english=0`, `digits=0`, `markdown_or_emoji=0`; `meta_talk` is 3 (a), 1 (b), 2 (c). Not worse than (a).
+  - **Every `meta_talk` hit (all are on `[Korrektur erlaubt]` turns; there were no non-allowed corrections):**
+    - (a):
+      ```text
+Meta-talk hits
+1. [wg_alltag] Gerne. Du hast gesagt auf der Tisch, aber es muss auf dem Tisch heißen. Der Rest war eigentlich ganz gut und ich habe alles verstanden. Möchtest du, dass ich dir in Zukunft bei jedem Fehler helfe?
+2. [arbeit_kollegen] Natürlich, das mache ich gerne. Du musst sagen: Ich habe gestern mit meinem Chef über das Projekt gesprochen. Nach dem Wort mit heißt es nämlich Dativ, also meinem Chef. Hast du sonst noch Fragen zu deiner Grammatik?
+3. [pruefung_planung] Natürlich, ich helfe dir gerne. In einem Nebensatz mit weil muss das Verb am Ende stehen, also: weil es persönlicher ist. Möchtest du, dass wir später noch mehr solche Sätze üben?
+      ```
+    - (b):
+      ```text
+Meta-talk hits
+1. [wg_alltag] Oh, du möchtest, dass ich dich korrigiere? Das mache ich gerne, wenn du es möchtest. Du hättest sagen müssen, dass er sein Geschirr auf den Tisch gestellt hat. Findest du, dass die Korrektur hilfreich war?
+      ```
+    - (c):
+      ```text
+Meta-talk hits
+1. [freies_gespraech] Gerne, ich helfe dir. Man sagt: Ich freue mich auf den Sommer. Möchtest du, dass ich dich öfter korrigiere, oder sollen wir einfach nur ganz normal plaudern?
+2. [wg_alltag] Du möchtest, dass ich dich korrigiere? Okay, kein Problem. Du musst nur sagen: Er hat sein Geschirr auf den Tisch gestellt, weil Tisch maskulin ist und hier der Akkusativ genutzt wird. War das verständlich für dich?
+      ```
+  - **All 30 replies of (b):**
+- S1-T1: Das ist ja toll, dass du dich hier schon so wohlfühlst. Ich wohne erst seit zwei Jahren hier und finde die Stadt manchmal noch ein bisschen stressig. Was gefällt dir an Berlin am besten?
+- S1-T2: Das ist schade, dass der Film nicht gut war. Welchen Film habt ihr denn im Kino gesehen? Ich gehe nämlich auch sehr gerne ins Kino, wenn die Story spannend ist.
+- S1-T3: Das kann ich gut verstehen, ich hatte diese Woche auch sehr viel zu tun im Büro. Hast du denn am Wochenende schon etwas Schönes geplant, um dich zu entspannen? Vielleicht kannst du ja einfach ein bisschen ausruhen.
+- S1-T4: Das Wort heißt auf Deutsch Deadline oder man kann auch Abgabetermin sagen. Ich habe gerade auch ein Problem, weil ich eine wichtige Deadline für mein Projekt am Freitag habe. Hast du in deinem Job auch oft so viel Zeitdruck?
+- S1-T5: Das ist ja toll, dass du dich hier schon so wohlfühlst. Ich wohne erst seit zwei Jahren hier und finde die Stadt manchmal noch ein bisschen stressig. Was gefällt dir an Berlin am besten?
+- S1-T6: Ich möchte eigentlich nicht als Lehrerin auftreten, aber wenn du es unbedingt möchtest, helfe ich dir gerne. Man sagt eigentlich: Ich freue mich auf den Sommer. Hast du denn schon Pläne für den Urlaub im Sommer?
+- S2-T1: Das ist eine gute Idee. Ich finde nämlich, dass die Aufgaben momentan nicht ganz gerecht verteilt sind. Wann hättest du denn Zeit, damit wir das in Ruhe besprechen können?
+- S2-T2: Das ist wirklich ärgerlich, weil man dann ja gar nicht merkt, dass man überhaupt geputzt hat. Warum räumt er sein Zeug einfach nicht direkt weg? Findest du auch, dass wir feste Regeln für das Geschirr brauchen?
+- S2-T3: Das verstehe ich absolut, ich habe nämlich auch keine Lust, immer die Einzige zu sein, die Ordnung hält. Wir sollten vielleicht festlegen, dass jeder sein Geschirr sofort in die Spülmaschine stellt. Was hältst du von diesem Vorschlag?
+- S2-T4: Du meinst bestimmt eine Frist oder einen Termin. Wir könnten zum Beispiel eine Frist setzen, dass alles bis zum Abend weggeräumt sein muss. Findest du das eine gute Lösung?
+- S2-T5: Ja, genau das habe ich auch gesagt. Wir könnten zum Beispiel festlegen, wer an welchen Tagen für den Boden oder den Müll zuständig ist. Was meinst du, welche Aufgaben sind am wichtigsten?
+- S2-T6: Oh, du möchtest, dass ich dich korrigiere? Das mache ich gerne, wenn du es möchtest. Du hättest sagen müssen, dass er sein Geschirr auf den Tisch gestellt hat. Findest du, dass die Korrektur hilfreich war?
+- S3-T1: Das sehe ich ganz anders, weil ich mich im Büro viel besser konzentrieren kann. Aber ich verstehe, dass man sich dann weniger flexibel fühlt. Wie findest du das, arbeitest du lieber von zu Hause aus oder im Büro?
+- S3-T2: Das tut mir leid zu hören. Warum war er denn nicht zufrieden mit dem Gespräch? Gab es ein spezielles Problem bei dem Projekt?
+- S3-T3: Oh nein, das klingt wirklich stressig. Musst du denn den ganzen Samstag und Sonntag arbeiten?
+- S3-T4: Du meinst bestimmt die Deadline oder den Abgabetermin. Ich finde das Wort Deadline auch ganz okay, das benutzen wir hier oft im Büro. Musst du denn wirklich am Wochenende arbeiten, um die Deadline einzuhalten?
+- S3-T5: Das stimmt, zwei Tage sind schon sehr wenig, wenn man vorher mehr zu Hause arbeiten konnte. Ich finde es zumindest schade, dass wir dann weniger Zeit für den privaten Kram haben. Findest du, dass wir im Büro mehr zusammenarbeiten oder ist das nur eine Entscheidung von oben?
+- S3-T6: Natürlich, das mache ich gerne. Du musst sagen: Ich habe gestern mit meinem Chef über das Projekt gesprochen. Es muss Dativ sein, also meinem Chef. Möchtest du, dass ich bei anderen Sätzen auch darauf achte?
+- S4-T1: Da hast du absolut recht, der öffentliche Verkehr ist momentan noch nicht gut genug. Aber glaubst du nicht, dass weniger Autos auch die Luftqualität und die Sicherheit für Fußgänger viel schneller verbessern könnten?
+- S4-T2: Das ist ein interessanter Punkt, denn die großen Lieferwagen blockieren oft die Straßen. Aber meinst du nicht, dass der Lieferverkehr auch ohne Autos besser funktionieren könnte, wenn man zum Beispiel mehr Fahrradkuriere nutzen würde?
+- S4-T3: Kopenhagen ist ja wirklich ein Vorbild für Radfahrer, das kenne ich auch aus ein paar Dokumentationen. Aber glaubst du, dass man dieses Modell einfach auf eine riesige Stadt wie Berlin übertragen kann?
+- S4-T4: Das Wort ist die Deadline oder auch die Frist. Meinst du das im Zusammenhang mit dem Thema Verkehr oder wolltest du etwas anderes sagen?
+- S4-T5: Das habe ich vorhin schon gehört, aber ich finde, dass beides gleichzeitig wichtig ist. Wenn die Bahn besser wird, haben die Leute ja auch weniger Grund, mit dem Auto zu fahren. Was findest du am öffentlichen Verkehr in Berlin am schwierigsten?
+- S4-T6: Natürlich, das mache ich gerne. Nach dem Ausdruck Meiner Meinung nach muss das Verb direkt kommen, also sagst du am besten: Meiner Meinung nach sind die Autos nicht das größte Problem. Hast du dazu noch eine Frage?
+- S5-T1: Das ist eine gute Idee, weil wir dort keine Miete bezahlen müssen. Aber meinst du nicht, dass der Kursraum vielleicht ein bisschen zu klein oder langweilig ist? Wir könnten doch auch in ein schönes Café in der Nähe gehen.
+- S5-T2: Das stimmt, gemeinsam etwas auszusuchen macht viel mehr Spaß. Was für ein Geschenk könnten wir denn kaufen, denkst du? Vielleicht etwas, das sie als Erinnerung an unseren Kurs behalten kann?
+- S5-T3: Das ist wirklich nett von dir, danke für das Angebot! Ich kann dir gerne eine Liste mit den Namen und E-Mail-Adressen schicken. Wann hättest du denn Zeit, die Einladungen fertig zu machen?
+- S5-T4: Das Wort heißt Termin oder Frist. Meinst du, wir brauchen eine feste Frist für die Anmeldung zum Essen?
+- S5-T5: Das stimmt, der Kursraum ist wirklich sehr preiswert. Aber was machen wir denn mit dem Essen und den Getränken, wenn wir dort feiern? Sollen wir vielleicht einfach Pizza bestellen?
+- S5-T6: Natürlich, ich helfe dir gerne. Du musst nach dem Wort weil das Verb ans Ende setzen, also: ... weil es persönlicher ist. Sollen wir jetzt weiter über das Essen sprechen?
+  - **First 10 replies of (c):**
+- S1-T1: Das ist ja toll, dass du dich hier schon so wohlfühlst. Ich wohne erst seit zwei Jahren hier und muss mich manchmal noch an die Bürokratie gewöhnen. In welchem Stadtteil wohnst du eigentlich?
+- S1-T2: Das ist schade, ich mag langweilige Filme auch nicht so gerne. Welchen Film habt ihr denn geschaut? War es ein neuer Film oder ein alter Klassiker?
+- S1-T3: Das kann ich gut verstehen, ich hatte diese Woche auch sehr viel Stress im Büro. Hast du denn schon Pläne, wie du dich am Wochenende ausruhen möchtest? Möchtest du eher gemütlich zu Hause bleiben oder etwas draußen unternehmen?
+- S1-T4: Das Wort heißt Deadline oder man kann auch Abgabetermin sagen. Ich habe gerade auch so einen stressigen Abgabetermin für mein Projekt. Hast du momentan auch viel Stress bei der Arbeit oder in der Uni?
+- S1-T5: Das habe ich vorhin schon gehört, aber es ist wirklich schön, dass du dich hier so wohlfühlst. Ich finde Berlin auch toll, aber die Suche nach einer neuen Wohnung ist wirklich anstrengend. Hast du denn einen Lieblingsort in der Stadt, an dem du dich besonders gerne aufhältst?
+- S1-T6: Gerne, ich helfe dir. Man sagt: Ich freue mich auf den Sommer. Möchtest du, dass ich dich öfter korrigiere, oder sollen wir einfach nur ganz normal plaudern?
+- S2-T1: Das finde ich eine gute Idee. Momentan habe ich das Gefühl, dass ich viel öfter putze als sonst. Hast du vielleicht heute Abend Zeit, dass wir uns das gemeinsam anschauen?
+- S2-T2: Das ist wirklich ärgerlich, wenn man gerade erst fertig ist. Warum räumt er sein Geschirr nicht einfach direkt in die Spülmaschine? Möchtest du heute Abend vielleicht auch mit ihm darüber sprechen?
+- S2-T3: Das verstehe ich absolut, ich möchte auch nicht die Einzige sein, die sich um den Dreck kümmert. Wir müssen wirklich eine klare Regel finden, damit alle mithelfen. Wie findest du die Idee, dass wir feste Tage für den Müll und den Boden festlegen?
+- S2-T4: Du meinst wahrscheinlich eine Frist oder einen Termin. Wir könnten zum Beispiel eine Frist setzen, bis wann alles sauber sein muss. Was hältst du von diesem Vorschlag?
+  - **GPU:** (a) 52→60 °C; (b) 57→63 °C; (c) 61→62 °C. No 80 °C abort. `/api/ps` kept `llama3.2:1b` loaded and used `gemma4:26b`; no other project's model was unloaded. No server was started, so port 8771/8770 was untouched.
+- **Deviations from spec / extra files touched:** `PCM_1S` in `persona_eval.py` changed from silent PCM to a 1 s −6 dBFS buffer because the T013 level gate otherwise drops every scripted utterance before STT (the first attempted run failed with `empty reply`). `persona_eval.py` also calls `cool_down()` before each scenario's `Session.start()` warm-up (an LLM call), and copies `focus.json` into the temporary prompt dir when `--persona` is used. The pre-existing `.gitignore` `*.prs` line remains unstaged and is not part of this task.
+- **New dependencies (+license):** None.
+- **Open questions:** The `meta_talk` hits in (b)/(c) are all replies to the explicit `[Korrektur erlaubt]` learner turns; the lead should judge whether any are “genuine” focus leaks. The browser manual check remains for Sameer after merge.
 ## Review (Claude Code fills this in)
 - **Verdict:**
 - **Notes:**

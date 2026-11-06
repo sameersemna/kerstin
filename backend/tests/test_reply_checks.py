@@ -1,4 +1,4 @@
-from kerstin.reply_checks import check_reply, count_sentences
+from kerstin.reply_checks import check_reply, count_sentences, has_meta_talk
 
 
 def test_too_long_positive():
@@ -66,3 +66,19 @@ def test_translation_with_man_sagt_is_not_a_correction():
 
 def test_correction_negative():
     assert "correction" not in check_reply("Das klingt schön, oder?")
+
+
+def test_meta_talk_words_are_detected():
+    assert has_meta_talk("Heute liegt der Fokus auf dem Gespräch.")
+    assert has_meta_talk("Das ist ein wichtiger Schwerpunkt.")
+    assert has_meta_talk("Wollen wir Grammatik üben?")
+    assert has_meta_talk("Ich korrigiere dich später.")
+    assert has_meta_talk("Der Impuls ist nur ein Beispiel.")
+    assert has_meta_talk("Verbposition und Nebensatz sind schwierig.")
+    assert "meta_talk" in check_reply("Wollen wir Grammatik üben?")
+
+
+def test_meta_talk_uses_word_boundaries():
+    assert not has_meta_talk("Das ist hier völlig üblich.")
+    assert not has_meta_talk("Das war nur ein Fehlalarm.")
+    assert not has_meta_talk("Das klingt schön, oder?")

@@ -74,6 +74,7 @@ aside { display: flex; flex-direction: column; gap: 12px; }
 .mistake-box h2 { margin: 0 0 8px; font-size: 1rem; }
 .mistake-toggle { display: flex; gap: 6px; align-items: flex-start; font-size: .82rem; color: var(--muted); }
 .mistake-toggle input { margin-top: 3px; }
+.focus-today { margin: 8px 0 0; color: var(--accent); font-size: .85rem; font-weight: 600; }
 #mistakeSummary { margin: 8px 0; padding-left: 20px; font-size: .9rem; }
 #mistakeSummary li { margin: 3px 0; }
 .mistake-empty { color: var(--muted); font-size: .82rem; margin: 8px 0; }

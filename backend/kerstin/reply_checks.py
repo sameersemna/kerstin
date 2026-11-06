@@ -25,6 +25,11 @@ CORRECTION_PHRASES = (
 
 _ENGLISH_TOKEN_RE = re.compile(r"[a-z]+")
 _MAN_SAGT_CUES = ("nicht", "statt", "richtig", "falsch", "besser", "eher", "korrekt")
+_META_TALK_RE = re.compile(
+    r"\b(fokus|schwerpunkt|grammatik|fehler|üben|übung|korrigier\w*|"
+    r"impuls\w*|verbposition|nebensatz)\b",
+    re.IGNORECASE,
+)
 
 
 def count_sentences(text: str) -> int:
@@ -61,6 +66,10 @@ def _has_correction(text: str) -> bool:
     return False
 
 
+def has_meta_talk(text: str) -> bool:
+    return bool(_META_TALK_RE.search(text))
+
+
 def check_reply(text: str) -> list[str]:
     """Return violation codes for one full Kerstin reply."""
     codes: list[str] = []
@@ -76,4 +85,6 @@ def check_reply(text: str) -> list[str]:
         codes.append("english")
     if _has_correction(text):
         codes.append("correction")
+    if has_meta_talk(text):
+        codes.append("meta_talk")
     return codes

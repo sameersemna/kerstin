@@ -1,0 +1,62 @@
+{
+  "verbposition": {
+    "instruction": "Stelle ab und zu Warum-Fragen oder frage nach Meinungen, sodass die Person natürlich mit ‚weil‘, ‚dass‘ oder ‚obwohl‘ antworten kann.",
+    "cues": [
+      "\\bwarum\\b",
+      "\\bwieso\\b",
+      "\\bweshalb\\b",
+      "meinst du",
+      "findest du",
+      "glaubst du"
+    ]
+  },
+  "perfekt_hilfsverb": {
+    "instruction": "Frage gelegentlich nach Erlebnissen, Ausflügen und Wegen in der Vergangenheit (z. B. wohin jemand gefahren oder gegangen ist).",
+    "cues": [
+      "\\bgestern\\b",
+      "wochenende",
+      "\\bletzte[nrs]?\\b",
+      "\\bwarst du\\b",
+      "\\bbist du\\b.*\\bge\\w+en\\b"
+    ]
+  },
+  "praeposition": {
+    "instruction": "Frage gelegentlich nach Vorfreude, Ärger, Interessen oder Plänen (worauf, worüber, wofür).",
+    "cues": [
+      "\\bworauf\\b",
+      "\\bworüber\\b",
+      "\\bwofür\\b",
+      "\\bfreust du dich\\b",
+      "\\bärgerst du dich\\b",
+      "\\binteressierst du dich\\b",
+      "\\bplanst du\\b"
+    ]
+  },
+  "kasus": {
+    "instruction": "Frage gelegentlich, mit wem, bei wem oder für wen die Person etwas macht.",
+    "cues": [
+      "mit wem",
+      "bei wem",
+      "für wen",
+      "\\bwem\\b"
+    ]
+  },
+  "adjektivendung": {
+    "instruction": "Bitte die Person ab und zu, Dinge, Orte oder Menschen genauer zu beschreiben.",
+    "cues": [
+      "beschreib\\w*",
+      "\\bwie sieht\\b",
+      "\\bwas für ein\\w*",
+      "\\bwelche[rsn]?\\b"
+    ]
+  },
+  "genus": {
+    "instruction": "Frage gelegentlich nach konkreten Dingen und Gegenständen aus dem Alltag.",
+    "cues": [
+      "\\bwas für ein\\w*",
+      "\\bwelche[rsn]?\\b",
+      "\\bhast du (einen|eine|ein)\\b",
+      "\\bwo ist\\b"
+    ]
+  }
+}
