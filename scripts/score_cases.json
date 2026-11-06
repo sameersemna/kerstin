@@ -1,0 +1,174 @@
+{
+  "_note": "Calibration set for T025, written by the lead. Hold-out: no sentence from here may appear in backend/prompts/. Levels are the author's intended CEFR level; B1 = clear errors and simple structure, B2 = mostly correct with typical B2 slips, C1 = precise, idiomatic, near error-free. wohnen_B2_offtask is B2 language with a talk that ignores the card.",
+  "topics": {
+    "wohnen": {
+      "card": {"title": "Wohnen in der Stadt", "points": ["Situation in deinem Heimatland", "Vor- und Nachteile", "eigene Erfahrung", "deine Meinung"]},
+      "question": "Ist es besser, in der Stadt oder auf dem Land zu wohnen?",
+      "kerstin": [
+        "Ich finde, auf dem Land lebt man ruhiger und günstiger. Wo würdest du lieber wohnen?",
+        "Aber auf dem Land braucht man fast immer ein Auto. Ist das nicht ein großer Nachteil?",
+        "Und was ist mit Kultur und Freizeit? In der Stadt gibt es einfach mehr Angebote."
+      ]
+    },
+    "medien": {
+      "card": {"title": "Soziale Medien", "points": ["Nutzung in deinem Alltag", "Chancen und Risiken", "eigene Erfahrung", "deine Meinung"]},
+      "question": "Sollten soziale Medien erst ab 16 erlaubt sein?",
+      "kerstin": [
+        "Ich bin dafür, dass soziale Medien erst ab 16 erlaubt sind, um Kinder zu schützen. Wie siehst du das?",
+        "Aber Kinder finden doch immer einen Weg, ein Verbot zu umgehen, oder?",
+        "Wer sollte denn kontrollieren, wie alt die Nutzer wirklich sind?"
+      ]
+    },
+    "umwelt": {
+      "card": {"title": "Umwelt im Alltag", "points": ["Situation in deinem Heimatland", "was du selbst tust", "Vor- und Nachteile", "deine Meinung"]},
+      "question": "Muss man im Urlaub immer weit reisen?",
+      "kerstin": [
+        "Ich finde, im Urlaub muss man nicht weit reisen, man kann sich auch in der Nähe gut erholen. Was meinst du?",
+        "Aber Flüge sind doch schlecht für das Klima. Sollte man nicht lieber mit dem Zug fahren?",
+        "Und wie wichtig ist es dir, im Urlaub neue Kulturen kennenzulernen?"
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "wohnen_B1", "topic": "wohnen", "level": "B1",
+      "talk": [
+        "Ich spreche heute über Wohnen in der Stadt. In meinem Heimatland viele Leute wohnen in große Städte, weil dort gibt es mehr Arbeit.",
+        "Die Stadt hat viele Vorteile, zum Beispiel man hat Bus und Bahn und viele Geschäfte. Aber die Wohnung ist sehr teuer und es ist laut.",
+        "Ich wohne jetzt in Berlin seit zwei Jahre. Am Anfang ich habe kein Wohnung gefunden, das war sehr schwer für mich.",
+        "Ich finde, die Stadt ist gut für junge Leute. Aber für Familie mit Kinder ist besser auf dem Land. Das ist meine Meinung."
+      ],
+      "discussion": [
+        "Ich möchte lieber in der Stadt wohnen, weil ich mag die Kino und die Restaurants. Auf dem Land ist langweilig für mich.",
+        "Ja, das stimmt. Ich habe kein Auto und Auto ist teuer. Aber vielleicht man kann mit dem Bus fahren.",
+        "Ja, in der Stadt gibt es mehr. Ich gehe gern ins Museum mit meine Freunde."
+      ]
+    },
+    {
+      "id": "wohnen_B2", "topic": "wohnen", "level": "B2",
+      "talk": [
+        "Ich möchte heute über das Thema Wohnen in der Stadt sprechen. In meinem Heimatland ziehen immer mehr junge Leute in die großen Städte, weil es dort bessere Jobs und Studienplätze gibt.",
+        "Das Leben in der Stadt hat natürlich viele Vorteile: Man ist mit öffentlichen Verkehrsmitteln schnell überall, und es gibt ein großes Kulturangebot. Ein großer Nachteil sind allerdings die hohe Mieten und der Lärm.",
+        "Ich selbst wohne seit zwei Jahren in Berlin. Am Anfang war die Wohnungssuche sehr anstrengend, deshalb habe ich zuerst in einer WG gewohnt, was eigentlich eine gute Erfahrung war.",
+        "Meiner Meinung nach ist die Stadt ideal für Studenten und Berufsanfänger. Wenn man aber Kinder hat, würde ich eher ein Leben am Stadtrand empfehlen, weil es dort ruhiger und grüner ist."
+      ],
+      "discussion": [
+        "Ich würde trotzdem lieber in der Stadt wohnen, weil ich nicht so gern lange pendeln möchte. Auf dem Land wäre mir auf Dauer zu ruhig.",
+        "Da hast du recht, ohne Auto ist es auf dem Land schwierig. Andererseits gibt es in manchen Regionen inzwischen gute Busverbindungen, aber nicht überall.",
+        "Das stimmt, obwohl man heute vieles auch online machen kann. Für mich sind Konzerte und Theater aber wichtig, deshalb bleibe ich lieber in der Stadt."
+      ]
+    },
+    {
+      "id": "wohnen_C1", "topic": "wohnen", "level": "C1",
+      "talk": [
+        "Ich möchte heute auf das Thema Wohnen in der Stadt eingehen. In meinem Heimatland lässt sich seit Jahren eine starke Landflucht beobachten: Vor allem junge Menschen zieht es in die Metropolen, wo sie sich bessere berufliche Perspektiven erhoffen.",
+        "Die Vorteile liegen auf der Hand – kurze Wege, ein dichtes Nahverkehrsnetz und ein vielfältiges kulturelles Angebot. Dem stehen jedoch erhebliche Nachteile gegenüber, allen voran die rasant steigenden Mieten und die zunehmende Verdichtung.",
+        "Ich selbst habe nach meinem Umzug nach Berlin fast ein halbes Jahr gebraucht, um eine bezahlbare Wohnung zu finden, und habe in dieser Zeit in drei verschiedenen Zwischenmieten gewohnt.",
+        "Unterm Strich bin ich der Ansicht, dass die Stadt vor allem in bestimmten Lebensphasen attraktiv ist. Sobald Faktoren wie Familie oder Ruhe an Bedeutung gewinnen, kann das Umland durchaus die bessere Wahl sein – vorausgesetzt, die Anbindung stimmt."
+      ],
+      "discussion": [
+        "Ich würde mich nach wie vor für die Stadt entscheiden, auch wenn ich den Reiz des Landlebens durchaus nachvollziehen kann. Mir wäre die Abhängigkeit vom Auto auf Dauer zu einschränkend.",
+        "Genau das ist für mich der springende Punkt. Solange der ländliche Nahverkehr so lückenhaft ist, bleibt das Landleben für viele schlicht keine realistische Option.",
+        "Das würde ich nur bedingt so sehen. Viele Kleinstädte haben inzwischen ein erstaunlich lebendiges Kulturleben, das man allerdings erst entdecken muss."
+      ]
+    },
+    {
+      "id": "wohnen_B2_offtask", "topic": "wohnen", "level": "B2",
+      "talk": [
+        "Ich möchte über Wohnen sprechen. Letztes Jahr war ich im Urlaub in Portugal, und das war wirklich wunderschön.",
+        "Wir haben in einer kleinen Ferienwohnung direkt am Meer gewohnt, und jeden Morgen sind wir am Strand spazieren gegangen.",
+        "Das Essen war sehr lecker, besonders der Fisch, und die Leute waren sehr freundlich, obwohl wir kaum Portugiesisch sprechen konnten.",
+        "Ich kann Portugal wirklich jedem empfehlen, der Sonne und Ruhe sucht."
+      ],
+      "discussion": [
+        "Ich würde trotzdem lieber in der Stadt wohnen, weil ich nicht so gern lange pendeln möchte. Auf dem Land wäre mir auf Dauer zu ruhig.",
+        "Da hast du recht, ohne Auto ist es auf dem Land schwierig. Andererseits gibt es in manchen Regionen inzwischen gute Busverbindungen, aber nicht überall.",
+        "Das stimmt, obwohl man heute vieles auch online machen kann. Für mich sind Konzerte und Theater aber wichtig, deshalb bleibe ich lieber in der Stadt."
+      ]
+    },
+    {
+      "id": "medien_B1", "topic": "medien", "level": "B1",
+      "talk": [
+        "Mein Thema ist soziale Medien. Ich benutze jeden Tag soziale Medien, meistens am Handy, vielleicht zwei oder drei Stunde.",
+        "Es gibt Chancen, zum Beispiel man kann mit Familie in mein Land sprechen. Aber es gibt auch Risiken, viele Leute schreiben böse Kommentare und man verliert viel Zeit.",
+        "Einmal ich habe ein Foto gepostet und eine fremde Person hat mir viele Nachrichten geschickt. Das war nicht schön.",
+        "Ich denke, soziale Medien ist gut, aber man muss vorsichtig sein."
+      ],
+      "discussion": [
+        "Ja, ich bin auch dafür. Die Kinder sind zu jung und sie verstehen nicht die Gefahr.",
+        "Ja, das ist richtig. Die Kinder sind sehr schlau mit Handy. Ich weiß nicht.",
+        "Vielleicht die Eltern? Oder die Firma muss kontrollieren den Ausweis."
+      ]
+    },
+    {
+      "id": "medien_B2", "topic": "medien", "level": "B2",
+      "talk": [
+        "Ich spreche heute über soziale Medien. In meinem Alltag nutze ich sie vor allem, um mit Freunden und Familie im Ausland in Kontakt zu bleiben, und ich schaue mir oft Nachrichten oder kurze Videos an.",
+        "Soziale Medien bieten viele Chancen, zum Beispiel kann man sich schnell informieren und neue Leute kennenlernen. Auf der anderen Seite gibt es auch Risiken wie Falschinformationen oder Mobbing, besonders für Jugendliche.",
+        "Ich habe selbst gemerkt, dass ich manchmal zu viel Zeit am Handy verbringe. Deshalb habe ich letztes Jahr für einen Monat alle Apps gelöscht, und danach habe ich mich viel entspannter gefühlt.",
+        "Meiner Meinung nach sind soziale Medien nicht schlecht, aber man sollte bewusst damit umgehen und sich feste Zeiten setzen, in den man offline ist."
+      ],
+      "discussion": [
+        "Ich verstehe dein Argument, aber ich bin nicht ganz sicher. Viele Jugendliche nutzen soziale Medien auch für die Schule oder um Kontakte zu halten.",
+        "Ja, das stimmt leider. Deshalb finde ich, dass Aufklärung in der Schule wichtiger ist als ein Verbot.",
+        "Das ist eine gute Frage. Vielleicht könnten die Plattformen das Alter mit einem digitalen Ausweis überprüfen, aber das ist auch ein Problem für den Datenschutz."
+      ]
+    },
+    {
+      "id": "medien_C1", "topic": "medien", "level": "C1",
+      "talk": [
+        "Ich möchte mich heute mit sozialen Medien befassen. In meinem Alltag spielen sie eine ambivalente Rolle: Einerseits halte ich darüber den Kontakt zu Freunden in aller Welt, andererseits ertappe ich mich regelmäßig dabei, ziellos durch Feeds zu scrollen.",
+        "Die Chancen sind unbestreitbar – Informationen verbreiten sich in Echtzeit, und gerade für Minderheiten bieten Netzwerke eine Plattform, die ihnen klassische Medien lange verwehrt haben. Gleichzeitig begünstigen die Algorithmen Polarisierung und die Verbreitung von Falschmeldungen.",
+        "Mir ist das besonders während einer Wahl in meinem Heimatland bewusst geworden, als in meinem Bekanntenkreis gezielt gestreute Gerüchte für heftige Auseinandersetzungen gesorgt haben.",
+        "Ich plädiere daher nicht für Verzicht, sondern für Medienkompetenz: Wer versteht, wie Plattformen funktionieren, kann ihre Vorteile nutzen, ohne sich von ihnen vereinnahmen zu lassen."
+      ],
+      "discussion": [
+        "Im Grundsatz teile ich dein Anliegen, halte eine starre Altersgrenze aber für wenig zielführend. Entscheidend ist doch, ob Jugendliche lernen, mit den Risiken umzugehen.",
+        "Eben, und genau deshalb verlagert ein Verbot das Problem nur. Die Nutzung findet dann im Verborgenen statt, wo Eltern noch weniger Einblick haben.",
+        "Das ist in der Tat der Knackpunkt. Eine verlässliche Altersprüfung ließe sich kaum umsetzen, ohne erhebliche Datenschutzbedenken in Kauf zu nehmen."
+      ]
+    },
+    {
+      "id": "umwelt_B1", "topic": "umwelt", "level": "B1",
+      "talk": [
+        "Ich erzähle über Umwelt im Alltag. In meinem Land die Leute trennen nicht den Müll, und es gibt viel Plastik auf der Straße.",
+        "Ich mache selbst ein bisschen was. Ich fahre mit Fahrrad zur Arbeit und ich kaufe keine Plastiktüte.",
+        "Das ist gut für die Umwelt und auch für die Gesundheit. Aber Bio-Essen ist teuer, das ist ein Nachteil.",
+        "Ich glaube, alle Menschen müssen mehr für die Umwelt machen, nicht nur die Regierung."
+      ],
+      "discussion": [
+        "Ich finde, das ist richtig. Aber ich möchte reisen nach Spanien, weil da ist warm.",
+        "Ja, aber der Zug ist sehr teuer und dauert lange. Ich nehme lieber das Flugzeug, es ist schneller.",
+        "Das ist sehr wichtig für mich. Ich mag neue Essen probieren und andere Menschen treffen."
+      ]
+    },
+    {
+      "id": "umwelt_B2", "topic": "umwelt", "level": "B2",
+      "talk": [
+        "Ich möchte über das Thema Umwelt im Alltag sprechen. In meinem Heimatland ist das Umweltbewusstsein in den letzten Jahren gestiegen, aber Mülltrennung gibt es noch nicht überall.",
+        "Ich versuche selbst, im Alltag umweltfreundlich zu leben. Zum Beispiel fahre ich meistens mit dem Fahrrad, kaufe regionale Produkte und vermeide Plastikverpackungen, so gut es geht.",
+        "Das hat Vorteile für die Umwelt und auch für die Gesundheit. Ein Nachteil ist, dass nachhaltige Produkte oft teurer sind, und nicht jeder kann sich das leisten.",
+        "Ich bin der Meinung, dass jeder einen kleinen Beitrag leisten kann, aber die Politik muss auch die Rahmenbedingungen verbessern, zum Beispiel durch billigere öffentliche Verkehrsmittel."
+      ],
+      "discussion": [
+        "Da stimme ich dir teilweise zu. Für ein langes Wochenende reicht die Nähe völlig, aber für einen längeren Urlaub möchte ich gern etwas ganz anderes zu sehen.",
+        "Grundsätzlich ja, und ich fahre auch gern mit dem Zug. Das Problem ist, dass die Zugfahrt in manche Länder sehr lang und teuer ist, deshalb ist es nicht immer realistisch.",
+        "Das ist mir sehr wichtig. Wenn ich in einem anderen Land bin, möchte ich mit Einheimischen sprechen und die lokale Küche probieren, weil man so am meisten über das Land lernt."
+      ]
+    },
+    {
+      "id": "umwelt_C1", "topic": "umwelt", "level": "C1",
+      "talk": [
+        "Ich möchte heute über Umweltschutz im Alltag sprechen. In meinem Heimatland hat das Thema lange ein Nischendasein gefristet; erst seit einigen Jahren rückt es, nicht zuletzt durch zunehmende Hitzewellen, stärker ins öffentliche Bewusstsein.",
+        "Was mich selbst betrifft, habe ich vor allem meine Mobilität umgestellt: Ich besitze kein Auto mehr, lege die meisten Strecken mit dem Rad zurück und achte beim Einkaufen auf saisonale Produkte.",
+        "Der Vorteil liegt nicht nur in der geringeren Umweltbelastung, sondern auch in einer gewissen Entschleunigung. Allerdings darf man nicht verschweigen, dass sich ein nachhaltiger Lebensstil nicht jeder leisten kann.",
+        "Deshalb halte ich individuelles Handeln zwar für sinnvoll, aber nicht für ausreichend – ohne politische Weichenstellungen wird sich am Gesamtbild wenig ändern."
+      ],
+      "discussion": [
+        "Dem kann ich weitgehend zustimmen. Gerade in Deutschland unterschätzt man oft, wie abwechslungsreich ein Urlaub ein paar Bahnstunden entfernt sein kann.",
+        "Grundsätzlich schon, nur scheitert das in der Praxis oft an den Preisen. Solange ein Flug günstiger ist als die Bahnfahrt, darf man sich über die Entscheidung vieler Reisender nicht wundern.",
+        "Ehrlich gesagt ist mir das gar nicht so wichtig, wie man vielleicht denkt. Begegnungen mit anderen Kulturen ergeben sich auch zu Hause, wenn man offen dafür ist."
+      ]
+    }
+  ]
+}
