@@ -267,7 +267,7 @@ function isExamPrep() {
 
 function examBlocksSpeech() {
   return (
-    Boolean(examSession || modeEl.value) &&
+    Boolean(examSession) &&
     (!examPart || examPart.kind === "prep" || examPart.kind === "done")
   );
 }
