@@ -6,7 +6,7 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 
 | Frame | Meaning |
 |---|---|
-| `{"type":"start","scenario":"<key>"}` | Start (or restart) a session. Keys from `GET /api/scenarios`. |
+| `{"type":"start","scenario":"<key>","use_focus"?}` | Start (or restart) a session. Keys from `GET /api/scenarios`. `use_focus` is opt-in, strict boolean, and defaults to off. |
 | **binary** | One complete learner utterance: 16 kHz, mono, signed 16-bit little-endian PCM, no header. Implicitly starts turn `n+1` and cancels any running turn. |
 | `{"type":"interrupt"}` | Learner barged in; cancel the running turn. |
 | `{"type":"hint","query"}` | Typed word/phrase lookup; text only, outside the conversation. |
@@ -17,7 +17,7 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 
 | Frame | Meaning |
 |---|---|
-| `{"type":"session","scenario","title"}` | Session started; reset UI, `turn = 0`. |
+| `{"type":"session","scenario","title","focus":[...]}` | Session started; reset UI, `turn = 0`. `focus` is the list of active focus labels, empty when off. |
 | `{"type":"status","state":"transcribing"\|"thinking"\|"feedback_running","turn"}` | Progress hints. |
 | `{"type":"transcript","turn","text"}` | What STT heard. |
 | `{"type":"stt_empty","turn","reason"?}` | Nothing recognized. Optional `reason`: `too_short`, `too_quiet`, `tags_only`, `hallucination`, `echo` or `empty`. |

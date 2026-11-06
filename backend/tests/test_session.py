@@ -96,15 +96,23 @@ class FakeTTS:
 
 
 class FakeMistakeLog:
-    def __init__(self, error=None):
+    def __init__(self, error=None, summary=None):
         self.calls = []
         self.error = error
+        self.summary_data = summary or {"sessions": 0, "categories": []}
+        self.summary_days = []
 
     async def record(self, scenario, lang, categories):
         self.calls.append((scenario, lang, list(categories)))
         if self.error:
             raise self.error
         return len(categories)
+
+    async def summary(self, days=90):
+        self.summary_days.append(days)
+        if self.error:
+            raise self.error
+        return self.summary_data
 
 
 class CountingSTT:
@@ -140,6 +148,7 @@ def make_session(
     feedback_temperature=0.3,
     ollama_max_loaded=2,
     mistakes=None,
+    focus=None,
 ):
     sent_json, sent_bytes = [], []
 
@@ -165,7 +174,13 @@ def make_session(
         ollama_max_loaded=ollama_max_loaded,
         mistakes=mistakes,
     )
-    return Session(deps=deps, send_json=sj, send_bytes=sb, scenario_key="freies_gespraech"), sent_json, sent_bytes
+    return Session(
+        deps=deps,
+        send_json=sj,
+        send_bytes=sb,
+        scenario_key="freies_gespraech",
+        focus=focus or [],
+    ), sent_json, sent_bytes
 
 
 PCM_1S = array(
@@ -216,6 +231,7 @@ async def test_opener_and_turn():
     s, js, bs = make_session(llm)
     await s.start()
     assert js[0]["type"] == "session"
+    assert js[0]["focus"] == []
     assert any(m["type"] == "reply_text" for m in js)
 
     await s.handle_audio(PCM_1S)
@@ -745,3 +761,46 @@ async def test_feedback_without_learner_lines_does_not_save_mistakes():
     ]
     assert not any(m["type"] == "mistakes_saved" for m in js)
     assert llm.chat_calls == 0
+
+
+async def test_focus_session_reuses_one_system_prompt_and_reports_labels():
+    llm = FakeLLM(["Hallo."])
+    s, js, _ = make_session(llm, focus=["verbposition", "kasus"])
+
+    await s.start()
+    assert s._warmup_task is not None
+    await s._warmup_task
+    await s.handle_audio(PCM_1S)
+    await s._turn_task
+
+    assert js[0]["focus"] == ["Verbposition", "Kasus"]
+    assert llm.warmup_calls[0][0]["content"] == s._system
+    assert llm.last_messages[0]["content"] == s._system
+    assert "## Gesprächsimpulse (geheim)" in s._system
+
+
+async def test_start_focus_is_strict_and_uses_the_mistake_log():
+    from kerstin.main import _focus_for_start
+
+    mistakes = FakeMistakeLog(
+        summary={
+            "sessions": 3,
+            "categories": [
+                {"key": "wortwahl", "label": "Wortwahl", "count": 9},
+                {"key": "verbposition", "label": "Verbposition", "count": 4},
+                {"key": "kasus", "label": "Kasus", "count": 2},
+            ],
+        }
+    )
+    deps = Deps(
+        stt=None,
+        llm=None,
+        tts=None,
+        prompts=PromptStore(BACKEND_DIR / "prompts"),
+        mistakes=mistakes,
+    )
+
+    assert await _focus_for_start(deps, "true") == []
+    assert mistakes.summary_days == []
+    assert await _focus_for_start(deps, True) == ["verbposition", "kasus"]
+    assert mistakes.summary_days == [30]

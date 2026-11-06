@@ -6,7 +6,7 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 
 from kerstin.feedback_checks import FeedbackError
-from kerstin.mistakes import CATEGORIES, MistakeLog, classify
+from kerstin.mistakes import CATEGORIES, MistakeLog, classify, pick_focus
 
 # Real 💡 lines copied from docs/tasks/T016-feedback-quality.md,
 # docs/tasks/T011-feedback-model.md and docs/tasks/T017-feedback-language.md.
@@ -309,3 +309,55 @@ async def test_clear_missing_file_does_not_create_it(tmp_path):
 
     assert not path.exists()
     assert not path.parent.exists()
+
+
+def _summary(*items: tuple[str, int]) -> dict:
+    return {
+        "sessions": 3,
+        "categories": [
+            {"key": key, "label": key, "count": count} for key, count in items
+        ],
+    }
+
+
+def test_pick_focus_orders_by_count_and_respects_min_count():
+    summary = _summary(("kasus", 2), ("verbposition", 4), ("genus", 1))
+
+    assert pick_focus(summary, {"kasus", "verbposition", "genus"}) == [
+        "verbposition",
+        "kasus",
+    ]
+    assert pick_focus(summary, {"kasus", "verbposition", "genus"}, min_count=5) == []
+
+
+def test_pick_focus_filters_available_and_caps_at_max_n():
+    summary = _summary(
+        ("verbposition", 5),
+        ("perfekt_hilfsverb", 4),
+        ("praeposition", 3),
+    )
+
+    assert pick_focus(summary, {"verbposition", "praeposition"}) == [
+        "verbposition",
+        "praeposition",
+    ]
+    assert pick_focus(
+        summary, {"verbposition", "perfekt_hilfsverb", "praeposition"}, max_n=3
+    ) == ["verbposition", "perfekt_hilfsverb", "praeposition"]
+    assert pick_focus(summary, {"verbposition"}, max_n=0) == []
+
+
+def test_pick_focus_breaks_ties_by_key():
+    summary = _summary(("praeposition", 2), ("kasus", 2), ("genus", 2))
+
+    assert pick_focus(summary, {"praeposition", "kasus", "genus"}) == [
+        "genus",
+        "kasus",
+    ]
+
+
+def test_pick_focus_handles_empty_summary_and_never_picks_text_categories():
+    assert pick_focus({"sessions": 0, "categories": []}, set(CATEGORIES)) == []
+    summary = _summary(("wortwahl", 10), ("sonstiges", 9), ("kasus", 2))
+
+    assert pick_focus(summary, set(CATEGORIES)) == ["kasus"]

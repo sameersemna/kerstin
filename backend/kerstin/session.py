@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from .audio import pcm16_duration_s, pcm16_rms_dbfs
 from .feedback_checks import parse_errors
 from .llm import Message, OllamaLLM
-from .mistakes import MistakeLog, classify
+from .mistakes import CATEGORIES, MistakeLog, classify
 from .prompts import PromptStore
 from .stt import STT
 from .stt_filter import clean_transcript, is_echo
@@ -83,8 +83,10 @@ class Session:
     send_json: SendJson
     send_bytes: SendBytes
     scenario_key: str
+    focus: list[str] = field(default_factory=list)
     history: list[Message] = field(default_factory=list)
     turn_id: int = 0
+    _system: str | None = None
     _turn_task: asyncio.Task | None = None
     _warmup_task: asyncio.Task | None = None
     _hint_task: asyncio.Task | None = None
@@ -93,8 +95,18 @@ class Session:
 
     async def start(self) -> None:
         sc = self.deps.prompts.scenario(self.scenario_key)
+        self._system = self.deps.prompts.system_prompt(
+            self.scenario_key, self.focus or None
+        )
         self.history.clear()
-        await self.send_json({"type": "session", "scenario": sc.key, "title": sc.title})
+        await self.send_json(
+            {
+                "type": "session",
+                "scenario": sc.key,
+                "title": sc.title,
+                "focus": [CATEGORIES[key] for key in self.focus],
+            }
+        )
 
         thermal = await self._thermal_check()
         if thermal is not None and thermal.state == "hot":
@@ -103,10 +115,7 @@ class Session:
             return
 
         if self.deps.llm_warmup:
-            system = {
-                "role": "system",
-                "content": self.deps.prompts.system_prompt(self.scenario_key),
-            }
+            system = {"role": "system", "content": self._system}
             warmup_messages = [system, {"role": "assistant", "content": sc.opener}]
             self._warmup_task = asyncio.create_task(self.deps.llm.warmup(warmup_messages))
         await self._speak_fixed(sc.opener)
@@ -259,7 +268,11 @@ class Session:
     # ---------- internals ----------
 
     def _messages(self) -> list[Message]:
-        system = {"role": "system", "content": self.deps.prompts.system_prompt(self.scenario_key)}
+        system = {
+            "role": "system",
+            "content": self._system
+            or self.deps.prompts.system_prompt(self.scenario_key, self.focus or None),
+        }
         return [system, *self.history[-self.deps.history_max_turns :]]
 
     async def _thermal_check(self) -> ThermalStatus | None:

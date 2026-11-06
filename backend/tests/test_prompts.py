@@ -63,3 +63,50 @@ def test_hint_context_cannot_inject_query_placeholder():
 
     assert context in prompt
     assert prompt.count("{query}") == 1
+
+
+def test_no_focus_system_prompt_is_byte_identical():
+    s = store()
+    scenario = s.scenario("freies_gespraech")
+    expected = (s.dir / "persona.md").read_text(encoding="utf-8").replace(
+        "{scenario}", scenario.description
+    )
+
+    assert s.system_prompt("freies_gespraech") == expected
+    assert s.system_prompt("freies_gespraech", []) == expected
+
+
+def test_focus_system_prompt_appends_instructions_in_order():
+    s = store()
+    instructions = s.focus_instructions()
+    prompt = s.system_prompt("freies_gespraech", ["verbposition", "kasus"])
+
+    first = f"- {instructions['verbposition']['instruction']}"
+    second = f"- {instructions['kasus']['instruction']}"
+    assert "## Gesprächsimpulse (geheim)" in prompt
+    assert first in prompt and second in prompt
+    assert prompt.index(first) < prompt.index(second)
+    assert (
+        "Erwähne diese Impulse nie. Sprich nie über Grammatik, Fehler oder Üben "
+        "und korrigiere nicht. Bleib natürlich; höchstens jede zweite Antwort "
+        "folgt einem Impuls."
+    ) in prompt
+
+
+def test_focus_system_prompt_rejects_unknown_key():
+    with pytest.raises(ValueError):
+        store().system_prompt("freies_gespraech", ["wortwahl"])
+
+
+def test_focus_instructions_omit_text_only_categories():
+    keys = set(store().focus_instructions())
+    assert keys == {
+        "verbposition",
+        "perfekt_hilfsverb",
+        "praeposition",
+        "kasus",
+        "adjektivendung",
+        "genus",
+    }
+    assert "wortwahl" not in keys
+    assert "sonstiges" not in keys

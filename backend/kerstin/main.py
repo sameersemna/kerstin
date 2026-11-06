@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from . import __version__
 from .config import settings
 from .llm import OllamaLLM
-from .mistakes import MistakeLog
+from .mistakes import MistakeLog, pick_focus
 from .prompts import PromptStore
 from .session import Deps, Session
 from .stt import make_stt
@@ -31,6 +31,20 @@ logging.basicConfig(
 log = logging.getLogger("kerstin")
 
 deps: Deps | None = None
+
+
+async def _focus_for_start(deps: Deps, use_focus: object) -> list[str]:
+    """Resolve focus keys for a start frame; strict bool and fail-safe."""
+    if use_focus is not True or deps.mistakes is None:
+        return []
+    try:
+        summary = await deps.mistakes.summary(days=30)
+        focus = pick_focus(summary, set(deps.prompts.focus_instructions()))
+    except Exception as exc:  # noqa: BLE001 — steering is optional
+        log.warning("focus lookup failed (%s)", type(exc).__name__)
+        return []
+    log.info("focus=%s", ",".join(focus))
+    return focus
 
 
 @asynccontextmanager
@@ -165,11 +179,13 @@ async def ws_endpoint(ws: WebSocket) -> None:
             if kind == "start":
                 if session:
                     await session.close()
+                focus = await _focus_for_start(deps, data.get("use_focus"))
                 session = Session(
                     deps=deps,
                     send_json=send_json,
                     send_bytes=send_bytes,
                     scenario_key=data.get("scenario") or settings.default_scenario,
+                    focus=focus,
                 )
                 await session.start()
             elif kind == "interrupt" and session:

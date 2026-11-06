@@ -11,7 +11,9 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
+import re
 import shutil
+import statistics
 import sys
 import tempfile
 from collections import Counter
@@ -27,7 +29,7 @@ from kerstin.session import Deps, Session
 from kerstin.tts import NoTTS
 from smoke_test import COOL_AT_C, COOL_TO_C, ThermalAbort, cool_down
 
-PCM_1S = b"\x00\x00" * 16000
+PCM_1S = b"\x00\x40" * 16000  # 1 s at -6 dBFS; scripted STT ignores the samples
 TURN_TIMEOUT_S = 180.0
 ENGLISH_LINE = "Sorry, how do you say 'deadline' in German?"
 
@@ -48,6 +50,7 @@ class TurnResult:
     line: LearnerLine
     reply: str
     codes: list[str]
+    llm_first_token_ms: int | None = None
 
 
 SCRIPT: dict[str, list[LearnerLine]] = {
@@ -173,6 +176,7 @@ def prompt_store(settings: Settings, persona_path: Path):
     with tempfile.TemporaryDirectory() as tmp:
         tmp_dir = Path(tmp)
         shutil.copy(settings.prompts_dir / "scenarios.json", tmp_dir / "scenarios.json")
+        shutil.copy(settings.prompts_dir / "focus.json", tmp_dir / "focus.json")
         shutil.copy(candidate, tmp_dir / "persona.md")
         yield PromptStore(tmp_dir)
 
@@ -185,6 +189,7 @@ async def run_scenario(
     prompts: PromptStore,
     args: argparse.Namespace,
     scenario_index: int,
+    focus_keys: list[str],
 ) -> list[TurnResult]:
     stt = ScriptedSTT()
     messages: list[dict] = []
@@ -208,11 +213,13 @@ async def run_scenario(
         send_json=send_json,
         send_bytes=send_bytes,
         scenario_key=scenario_key,
+        focus=focus_keys,
     )
 
     results: list[TurnResult] = []
     print(f"\n=== {scenario_key} ===")
     try:
+        await cool_down(f"before {scenario_key} start", args.cool_at, args.cool_to)
         await session.start()
         opener = next(
             (
@@ -256,11 +263,28 @@ async def run_scenario(
                 raise EvalError(f"{scenario_key} turn {index}: empty reply")
 
             codes = check_reply(reply)
+            metrics = next(
+                (
+                    message
+                    for message in turn_messages
+                    if message.get("type") == "metrics"
+                    and message.get("turn") == turn_id
+                ),
+                None,
+            )
             allowed = " [Korrektur erlaubt]" if line.correction_allowed else ""
             inline = ", ".join(codes) if codes else "-"
             print(f"Lernende [{reply_id}]{allowed}: {line.text}")
             print(f"Kerstin [{reply_id}]: {reply}  [codes: {inline}]")
-            results.append(TurnResult(scenario_key, line, reply, codes))
+            results.append(
+                TurnResult(
+                    scenario_key,
+                    line,
+                    reply,
+                    codes,
+                    metrics.get("llm_first_token_ms") if metrics else None,
+                )
+            )
             if args.pause > 0:
                 await asyncio.sleep(args.pause)
     finally:
@@ -269,11 +293,32 @@ async def run_scenario(
     return results
 
 
+def invite_rate(results: list[TurnResult], cues: list[str]) -> tuple[int, int]:
+    hits = sum(
+        1
+        for result in results
+        if any(re.search(cue, result.reply.lower()) for cue in cues)
+    )
+    return hits, len(results)
+
+
+def warm_first_tokens(results: list[TurnResult]) -> list[int]:
+    seen: set[str] = set()
+    values: list[int] = []
+    for result in results:
+        if result.scenario in seen and result.llm_first_token_ms is not None:
+            values.append(result.llm_first_token_ms)
+        seen.add(result.scenario)
+    return values
+
+
 def print_summary(
     results: list[TurnResult],
     gpu_start: int | None,
     gpu_end: int | None,
     model: str,
+    focus_keys: list[str],
+    focus_cues: list[str],
 ) -> None:
     code_counts = Counter(code for result in results for code in result.codes)
     total = len(results)
@@ -282,8 +327,9 @@ def print_summary(
     )
     mean_words = sum(len(result.reply.split()) for result in results) / total if total else 0.0
 
-    print("\n(b) Summary")
+    print("\nSummary")
     print(f"model: {model}")
+    print(f"focus: {', '.join(focus_keys) if focus_keys else 'none'}")
     print(f"{'code':<20}{'count':>6}")
     print("-" * 26)
     for code in (
@@ -293,12 +339,33 @@ def print_summary(
         "digits",
         "english",
         "correction",
+        "meta_talk",
     ):
         print(f"{code:<20}{code_counts.get(code, 0):>6}")
     print(f"\ntotal replies: {total}")
     print(f"mean sentences/reply: {mean_sentences:.2f}")
     print(f"mean words/reply: {mean_words:.2f}")
+    if focus_cues:
+        hits, count = invite_rate(results, focus_cues)
+        print(f"invite rate (focus cues): {hits}/{count} = {100 * hits / count:.0f}%")
+    else:
+        print("invite rate (focus cues): n/a (no focus)")
+    warm = warm_first_tokens(results)
+    if warm:
+        print(f"llm_first_token_ms p50 (warm): {statistics.median(warm):.0f}")
+    else:
+        print("llm_first_token_ms p50 (warm): n/a")
     print(f"GPU: start {gpu_start} °C, end {gpu_end} °C")
+
+
+def print_meta_talk(results: list[TurnResult]) -> None:
+    print("\nMeta-talk hits")
+    hits = [result for result in results if "meta_talk" in result.codes]
+    if not hits:
+        print("none")
+        return
+    for index, result in enumerate(hits, 1):
+        print(f"{index}. [{result.scenario}] {result.reply}")
 
 
 def print_corrections(results: list[TurnResult]) -> None:
@@ -321,11 +388,22 @@ async def run(args: argparse.Namespace) -> None:
     overrides = {"ollama_model": args.model} if args.model else {}
     settings = Settings(**overrides)
     llm = OllamaLLM(settings)
-    print(f"\nModel: {settings.ollama_model} | seed: {args.seed}")
+    focus_keys = [key.strip() for key in args.focus.split(",") if key.strip()]
+    print(
+        f"\nModel: {settings.ollama_model} | seed: {args.seed} | "
+        f"focus: {', '.join(focus_keys) if focus_keys else 'none'}"
+    )
     try:
         with prompt_store(settings, args.persona) as prompts:
             scenario_keys = list(SCRIPT) if args.scenario is None else [args.scenario]
             scenario_order = list(SCRIPT)
+            instructions = prompts.focus_instructions()
+            unknown = [key for key in focus_keys if key not in instructions]
+            if unknown:
+                raise EvalError(f"unknown focus: {', '.join(unknown)}")
+            focus_cues = [
+                cue for key in focus_keys for cue in instructions[key]["cues"]
+            ]
             gpu_start = await cool_down("at start", args.cool_at, args.cool_to)
             results: list[TurnResult] = []
             for scenario_key in scenario_keys:
@@ -339,9 +417,18 @@ async def run(args: argparse.Namespace) -> None:
                     prompts,
                     args,
                     scenario_index,
+                    focus_keys,
                 )
             gpu_end = await cool_down("at end", args.cool_at, args.cool_to)
-        print_summary(results, gpu_start, gpu_end, settings.ollama_model)
+        print_summary(
+            results,
+            gpu_start,
+            gpu_end,
+            settings.ollama_model,
+            focus_keys,
+            focus_cues,
+        )
+        print_meta_talk(results)
         print_corrections(results)
     finally:
         await llm.client.aclose()
@@ -352,6 +439,11 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument("--scenario", choices=list(SCRIPT), default=None)
     parser.add_argument("--model", default=None, help="override ollama_model for this run")
+    parser.add_argument(
+        "--focus",
+        default="",
+        help="comma-separated focus keys (e.g. verbposition or perfekt_hilfsverb,praeposition)",
+    )
     parser.add_argument("--pause", type=float, default=2.0, help="seconds between turns")
     parser.add_argument("--cool-at", type=int, default=COOL_AT_C)
     parser.add_argument("--cool-to", type=int, default=COOL_TO_C)

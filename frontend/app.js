@@ -7,6 +7,7 @@ const $ = (id) => document.getElementById(id);
 const logEl = $("log"), stateEl = $("state"), metricsEl = $("metrics"), feedbackEl = $("feedback");
 const hintListEl = $("hintList"), hintInputEl = $("hintInput"), hintBtn = $("hintBtn");
 const mistakeBoxEl = $("mistakeBox"), saveMistakesEl = $("saveMistakes");
+const useFocusEl = $("useFocus"), focusTodayEl = $("focusToday");
 const mistakeSummaryEl = $("mistakeSummary"), clearMistakesBtn = $("clearMistakes");
 
 let ws = null;
@@ -30,6 +31,7 @@ const HINT_ERRORS = {
 const MIC_MODE_KEY = "kerstin.micMode";
 const FEEDBACK_LANG_KEY = "kerstin.feedbackLang";
 const SAVE_MISTAKES_KEY = "kerstin.saveMistakes";
+const USE_FOCUS_KEY = "kerstin.useFocus";
 let clearMistakesArmed = false;
 let clearMistakesTimer = null;
 try {
@@ -40,6 +42,7 @@ try {
     feedbackLang = savedFeedbackLang;
   }
   saveMistakesEl.checked = localStorage.getItem(SAVE_MISTAKES_KEY) === "1";
+  useFocusEl.checked = localStorage.getItem(USE_FOCUS_KEY) === "1";
 } catch {}
 
 // ---------- UI helpers ----------
@@ -195,6 +198,9 @@ clearMistakesBtn.onclick = () => {
 saveMistakesEl.onchange = () => {
   try { localStorage.setItem(SAVE_MISTAKES_KEY, saveMistakesEl.checked ? "1" : "0"); } catch {}
 };
+useFocusEl.onchange = () => {
+  try { localStorage.setItem(USE_FOCUS_KEY, useFocusEl.checked ? "1" : "0"); } catch {}
+};
 
 // ---------- audio playback ----------
 function maybePlaybackIdle() {
@@ -290,6 +296,13 @@ function handle(msg) {
       hintEntries = [];
       renderHints();
       setHintEnabled(true);
+      if (Array.isArray(msg.focus) && msg.focus.length) {
+        focusTodayEl.textContent = "Heute im Fokus: " + msg.focus.join(", ");
+        focusTodayEl.hidden = false;
+      } else {
+        focusTodayEl.textContent = "";
+        focusTodayEl.hidden = true;
+      }
       break;
     case "hint":
       resolveHint(msg);
@@ -396,7 +409,11 @@ async function start() {
     },
   });
   vadInstance.start();
-  ws.send(JSON.stringify({ type: "start", scenario: $("scenario").value }));
+  ws.send(JSON.stringify({
+    type: "start",
+    scenario: $("scenario").value,
+    use_focus: useFocusEl.checked,
+  }));
   $("endBtn").disabled = false;
   setState("hört zu …", "listening");
 }
