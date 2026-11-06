@@ -811,3 +811,12 @@ Allowed files (round 1): `backend/prompts/exam.md`, `backend/kerstin/exam.py`, `
 4. Rerun the same 4 runs (same seed, same pinned sets). Paste summaries + every reply by part.
 
 Allowed files (round 2): `backend/kerstin/session.py` (marker strings and a small helper only), `scripts/exam_eval.py`, `backend/tests/test_exam.py`, this task file.
+
+### Review — round 2
+- **Verdict:** Accepted. Merged to main.
+- **Notes:**
+  - Diff: `exam_enter_marker` (per-part markers) and `_codes_for` (no_question only in dialog). Small and within the allowed files. 231 Python + 23 Node tests pass, and lint passes.
+  - „ihr/euch“: 0 in all 4 talks (was 2/4). Both planning openers start with „Ich schlage vor, …“. Discussion openers take a position. Counterpoints after agreement show in every run.
+  - The B/telc FAIL is accepted. It comes from `too_long` (4 sentences, T9/T10/T14/T16) and one discussion reply that ends on a proposal instead of a question (T13). Both are natural for an exam partner and within the normal persona variance.
+  - German slips (≈40 replies): „die weniger Lärmbelastung“ (→ geringere). Minor oddities: „Parks zum Bouldern“, „etwas zum Kochen vorbereiten“. One everyday brand mention („Airbnb“) in Kerstin's speech, not on a card. This is acceptable, and the card-level no-brand rule (D021) is untouched.
+  - Carry over to T026/T025: formulaic reply openers („Da hast du absolut recht“, „Das ist ein sehr wichtiger Punkt“) repeat across runs.
