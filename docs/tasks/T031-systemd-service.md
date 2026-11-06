@@ -213,5 +213,10 @@ $ journalctl --user -u kerstin-dev --since "-10 min" | grep -ciE "Wochenende|Fre
 - **Open questions:** The literal health acceptance path `.ok` does not match the existing API; the lead should decide whether the criterion should use `.ollama.ok` or a future health-shape change.
 
 ## Review (Claude Code fills this in)
-- **Verdict:** accept / revise
+- **Verdict:** Accepted (2026-11-06) with one small lead fix.
 - **Notes:**
+  - Verified: 259 Python + 33 JS tests and ruff pass. `systemd-analyze --user verify` on the rendered unit exits 0. The other projects' unit files in `~/.config/systemd/user/` are unchanged. The name guard, the marker refusal and the dry-run (which touches nothing) are correct.
+  - Lead fix: the start-limit test left `kerstin-dev` listed as `failed` in the user manager after uninstall. A later install would have its `restart` refused while the start limit is active. The installer now runs `systemctl --user reset-failed <name>` before restart and after uninstall. The stale `kerstin-dev` entry was cleared.
+  - Spec error (mine): `/health` has no top-level `ok`; `jq .ollama.ok` is the right check. Kilo handled it correctly.
+  - Known limits: `status` without `--port` reads the port from `.env`, so pass the same `--port` you installed with. A repo path containing spaces or `|` would break the render. Neither applies to the current setup.
+  - Pending: Sameer's `make service-install` on 8770 (stop a manual `make run` first).

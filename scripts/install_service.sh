@@ -101,6 +101,7 @@ print_commands() {
   case "$ACTION" in
     install)
       echo "# would run: systemctl --user daemon-reload"
+      echo "# would run: systemctl --user reset-failed $NAME"
       echo "# would run: systemctl --user restart $NAME"
       if (( ENABLE )); then
         echo "# would run: systemctl --user enable $NAME"
@@ -152,6 +153,8 @@ case "$ACTION" in
     if command -v ss >/dev/null 2>&1 && ss -ltn 2>/dev/null | awk '{print $4}' | grep -Eq "([.:])${port}$"; then
       echo "warning: port $port is already listening (stop a manual make run first)" >&2
     fi
+    # Clear a previous start-limit failure so restart is not refused.
+    systemctl --user reset-failed "$NAME" 2>/dev/null || true
     systemctl --user restart "$NAME"
     if (( ENABLE )); then
       systemctl --user enable "$NAME"
@@ -175,6 +178,7 @@ case "$ACTION" in
     systemctl --user disable --now "$NAME" || true
     rm -f "$UNIT"
     systemctl --user daemon-reload
+    systemctl --user reset-failed "$NAME" 2>/dev/null || true
     echo "Uninstalled $UNIT"
     ;;
   status)
