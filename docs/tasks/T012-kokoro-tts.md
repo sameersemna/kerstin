@@ -335,5 +335,13 @@ status=0
 - **Open questions:** Sameer still needs to listen to `/tmp/kilo/t012-listening` and choose the voice/device; the default remains `piper` and `KOKORO_DEVICE=cpu`. Exact CPU-vs-CUDA waveform equality is not expected; intelligibility was measured via WER.
 
 ## Review (Claude Code fills this in)
-- **Verdict:** accept / revise
+- **Verdict:** Accepted (2026-11-06) with lead fixes. The engineering is sound. Voice and device choice is Sameer's (pending listening).
 - **Notes:**
+  - Verified: 274 Python + 33 JS tests and ruff pass. The main `.venv` has no torch. `scripts/tts_sentences.json` is unchanged. The sidecar has no silent CUDA fallback, a single synthesis lock, no input text in logs, loopback by default, and HF revisions + SHA-256 pinned. No sidecar or test server is left running.
+  - **Result:** Kokoro on CUDA is fast. Reply p50 is 80–94 ms vs Piper 152 ms. End-to-end `first_audio_ms` p50 is 1023 ms (cuda) vs 1070 ms (piper) vs 2415 ms (cpu), at 56–60 °C peak. Kokoro on CPU is unusable for Kerstin (≈1.6 s per reply sentence), so a Kokoro switch implies `KOKORO_DEVICE=cuda`. Cost: ≈1.25–1.6 GB VRAM held while the sidecar runs (no compute when idle) and ≈3 GB RSS. The end-to-end gain is small (≈50 ms): the case for Kokoro is the voice, not latency.
+  - **Intelligibility:** all Kokoro voices are at or below Piper's WER. Kokoro expands „z. B.“/„usw.“ correctly where Piper produced „Z wie … aus“, and gets „Warnemünde“/„Würzburg“ right. Loanwords stay weak („Homeoffice“ for Kerstin/Victoria).
+  - Lead fix 1 (my spec gap): Victoria's card says the speaker is "synthetic". The kikiri base it builds on was "trained entirely on synthetic (TTS-generated) audio" from an unnamed TTS, the same provenance problem as the excluded Martin. LICENSES: Victoria ❌ for the default path. Kerstin ⚠️ (real CC0 data, but the kikiri pipeline has a synthetic stage-1 base), to verify in T043. Thorsten stays ✅. Added a row for the `hexgrad/Kokoro-82M` base weights.
+  - Lead fix 2: `float_to_wav` used a per-sample Python loop: 25 ms per 4 s of audio, about a quarter of CUDA synthesis time. Now vectorised with numpy: 0.25 ms.
+  - Minor: the `core.py` tests need numpy in the main venv. It comes in via Piper's dependencies, not a declared dep. Fine with `make setup`.
+  - torch 2.9.1+cu130 warns that GB10 capability 12.1 is above its declared 12.0. It works, but re-check on torch upgrades.
+  - Pending (Sameer): listen to `/tmp/kilo/t012-listening` (blind, `key.json`) and decide voice + device. Switching the default needs a DECISIONS entry and a follow-up task (systemd unit for the sidecar, `KOKORO_DEVICE=cuda`, health check in Kerstin).

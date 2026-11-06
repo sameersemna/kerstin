@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import io
 import wave
-from array import array
 from dataclasses import dataclass
+
+import numpy as np
 
 MAX_INPUT_CHARS = 600
 
@@ -48,10 +49,10 @@ def fix_phonemes(ps: str) -> str:
 
 
 def float_to_wav(samples, rate: int = 24000) -> bytes:
-    pcm = array("h")
-    for sample in samples:
-        value = max(-1.0, min(1.0, float(sample)))
-        pcm.append(int(round(value * 32767)))
+    # Vectorised: a per-sample Python loop cost ~25 ms per 4 s of audio,
+    # a quarter of the CUDA synthesis time (T012 review).
+    clipped = np.clip(np.asarray(samples, dtype=np.float32), -1.0, 1.0)
+    pcm = np.rint(clipped * 32767).astype("<i2")
     buf = io.BytesIO()
     with wave.open(buf, "wb") as wav:
         wav.setnchannels(1)
