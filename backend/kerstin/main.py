@@ -120,6 +120,21 @@ async def scenarios() -> JSONResponse:
     )
 
 
+@app.get("/api/exams")
+async def exams() -> JSONResponse:
+    try:
+        presets = load_presets(settings.prompts_dir)["presets"]
+    except Exception as exc:  # noqa: BLE001 — the API must never 500
+        log.warning("exam presets unavailable (%s)", type(exc).__name__)
+        return JSONResponse([])
+    return JSONResponse(
+        [
+            {"key": key, "title": preset["title"], "note": preset["note"]}
+            for key, preset in presets.items()
+        ]
+    )
+
+
 @app.get("/api/mistakes")
 async def mistakes_summary() -> JSONResponse:
     assert deps is not None

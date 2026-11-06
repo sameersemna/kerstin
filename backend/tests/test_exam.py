@@ -9,7 +9,9 @@ import pytest
 
 from kerstin.config import BACKEND_DIR
 from kerstin.exam import MODERATION_PREFIX, is_moderation, load_presets, make_plan
-from kerstin.session import exam_enter_marker
+from kerstin.prompts import PromptStore
+from kerstin.session import Deps, Session, exam_enter_marker
+from kerstin.tts import NoTTS
 
 
 def catalog() -> dict:
@@ -144,3 +146,74 @@ def test_exam_enter_markers_are_part_specific():
 
     assert exam_enter_marker(plan.parts[0], 0) is None
     assert exam_enter_marker(plan.parts[1], 1) is None
+
+
+PCM_1S = b"\x00\x40" * 16000
+
+
+class CountingSTT:
+    def __init__(self):
+        self.calls = 0
+        self.text = "Ich möchte etwas sagen."
+
+    async def transcribe(self, pcm16):
+        self.calls += 1
+        return self.text
+
+
+class FakeLLM:
+    def __init__(self):
+        self.stream_calls = 0
+
+    async def stream_chat(self, messages, max_tokens=None):
+        self.stream_calls += 1
+        yield "Hallo."
+
+
+async def test_prep_guard_drops_before_stt_and_collect_after_exam_next():
+    plan = make_plan("praesentation_diskussion_planung", catalog(), 1)
+    stt = CountingSTT()
+    llm = FakeLLM()
+    sent = []
+
+    async def send_json(message):
+        sent.append(message)
+
+    async def send_bytes(data):
+        return None
+
+    session = Session(
+        deps=Deps(
+            stt=stt,
+            llm=llm,
+            tts=NoTTS(),
+            prompts=PromptStore(BACKEND_DIR / "prompts"),
+            llm_warmup=False,
+        ),
+        send_json=send_json,
+        send_bytes=send_bytes,
+        scenario_key="freies_gespraech",
+        exam=plan,
+    )
+
+    await session.start()
+    assert sent[-1]["type"] == "exam_part"
+    assert sent[-1]["kind"] == "prep"
+
+    await session.handle_audio(PCM_1S)
+    await session._turn_task
+    assert stt.calls == 0
+    assert sent[-1] == {"type": "stt_empty", "turn": 1, "reason": "prep"}
+    assert session.turn_id == 1
+
+    await session.exam_next()
+    assert sent[-1]["type"] == "exam_part"
+    assert sent[-1]["index"] == 1
+    assert sent[-1]["kind"] == "learner_talk"
+
+    await session.handle_audio(PCM_1S)
+    await session._turn_task
+    assert stt.calls == 1
+    assert sent[-1] == {"type": "collected", "turn": 2}
+    assert session.turn_id == 2
+    assert llm.stream_calls == 0

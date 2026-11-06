@@ -9,6 +9,10 @@ const hintListEl = $("hintList"), hintInputEl = $("hintInput"), hintBtn = $("hin
 const mistakeBoxEl = $("mistakeBox"), saveMistakesEl = $("saveMistakes");
 const useFocusEl = $("useFocus"), focusTodayEl = $("focusToday");
 const mistakeSummaryEl = $("mistakeSummary"), clearMistakesBtn = $("clearMistakes");
+const modeEl = $("mode"), scenarioEl = $("scenario"), startBtn = $("startBtn"), endBtn = $("endBtn");
+const examPanelEl = $("examPanel"), examTitleEl = $("examTitle"), examNoteEl = $("examNote");
+const examPartEl = $("examPart"), examUiTextEl = $("examUiText"), examCardEl = $("examCard");
+const examClockEl = $("examClock"), examNextBtnEl = $("examNextBtn"), examDoneMsgEl = $("examDoneMsg");
 
 let ws = null;
 let vadInstance = null;
@@ -22,6 +26,13 @@ let micMode = "speakers";
 let feedbackLang = "en";
 let pendingDecodes = 0;
 let hintEntries = [];
+let examSession = null;
+let examPart = null;
+let followupSent = false;
+let examPrepPaused = false;
+let examNextLockedUntil = 0;
+let examAutoFired = false;
+let examTimer = null;
 const MAX_HINTS = 5;
 const HINT_ERRORS = {
   too_long: "zu lang (max. 120 Zeichen)",
@@ -75,6 +86,217 @@ function addMsg(who, text) {
 function appendHer(text) {
   if (!herBubble) herBubble = addMsg("her", text);
   else herBubble.querySelector(".t").textContent += " " + text;
+}
+
+// ---------- exam panel ----------
+function stopExamTimer() {
+  if (examTimer !== null) {
+    clearInterval(examTimer);
+    examTimer = null;
+  }
+}
+
+function resetExam() {
+  stopExamTimer();
+  examSession = null;
+  examPart = null;
+  followupSent = false;
+  examPrepPaused = false;
+  examNextLockedUntil = 0;
+  examAutoFired = false;
+  examPanelEl.hidden = true;
+  examTitleEl.textContent = "";
+  examNoteEl.textContent = "";
+  examPartEl.textContent = "";
+  examUiTextEl.textContent = "";
+  examUiTextEl.hidden = true;
+  examCardEl.replaceChildren();
+  examCardEl.hidden = true;
+  examClockEl.textContent = "";
+  examClockEl.hidden = true;
+  examNextBtnEl.textContent = "";
+  examNextBtnEl.disabled = true;
+  examDoneMsgEl.hidden = true;
+}
+
+function showExamSession(meta) {
+  examSession = meta;
+  examPanelEl.hidden = false;
+  examTitleEl.textContent = meta.title || "";
+  examNoteEl.textContent = meta.note || "";
+  examPartEl.textContent = "";
+  examUiTextEl.textContent = "";
+  examUiTextEl.hidden = true;
+  examCardEl.replaceChildren();
+  examCardEl.hidden = true;
+  examClockEl.textContent = "";
+  examClockEl.hidden = true;
+  examNextBtnEl.textContent = "";
+  examNextBtnEl.disabled = true;
+  examDoneMsgEl.hidden = true;
+}
+
+function renderExamCard(kind, card) {
+  examCardEl.replaceChildren();
+  if (!window.ExamUI) {
+    examCardEl.hidden = true;
+    return;
+  }
+  const lines = window.ExamUI.cardLines(kind, card);
+  if (!lines) {
+    examCardEl.hidden = true;
+    return;
+  }
+  if (lines.heading) {
+    const heading = document.createElement("h3");
+    heading.textContent = lines.heading;
+    examCardEl.appendChild(heading);
+  }
+  if (lines.items.length) {
+    const list = document.createElement("ul");
+    for (const item of lines.items) {
+      const entry = document.createElement("li");
+      entry.textContent = item;
+      list.appendChild(entry);
+    }
+    examCardEl.appendChild(list);
+  }
+  examCardEl.hidden = false;
+}
+
+function renderExamNext() {
+  if (!examPart) {
+    examNextBtnEl.textContent = "";
+    examNextBtnEl.disabled = true;
+    return;
+  }
+  const total =
+    examSession && Array.isArray(examSession.parts) ? examSession.parts.length : 0;
+  const isLast = total > 0 && Number.isInteger(examPart.index) && examPart.index >= total - 1;
+  const button = window.ExamUI.nextButton({
+    kind: examPart.kind,
+    isLast,
+    followupSent,
+  });
+  examNextBtnEl.textContent = button.label;
+  examNextBtnEl.disabled = !button.enabled || performance.now() < examNextLockedUntil;
+}
+
+function pressExamNext() {
+  if (!examPart || examPart.kind === "done") return;
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  const now = performance.now();
+  if (now < examNextLockedUntil) return;
+  examNextLockedUntil = now + 1000;
+  if (examPart.kind === "learner_talk") followupSent = true;
+  stopPlayback();
+  renderExamNext();
+  ws.send(JSON.stringify({ type: "exam_next" }));
+  setTimeout(renderExamNext, 1000);
+}
+
+function startExamClock(seconds) {
+  stopExamTimer();
+  const duration = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+  const started = performance.now();
+  const tick = () => {
+    if (!examPart || examPart.kind === "done") return;
+    const elapsed = (performance.now() - started) / 1000;
+    examClockEl.textContent = window.ExamUI.formatClock(duration - elapsed);
+    const action = window.ExamUI.autoAction(
+      examPart.kind,
+      elapsed,
+      duration,
+      followupSent
+    );
+    if (action && !examAutoFired) {
+      examAutoFired = true;
+      pressExamNext();
+    }
+  };
+  examClockEl.hidden = false;
+  tick();
+  examTimer = setInterval(tick, 1000);
+}
+
+function setExamPart(msg) {
+  examPart = msg;
+  followupSent = false;
+  examAutoFired = false;
+  const total =
+    examSession && Array.isArray(examSession.parts) ? examSession.parts.length : 0;
+  examPartEl.textContent = `Teil ${msg.index + 1} von ${total} – ${msg.title || ""}`;
+  examUiTextEl.textContent = msg.ui_text || "";
+  examUiTextEl.hidden = !msg.ui_text;
+  renderExamCard(msg.kind, msg.card);
+  examDoneMsgEl.hidden = true;
+  examPanelEl.hidden = false;
+  startExamClock(msg.seconds);
+  renderExamNext();
+  if (msg.kind === "prep") {
+    if (vadInstance) vadInstance.pause();
+    examPrepPaused = true;
+    setState("Vorbereitung – Mikrofon aus", "idle");
+  } else {
+    if (examPrepPaused) {
+      examPrepPaused = false;
+      if (vadInstance && (!micGate || micGate.isListening())) vadInstance.start();
+    }
+    if (msg.kind === "kerstin_talk") setState("Kerstin spricht …", "speaking");
+    else setState("du bist dran …", "listening");
+  }
+}
+
+function setExamDone() {
+  stopExamTimer();
+  examPart = { kind: "done" };
+  followupSent = true;
+  examDoneMsgEl.hidden = false;
+  examClockEl.hidden = true;
+  examNextBtnEl.textContent = "Prüfung beendet";
+  examNextBtnEl.disabled = true;
+  if (vadInstance) vadInstance.pause();
+  examPrepPaused = false;
+  setState("Prüfung beendet", "idle");
+  endBtn.disabled = false;
+}
+
+function isExamPrep() {
+  return Boolean(examPart && examPart.kind === "prep");
+}
+
+function examBlocksSpeech() {
+  return (
+    Boolean(examSession) &&
+    (!examPart || examPart.kind === "prep" || examPart.kind === "done")
+  );
+}
+
+function updateModeControls() {
+  const examMode = Boolean(modeEl.value);
+  scenarioEl.disabled = examMode;
+  useFocusEl.disabled = examMode;
+  startBtn.textContent = examMode ? "Prüfung starten" : "Gespräch starten";
+}
+
+async function loadExams() {
+  try {
+    const response = await fetch("/api/exams");
+    if (!response.ok) throw new Error("exam list failed");
+    const list = await response.json();
+    if (!Array.isArray(list)) throw new Error("invalid exam list");
+    while (modeEl.options.length > 1) modeEl.remove(1);
+    for (const item of list) {
+      if (!item || typeof item.key !== "string") continue;
+      const option = document.createElement("option");
+      option.value = item.key;
+      option.textContent = item.title || item.key;
+      modeEl.appendChild(option);
+    }
+    updateModeControls();
+  } catch (error) {
+    console.warn("exam presets unavailable", error);
+  }
 }
 
 // ---------- hint panel ----------
@@ -285,6 +507,10 @@ function connect() {
   });
 }
 
+function syncTurn(msg) {
+  if (Number.isFinite(msg.turn) && msg.turn > currentTurn) currentTurn = msg.turn;
+}
+
 function handle(msg) {
   switch (msg.type) {
     case "session":
@@ -296,6 +522,10 @@ function handle(msg) {
       hintEntries = [];
       renderHints();
       setHintEnabled(true);
+      resetExam();
+      modeEl.value = msg.exam && msg.exam.preset ? msg.exam.preset : "";
+      updateModeControls();
+      if (msg.exam) showExamSession(msg.exam);
       if (Array.isArray(msg.focus) && msg.focus.length) {
         focusTodayEl.textContent = "Heute im Fokus: " + msg.focus.join(", ");
         focusTodayEl.hidden = false;
@@ -308,16 +538,27 @@ function handle(msg) {
       resolveHint(msg);
       break;
     case "status":
+      syncTurn(msg);
       if (msg.state === "transcribing") setState("verstehe …", "idle");
       else if (msg.state === "thinking") setState("denkt nach …", "idle");
       else if (msg.state === "feedback_running") setState("Feedback wird erstellt …", "idle");
       break;
     case "transcript":
-      currentTurn = msg.turn;
+      syncTurn(msg);
       addMsg("me", msg.text);
       herBubble = null;
       break;
+    case "collected":
+      syncTurn(msg);
+      if (micGate) micGate.replyFinished(msg.turn);
+      setState("Kerstin hört zu …", "listening");
+      break;
     case "stt_empty":
+      syncTurn(msg);
+      if (msg.reason === "prep") {
+        setState("Vorbereitung – Mikrofon aus", "idle");
+        break;
+      }
       if (micGate && !micGate.isListening()) micGate.replyFinished(msg.turn);
       if (!micGate || micGate.isListening()) {
         setState("nicht verstanden – bitte wiederholen", "listening");
@@ -332,7 +573,12 @@ function handle(msg) {
       if (msg.turn === undefined) $("startBtn").disabled = false;
       break;
     case "reply_text":
-      if (msg.turn >= currentTurn) { currentTurn = msg.turn; appendHer(msg.text); }
+      syncTurn(msg);
+      if (msg.turn >= currentTurn) appendHer(msg.text);
+      break;
+    case "exam_part":
+      if (msg.kind === "done") setExamDone();
+      else setExamPart(msg);
       break;
     case "reply_done":
       if (micGate) micGate.replyFinished(msg.turn);
@@ -371,11 +617,12 @@ function handle(msg) {
 
 // ---------- start / stop ----------
 async function start() {
-  $("startBtn").disabled = true;
+  startBtn.disabled = true;
   setHintEnabled(false);
   audioCtx = audioCtx || new AudioContext();
   await audioCtx.resume();
   feedbackEl.hidden = true;
+  resetExam();
   if (!ws || ws.readyState !== WebSocket.OPEN) await connect();
 
   vadInstance = await vad.MicVAD.new({
@@ -386,6 +633,7 @@ async function start() {
     redemptionFrames: 8,     // ~0.5-0.8 s of silence ends the utterance (tune in docs/LATENCY.md)
     minSpeechFrames: 4,
     onSpeechStart: () => {
+      if (examBlocksSpeech()) return;
       if (micGate && !micGate.isListening()) return;
       // barge-in: learner starts talking while Kerstin speaks
       if (micGate && micGate.getMode() === "headphones" && isSpeaking()) {
@@ -395,6 +643,8 @@ async function start() {
       setState("du sprichst …", "listening");
     },
     onSpeechEnd: (audio) => {
+      if (examBlocksSpeech()) return;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
       currentTurn += 1; // anything older is now stale
       ws.send(floatTo16BitPCM(audio));
     },
@@ -404,21 +654,30 @@ async function start() {
     pauseVad: () => { if (vadInstance) vadInstance.pause(); },
     resumeVad: () => {
       if (!vadInstance) return;
+      if (isExamPrep()) {
+        setState("Vorbereitung – Mikrofon aus", "idle");
+        return;
+      }
       vadInstance.start();
       setState("hört zu …", "listening");
     },
   });
   vadInstance.start();
-  ws.send(JSON.stringify({
+  const payload = {
     type: "start",
-    scenario: $("scenario").value,
+    scenario: scenarioEl.value,
     use_focus: useFocusEl.checked,
-  }));
-  $("endBtn").disabled = false;
+  };
+  if (modeEl.value) payload.exam = modeEl.value;
+  ws.send(JSON.stringify(payload));
+  endBtn.disabled = false;
   setState("hört zu …", "listening");
 }
 
 function end() {
+  stopExamTimer();
+  if (examPart && examPart.kind !== "done") examNextBtnEl.disabled = true;
+  examPrepPaused = false;
   if (vadInstance) { vadInstance.pause(); vadInstance = null; }
   stopPlayback();
   if (micGate) micGate.userInterrupt();
@@ -429,8 +688,8 @@ function end() {
       save_mistakes: saveMistakesEl.checked,
     }));
   }
-  $("endBtn").disabled = true;
-  $("startBtn").disabled = false;
+  endBtn.disabled = true;
+  startBtn.disabled = false;
   setHintEnabled(false);
 }
 
@@ -450,9 +709,11 @@ async function loadScenarios() {
   $("scenario").innerHTML = list.map((s) => `<option value="${s.key}">${s.title}</option>`).join("");
 }
 
-$("startBtn").onclick = () => start().catch((e) => { console.error(e); setState("Start fehlgeschlagen: " + e, "speaking"); $("startBtn").disabled = false; });
-$("endBtn").onclick = end;
+startBtn.onclick = () => start().catch((e) => { console.error(e); setState("Start fehlgeschlagen: " + e, "speaking"); startBtn.disabled = false; });
+endBtn.onclick = end;
 $("interruptBtn").onclick = interruptSpeaking;
+examNextBtnEl.onclick = pressExamNext;
+modeEl.onchange = updateModeControls;
 $("hintBtn").onclick = submitHint;
 $("hintInput").addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
@@ -485,3 +746,4 @@ document.addEventListener("keydown", (e) => {
 });
 loadScenarios();
 loadMistakes();
+loadExams();
