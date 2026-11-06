@@ -289,3 +289,50 @@ make: *** [Makefile:61: score-eval] Error 1
 ## Review (Claude Code fills this in)
 - **Verdict:**
 - **Notes:**
+- **Verdict:** Changes requested (round 1). Plumbing accepted.
+- **Notes:**
+  - **What's good:**
+    - parser, session order, UI (DOM-only), privacy (no text in logs, no disk writes);
+    - 246 Python + 33 Node tests pass, and lint passes;
+    - 30/30 parsed, 0 retries;
+    - the off-task case is detected;
+    - stability holds, 5 % of quotes dropped;
+    - p50 4.6 s, which is acceptable at the end of an exam.
+  - **Real defect 1 — the overall band is misleading:**
+    - every B1 case shows the overall band 2 „B2 knapp“ (median of [2,2,2,1] = 2). A B1 learner is told they are at B2. This is the lead's rule (D022 draft) and it's wrong.
+  - **Real defect 2 — grammar is lenient on clear B1 errors:**
+    - `medien_B1` and `umwelt_B1` get grammar 2 with "mostly correct". The texts have 6–14 clear errors (verb position after Einmal/In meinem Land/weil, „zwei Stunde“, „mit meine Freunde“, „neue Essen“…).
+    - On B2 cases, the grammar evidence often contains no error (`umwelt_B2`: „dass die Zugfahrt in manche Länder…“ is correct; the real slip is „etwas ganz anderes zu sehen“).
+  - **Prompt tuned to the calibration set:**
+    - the „Konsistenzprüfung“ block caps Aufgabe/Kohärenz when grammar or vocabulary is weak. That couples the criteria (a learner with full task coverage but weak grammar would be told their task fulfilment is weak) and was iterated against the same 10 cases.
+    - Calibration cases may not be used for prompt iteration like this; it makes the eval meaningless. The lead will check generalisation with a fresh hold-out set the prompt has never seen, after this round.
+  - The zero-learner-line behaviour (empty feedback only, no `exam_score`) is accepted.
+
+### Follow-up (round 1) — required changes
+1. **`score.md`:** delete the whole „Konsistenzprüfung vor der Ausgabe“ section; the criteria are scored independently. Add the `grammar_errors` instruction (item 2). No other prompt edits.
+2. **Grammar error list** (prompt + `score.py`):
+   - The JSON gets a 5th key, `"grammar_errors": ["…", …]`:
+     - every clear grammar error in the learner's lines (Kasus, Verbform, Verbstellung, Kongruenz, Präposition, Artikel/Genus);
+     - each one a verbatim snippet of ≤ 8 words containing the error;
+     - max 15;
+     - no style or wording preferences;
+     - `[]` if there are none.
+   - `parse_score` verifies each snippet verbatim (same normalisation as evidence). Unverified snippets are dropped and counted in `dropped_evidence`. A missing or non-list `grammar_errors` → treat as `[]` and log a parse warning (no failure).
+   - `error_density = len(verified) / learner_words * 100`.
+   - **Grammar ceiling from density:**
+     - ≥ 3.0 → max band 1;
+     - ≥ 1.5 → max 2;
+     - ≥ 0.5 → max 3;
+     - else no cap.
+     - Final grammar band = `min(llm_band, ceiling)`.
+   - If the final grammar band is ≤ 3 and there are verified errors, the grammar evidence is the first verified error.
+   - `exam_score` adds `"error_density"` (1 decimal) and `"grammar_errors"` (the verified list). The UI shows them only as a small line under the grammar row, „Erkannte Grammatikfehler: N“ (no list).
+3. **Overall band = `floor(mean of the 4 final bands)`** (not the median). Update `overall_band` and its tests.
+4. **Eval:**
+   - print `error_density` and the verified error list for every `orig` run;
+   - add an `overall` check on `orig`: B1 cases overall = 1; the three on-task B2 cases overall ∈ {2, 3}; C1 cases overall ≥ 3;
+   - keep all other checks and thresholds unchanged.
+5. **Tests:** the density ceiling (each threshold edge), dropping an unverified grammar snippet, a missing `grammar_errors` → `[]`, the evidence swap for grammar ≤ 3, and `floor(mean)`.
+6. Rerun `make score-eval` **once** after the changes and paste it in full. **No further prompt iteration against the calibration cases.** If checks fail, report it; the lead decides after the hold-out run.
+
+Allowed files (round 1): `backend/prompts/score.md`, `backend/kerstin/score.py`, `backend/kerstin/session.py` (the `exam_score` fields only), `frontend/app.js`, `frontend/style.css`, `scripts/score_eval.py`, `backend/tests/test_score.py`, `backend/tests/test_exam.py`, `docs/PROTOCOL.md`, this task file.
