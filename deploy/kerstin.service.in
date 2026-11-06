@@ -1,0 +1,25 @@
+# Managed by Kerstin scripts/install_service.sh — do not edit; re-run the installer.
+[Unit]
+Description=Kerstin German conversation partner (@NAME@)
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=@REPO@/backend
+ExecStart=@REPO@/.venv/bin/python -m kerstin
+@PORT_ENV@
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=15
+KillSignal=SIGINT
+NoNewPrivileges=yes
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=@NAME@
+
+[Install]
+WantedBy=default.target

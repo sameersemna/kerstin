@@ -85,23 +85,132 @@ Sameer runs `make service-install` once. Kerstin then runs as a systemd **user**
 - No change to logging content, no new dependency, no GPU/Ollama change. A short manual session for step 4 is fine (one or two turns, `cool_down()` rule, check `nvidia-smi` first and wait if another project is busy).
 
 ## Acceptance criteria
-- [ ] `make test` and `make lint` pass.
-- [ ] `bash scripts/install_service.sh --dry-run` prints a valid unit. `systemd-analyze --user verify` on the rendered file (written to a temp dir) shows no errors. Paste the output.
-- [ ] `install --name kerstin-dev --port 8771`: the unit is active, and `curl -sk https://localhost:8771/health | jq .ok` returns `true` (or http if TLS is off). `journalctl --user -u kerstin-dev -n 20` shows the "Kerstin … ready" line. Paste both.
-- [ ] Crash restart: `kill -9 <MainPID>` → the unit comes back within ~10 s (paste `systemctl --user show kerstin-dev -p NRestarts`). Four quick kills inside 5 min → the unit stays failed (start limit hit).
-- [ ] Clean stop with an open WebSocket session: stops within 15 s, no traceback (paste the journal tail).
-- [ ] Refusal checks: a hand-written `~/.config/systemd/user/kerstin-x.service` without the marker → install refuses (exit 1) and the file is unchanged. Delete it afterwards. `--name sunny-brain` → exit 2.
-- [ ] `uninstall --name kerstin-dev` removes the unit. `ls ~/.config/systemd/user/` afterwards shows the same other-project files as before (paste before/after).
-- [ ] Privacy: run `.venv/bin/python scripts/smoke_test.py --url <wss or ws>://localhost:8771/ws --turns 2` against kerstin-dev (one run only, GPU rules above), then `journalctl --user -u kerstin-dev --since "-10 min" | grep -ciE "Wochenende|Freunden|See"` → `0`. Paste the command and its output. The smoke test's known learner sentence and Kerstin's reply must not appear in the journal.
-- [ ] Worker report filled in.
+- [x] `make test` and `make lint` pass.
+- [x] `bash scripts/install_service.sh --dry-run` prints a valid unit. `systemd-analyze --user verify` on the rendered file (written to a temp dir) shows no errors. Paste the output.
+- [x] `install --name kerstin-dev --port 8771`: the unit is active, and `curl -sk https://localhost:8771/health | jq .ok` returns `true` (or http if TLS is off). `journalctl --user -u kerstin-dev -n 20` shows the "Kerstin … ready" line. Paste both. **Caveat:** the literal top-level `.ok` path returns `null`; the health payload has `ollama.ok=true` (see report).
+- [x] Crash restart: `kill -9 <MainPID>` → the unit comes back within ~10 s (paste `systemctl --user show kerstin-dev -p NRestarts`). Four quick kills inside 5 min → the unit stays failed (start limit hit).
+- [x] Clean stop with an open WebSocket session: stops within 15 s, no traceback (paste the journal tail).
+- [x] Refusal checks: a hand-written `~/.config/systemd/user/kerstin-x.service` without the marker → install refuses (exit 1) and the file is unchanged. Delete it afterwards. `--name sunny-brain` → exit 2.
+- [x] `uninstall --name kerstin-dev` removes the unit. `ls ~/.config/systemd/user/` afterwards shows the same other-project files as before (paste before/after).
+- [x] Privacy: run `.venv/bin/python scripts/smoke_test.py --url <wss or ws>://localhost:8771/ws --turns 2` against kerstin-dev (one run only, GPU rules above), then `journalctl --user -u kerstin-dev --since "-10 min" | grep -ciE "Wochenende|Freunden|See"` → `0`. Paste the command and its output. The smoke test's known learner sentence and Kerstin's reply must not appear in the journal.
+- [x] Worker report filled in.
 
 ## Worker report (Kilo Code fills this in)
-- **Changed files:**
-- **How tested:**
-- **Measurements (if any):**
-- **Deviations from spec / extra files touched:**
-- **New dependencies (+license):**
-- **Open questions:**
+- **Changed files:** `deploy/kerstin.service.in` (new), `scripts/install_service.sh` (new), `Makefile`, `backend/tests/test_install_service.py` (new), `README.md`, `docs/ARCHITECTURE.md`, `docs/STATUS.md`, this task file.
+- **How tested:** `make test` → **259 Python + 33 Node** tests passed; `make lint` passed. The installer was tested only with `--dry-run` in pytest. The real service was installed only as `kerstin-dev` on port **8771** and uninstalled at the end. A temporary `kerstin-x.service` without the marker was refused without modification; `sunny-brain` was rejected with exit 2. `systemd-analyze --user verify` on the rendered unit exited 0 with no output. The clean-stop test used an open `wss://localhost:8771/ws` connection; stop took 0.22 s and the journal had no traceback. Crash tests used `kill -9` on `kerstin-dev` only. The single smoke run used `smoke_test.py --turns 2` with the CA file; the privacy grep returned 0. `/health` returned `ollama.ok=true`; see the `.ok` caveat under Deviations.
+- **Dry-run / verify:**
+```text
+$ bash scripts/install_service.sh --name kerstin-dev --port 8771 --dry-run > /tmp/kilo/t031/kerstin-dev.service
+$ systemd-analyze --user verify /tmp/kilo/t031/kerstin-dev.service
+(no output, exit 0)
+```
+  Unit first line: `# Managed by Kerstin scripts/install_service.sh — do not edit; re-run the installer.`
+- **Install and health:**
+```text
+$ make service-install SERVICE_ARGS="--name kerstin-dev --port 8771"
+Installed /home/sameer/.config/systemd/user/kerstin-dev.service
+Logs: journalctl --user -u kerstin-dev -f
+$ systemctl --user is-active kerstin-dev
+active
+$ curl -sk https://localhost:8771/health | jq .
+{
+  "version": "0.1.0",
+  "ollama": {"ok": true, "model_available": true},
+  "model": "gemma4:26b",
+  "stt_backend": "whispercpp",
+  "tts_backend": "piper",
+  "gpu_temp_c": 58.0,
+  "thermal": "ok",
+  "frontend_vendor": true
+}
+$ curl -sk https://localhost:8771/health | jq .ok
+null
+$ curl -sk https://localhost:8771/health | jq .ollama.ok
+true
+$ journalctl --user -u kerstin-dev -n 20 --no-pager | rg "Kerstin .*ready|Uvicorn running"
+Nov 06 18:57:57 promaxgb10-6116 kerstin-dev[1884630]: 2026-11-06 18:57:57,308 INFO kerstin: Kerstin 0.1.0 ready: model=gemma4:26b stt=whispercpp tts=piper
+Nov 06 18:57:57 promaxgb10-6116 kerstin-dev[1884630]: INFO:     Uvicorn running on https://0.0.0.0:8771
+```
+- **Clean stop with open WebSocket:**
+```text
+$ .venv/bin/python /tmp/kilo/t031/ws_hold.py
+connected
+$ /usr/bin/time -f 'stop_elapsed_s=%e' systemctl --user stop kerstin-dev
+stop_elapsed_s=0.22
+$ systemctl --user is-active kerstin-dev
+inactive
+$ journalctl --user -u kerstin-dev -n 30 --no-pager | tail
+Nov 06 18:58:06 promaxgb10-6116 kerstin-dev[1884630]: INFO:     Shutting down
+Nov 06 18:58:06 promaxgb10-6116 kerstin-dev[1884630]: INFO:     Waiting for application shutdown.
+Nov 06 18:58:06 promaxgb10-6116 kerstin-dev[1884630]: INFO:     Application shutdown complete.
+Nov 06 18:58:06 promaxgb10-6116 kerstin-dev[1884630]: INFO:     Finished server process [1884630]
+$ journalctl --user -u kerstin-dev -n 60 --no-pager | grep -ci traceback
+0
+```
+- **Crash restart and start limit:**
+```text
+kill_1: pid=1888635 state=active nrestarts=0
+after_1: state=active nrestarts=1 result=success
+kill_2: pid=1895491 state=active nrestarts=1
+after_2: state=active nrestarts=2 result=success
+kill_3: pid=1897421 state=active nrestarts=2
+after_3: state=failed nrestarts=3 result=signal
+kill_4: pid=0 state=failed nrestarts=3
+no MainPID; unit already stopped/failed
+$ systemctl --user show -p NRestarts -p Result -p MainPID -p ActiveState kerstin-dev
+MainPID=0
+Result=signal
+NRestarts=3
+ActiveState=failed
+```
+- **Refusal checks:**
+```text
+refusal_status=1 hash_unchanged=yes
+error: refusing to overwrite an unmanaged unit: /home/sameer/.config/systemd/user/kerstin-x.service
+sunny_brain_status=2
+error: --name must match ^kerstin[a-z0-9-]*$
+```
+- **Before/after unit names:**
+```text
+BEFORE (before kerstin-dev install)
+default.target.wants
+gpu-thermal.service
+hermes-gateway.service
+multi-user.target.wants
+ocr-server.service
+openedai-gateway.service
+salafi-thermald.service
+sunny-brain.service
+timers.target.wants
+
+AFTER (after uninstall)
+default.target.wants
+gpu-thermal.service
+hermes-gateway.service
+multi-user.target.wants
+ocr-server.service
+openedai-gateway.service
+salafi-thermald.service
+sunny-brain.service
+timers.target.wants
+```
+- **Single smoke run and privacy:**
+```text
+$ .venv/bin/python scripts/smoke_test.py --url wss://localhost:8771/ws --turns 2 --cafile certs/kerstin-ca.crt
+GET https://localhost:8771/health -> 200
+...
+turn 1: total 15543 ms (cold model load)
+turn 2: total 1786 ms
+...
+status=0
+$ journalctl --user -u kerstin-dev --since "-10 min" | grep -ciE "Wochenende|Freunden|See"
+0
+```
+  The smoke run also printed the known learner sentence and a reply; neither appears in the journal. GPU was 57 °C before the smoke run.
+- **Measurements (if any):** Clean stop 0.22 s with an open WebSocket; the single smoke run was 15.5 s for the cold first turn and 1.8 s for the warm second turn. No service restart loop during normal operation.
+- **Deviations from spec / extra files touched:** The `/health` response has no top-level `ok`; the literal `jq .ok` is `null`, while `jq .ollama.ok` is `true`. `main.py` is not in the allowed files, so I did not add a top-level field. No `__main__.py` change was needed because Uvicorn stopped cleanly in 0.22 s. No other units were touched; only `systemctl --user daemon-reload` ran for the new unit. The pre-existing `.gitignore` `*.prs` modification remains unstaged.
+- **New dependencies (+license):** None.
+- **Open questions:** The literal health acceptance path `.ok` does not match the existing API; the lead should decide whether the criterion should use `.ollama.ok` or a future health-shape change.
 
 ## Review (Claude Code fills this in)
 - **Verdict:** accept / revise

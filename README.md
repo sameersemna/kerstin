@@ -21,6 +21,20 @@ make run            # http://127.0.0.1:8770
 make test           # unit tests, no GPU needed
 ```
 
+## Run as a service
+
+Stop a manual `make run` first. Then install Kerstin as a systemd **user** service:
+
+```bash
+make service-install                    # start the service now
+make service-install SERVICE_ARGS="--enable"  # also start on boot (uses existing linger)
+make service-status                     # systemd status + /health
+make logs                               # journalctl --user -u kerstin -f
+make service-uninstall                  # stop and remove the unit
+```
+
+The unit uses `.env` for host, port, TLS and models; `SERVICE_ARGS="--name kerstin-dev --port 8771"` is available for a separate dev unit. The installer never runs `sudo` or `loginctl enable-linger`; it prints the linger hint if needed.
+
 ## Using it from the Mac / phone (HTTPS)
 
 The browser only allows the microphone on `localhost` or HTTPS. Kerstin can serve HTTPS itself on the LAN with a small local CA (D010); no SSH tunnel and no nginx changes are needed.
