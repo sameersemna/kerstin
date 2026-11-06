@@ -21,23 +21,73 @@ from smoke_test import COOL_AT_C, COOL_TO_C, ThermalAbort, cool_down
 
 PCM_1S = b"\x00\x40" * 16000  # 1 s at -6 dBFS; scripted STT ignores the samples
 TURN_TIMEOUT_S = 240.0
-TALK_LINES = (
-    "Ich möchte heute über ein Thema aus meinem Alltag sprechen.",
-    "In meinem Heimatland ist die Situation anders als hier in Deutschland.",
-    "Ich habe damit selbst schon gute und schlechte Erfahrungen gemacht.",
-    "Meiner Meinung nach ist das Thema wichtig, aber es gibt auch Grenzen.",
-)
-ANSWER_LINE = "Meine wichtigste Erfahrung war der erste Monat in meinem neuen Job."
-QUESTIONS = (
-    "Wie war das für dich am Anfang?",
-    "Was hast du daraus gelernt?",
-)
-DIALOG_LINES = (
-    "Ich finde, man sollte zuerst die öffentlichen Verkehrsmittel verbessern.",
-    "Aber was ist mit den Menschen, die auf das Auto angewiesen sind?",
-    "Wir könnten zuerst einen passenden Ort suchen.",
-    "Ich übernehme gern die Aufgabe mit den Getränken.",
-)
+
+CARD_SETS = {
+    "A": {
+        "label": "Homeoffice / Berlin / autofrei / Abschied",
+        "cards": {
+            "talk_topics": "Arbeit im Homeoffice",
+            "kerstin_topics": "Mein Weg nach Berlin",
+            "discussion_questions": "Sollten Städte autofreie Zonen einrichten?",
+            "planning_tasks": "Der Deutschkurs endet nächsten Monat. Plant gemeinsam ein Abschiedsfest.",
+        },
+        "talk": (
+            "In meinem Heimatland arbeiten die meisten Menschen noch im Büro, Homeoffice ist dort nicht so verbreitet.",
+            "Homeoffice hat für mich den Vorteil, dass ich mir die Zeit besser einteilen kann, aber ich vermisse den Kontakt zu den Kollegen.",
+            "In meinem letzten Job durfte ich zwei Tage pro Woche zu Hause arbeiten, und das hat gut funktioniert.",
+            "Meiner Meinung nach sollte Homeoffice möglich sein, aber nicht für alle Berufe und nicht ohne klare Regeln.",
+        ),
+        "answer": "Am schwierigsten war für mich, Arbeit und Freizeit klar voneinander zu trennen.",
+        "questions": (
+            "Wie war es für dich, als du nach Berlin gekommen bist?",
+            "Was hat dir am Anfang am meisten geholfen?",
+        ),
+        "discussion": (
+            "Ich finde autofreie Zonen sehr sinnvoll, weil sie die Luft in der Stadt verbessern und weniger Lärm machen.",
+            "Außerdem könnten mehr Menschen mit dem Fahrrad oder zu Fuß unterwegs sein, das wäre gut für die Gesundheit.",
+            "Ich stimme dir zu, dass autofreie Zonen Vorteile haben, aber ich mache mir Sorgen um die Geschäfte, die auf Lieferungen mit dem Auto angewiesen sind.",
+            "Das sehe ich ähnlich, allerdings brauchen ältere Menschen und Menschen mit Behinderung gute Lösungen, damit sie mobil bleiben.",
+        ),
+        "planning": (
+            "Ich schlage vor, dass wir im Kursraum feiern, weil wir dort keine Miete bezahlen müssen.",
+            "Für das Essen könnten wir ein Buffet machen, bei dem jeder etwas mitbringt.",
+            "Als Programm könnten wir eine kleine Rede und ein Quiz über den Kurs machen.",
+            "Die Aufgaben könnten wir aufteilen: Ich kümmere mich um die Getränke, und du fragst die anderen nach dem Essen.",
+        ),
+    },
+    "B": {
+        "label": "Reisen / Bouldern / Homeoffice / Wochenende",
+        "cards": {
+            "talk_topics": "Reisen und Urlaub",
+            "kerstin_topics": "Bouldern und Alltag",
+            "discussion_questions": "Ist Homeoffice gut für alle?",
+            "planning_tasks": "Ihr wollt ein Wochenende mit Freunden verbringen. Plant die Reise gemeinsam.",
+        },
+        "talk": (
+            "In meinem Heimatland fahren viele Familien im Sommer an die Küste, weil dort das Wetter schön ist.",
+            "Reisen hat für mich den Vorteil, dass ich neue Kulturen kennenlerne, aber es kann auch teuer und stressig sein.",
+            "Letztes Jahr war ich mit Freunden in den Bergen, und wir haben dort viel gewandert.",
+            "Meiner Meinung nach muss man nicht weit reisen, um sich zu erholen; man kann auch in der Nähe schöne Orte entdecken.",
+        ),
+        "answer": "Am besten hat mir gefallen, dass wir morgens früh losgegangen sind und die Natur noch ruhig war.",
+        "questions": (
+            "Wie bist du zum Bouldern gekommen?",
+            "Was gefällt dir daran am meisten?",
+        ),
+        "discussion": (
+            "Ich finde Homeoffice gut, weil man sich zu Hause besser konzentrieren kann und keine Zeit für den Arbeitsweg verliert.",
+            "Außerdem ist es für Familien praktisch, weil man Beruf und Kinder besser organisieren kann.",
+            "Das stimmt, aber ich glaube, dass der Kontakt zum Team im Homeoffice leicht verloren geht.",
+            "Ich sehe das ähnlich, allerdings funktioniert Homeoffice nicht in jedem Beruf und nicht für alle Menschen gleich gut.",
+        ),
+        "planning": (
+            "Wir könnten an einen See in der Nähe fahren, weil man dort gut wandern und schwimmen kann.",
+            "Für die Unterkunft schlage ich eine kleine Ferienwohnung vor, damit wir zusammen kochen können.",
+            "Die Anreise könnten wir mit dem Zug machen, das ist entspannter als mit dem Auto.",
+            "Als Aktivität könnten wir am Samstag wandern und am Sonntag noch ein Picknick machen.",
+        ),
+    },
+}
 
 
 class EvalError(Exception):
@@ -111,6 +161,27 @@ def _talk_markdown(text: str) -> bool:
     return any(line.lstrip().startswith("-") for line in text.splitlines())
 
 
+def _has_ihr_euch(text: str) -> bool:
+    for match in re.finditer(r"\b(ihr|euch|euer|eure\w*)\b", text, re.IGNORECASE):
+        if match.group(0) == "Ihr":
+            prefix = text[: match.start()].rstrip()
+            if not prefix or prefix[-1] in ".!?…\n":
+                continue
+        return True
+    return False
+
+
+def _has_counterpoint(text: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(aber|allerdings|andererseits|trotzdem)\b|"
+            r"ich bin mir nicht sicher|nicht ganz",
+            text,
+            re.IGNORECASE,
+        )
+    )
+
+
 def _first_reply(replies: list[Reply], part_index: int) -> Reply | None:
     return next((reply for reply in replies if reply.part == part_index), None)
 
@@ -132,12 +203,11 @@ async def _handle_line(session: Session, stt: ScriptedSTT, line: str, where: str
 
 
 async def run_preset(
-    preset_key: str,
-    data: dict,
+    plan,
+    script: dict,
     settings: Settings,
     args: argparse.Namespace,
-) -> tuple[list[Reply], list[str], int]:
-    plan = make_plan(preset_key, data, args.seed)
+) -> tuple[list[Reply], int]:
     llm = CountingLLM(settings)
     stt = ScriptedSTT()
     messages: list[dict] = []
@@ -169,26 +239,26 @@ async def run_preset(
         await cool_down("before exam start", args.cool_at, args.cool_to)
         await session.start()
         for index, part in enumerate(plan.parts):
-            where = f"{preset_key} part {index} {part.kind}"
+            where = f"{plan.preset} part {index} {part.kind}"
             if part.kind == "prep":
                 await cool_down(f"before {where} next", args.cool_at, args.cool_to)
                 await session.exam_next()
                 continue
             if part.kind == "learner_talk":
                 before = llm.stream_calls
-                for line_index, line in enumerate(TALK_LINES, 1):
+                for line_index, line in enumerate(script["talk"], 1):
                     await cool_down(f"before {where} collect {line_index}", args.cool_at, args.cool_to)
                     await _handle_line(session, stt, line, f"{where} collect {line_index}")
                 collect_calls = llm.stream_calls - before
                 await cool_down(f"before {where} follow-up", args.cool_at, args.cool_to)
                 await session.exam_next()
                 await cool_down(f"before {where} answer", args.cool_at, args.cool_to)
-                await _handle_line(session, stt, ANSWER_LINE, f"{where} answer")
+                await _handle_line(session, stt, script["answer"], f"{where} answer")
                 await cool_down(f"before {where} next", args.cool_at, args.cool_to)
                 await session.exam_next()
                 continue
             if part.kind == "kerstin_talk":
-                for question_index, question in enumerate(QUESTIONS, 1):
+                for question_index, question in enumerate(script["questions"], 1):
                     await cool_down(
                         f"before {where} question {question_index}",
                         args.cool_at,
@@ -199,7 +269,8 @@ async def run_preset(
                 await session.exam_next()
                 continue
             if part.kind == "dialog":
-                for line_index, line in enumerate(DIALOG_LINES, 1):
+                lines = script["planning"] if "plan" in part.title.lower() else script["discussion"]
+                for line_index, line in enumerate(lines, 1):
                     await cool_down(f"before {where} turn {line_index}", args.cool_at, args.cool_to)
                     await _handle_line(session, stt, line, f"{where} turn {line_index}")
                 await cool_down(f"before {where} next", args.cool_at, args.cool_to)
@@ -207,7 +278,7 @@ async def run_preset(
 
         errors = [message for message in messages if message.get("type") in ("error", "thermal")]
         if errors:
-            raise EvalError(f"{preset_key}: {errors[0]}")
+            raise EvalError(f"{plan.preset}: {errors[0]}")
     finally:
         await session.close()
         await llm.client.aclose()
@@ -215,9 +286,9 @@ async def run_preset(
     return parse_replies(messages), collect_calls
 
 
-def print_preset(preset_key: str, plan, replies: list[Reply], collect_calls: int) -> list[str]:
+def print_preset(label: str, plan, replies: list[Reply], collect_calls: int) -> list[str]:
     failures: list[str] = []
-    print(f"\n## Preset `{preset_key}` — {plan.title}")
+    print(f"\n## Run `{label}` — {plan.title}")
     print(
         "Parts: "
         + ", ".join(f"{index}:{part.kind}" for index, part in enumerate(plan.parts))
@@ -289,8 +360,18 @@ def print_preset(preset_key: str, plan, replies: list[Reply], collect_calls: int
         print(f"Discussion opener: {discussion.text}  [position={ok}]")
         if not ok:
             failures.append("discussion opener lacks position")
+        discussion_replies = [
+            reply for reply in replies if reply.part == discussion_parts[0]
+        ]
+        after_learner = discussion_replies[1:]
+        counterpoint = any(_has_counterpoint(reply.text) for reply in after_learner)
+        print(f"Counterpoint after learner agreement: {counterpoint}")
+        if not counterpoint:
+            failures.append("no counterpoint after learner agreement")
     else:
         print("Discussion opener: n/a")
+        print("Counterpoint after learner agreement: n/a")
+        failures.append("missing discussion part")
 
     planning = first_for(planning_parts)
     if planning is not None:
@@ -324,6 +405,13 @@ def print_preset(preset_key: str, plan, replies: list[Reply], collect_calls: int
     if leaks:
         failures.append("moderation leak")
 
+    ihr_hits = [reply for reply in replies if _has_ihr_euch(reply.text)]
+    print(f"ihr/euch hits: {len(ihr_hits)}")
+    for reply in ihr_hits:
+        print(f"  T{reply.turn}: {reply.text}")
+    if ihr_hits:
+        failures.append("ihr/euch address")
+
     print(f"Overall: {'FAIL' if failures else 'PASS'}")
     return failures
 
@@ -354,11 +442,18 @@ async def run(args: argparse.Namespace) -> int:
         f"cool_down: {args.cool_at}→{args.cool_to} °C"
     )
     failures: list[str] = []
-    for preset_key in data["presets"]:
-        plan = make_plan(preset_key, data, args.seed)
-        replies, collect_calls = await run_preset(preset_key, data, settings, args)
-        failures += print_preset(preset_key, plan, replies, collect_calls)
-        print_replies(plan, replies)
+    for set_name, script in CARD_SETS.items():
+        for preset_key in data["presets"]:
+            plan = make_plan(
+                preset_key,
+                data,
+                args.seed,
+                cards=script["cards"],
+            )
+            replies, collect_calls = await run_preset(plan, script, settings, args)
+            label = f"{preset_key} / {set_name} — {script['label']}"
+            failures += print_preset(label, plan, replies, collect_calls)
+            print_replies(plan, replies)
     if failures:
         print(f"\nFAILURES: {failures}")
         return 1

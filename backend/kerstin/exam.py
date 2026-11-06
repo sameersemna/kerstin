@@ -15,6 +15,16 @@ POOL_MINIMUMS = {
     "discussion_questions": 6,
     "planning_tasks": 6,
 }
+POOL_ALIASES = {
+    "talk": "talk_topics",
+    "talk_topics": "talk_topics",
+    "kerstin": "kerstin_topics",
+    "kerstin_topics": "kerstin_topics",
+    "discussion": "discussion_questions",
+    "discussion_questions": "discussion_questions",
+    "planning": "planning_tasks",
+    "planning_tasks": "planning_tasks",
+}
 
 
 @dataclass(frozen=True)
@@ -144,7 +154,31 @@ def _card_key(card: dict) -> str:
     return str(card.get("title") or card.get("question") or card.get("situation"))
 
 
-def _pick(pool: list[dict], used: set[str], rng: random.Random, where: str) -> dict:
+def _pick(
+    pool: list[dict],
+    used: set[str],
+    rng: random.Random,
+    where: str,
+    pinned: str | None = None,
+) -> dict:
+    if pinned is not None:
+        matches = [
+            card
+            for card in pool
+            if pinned
+            in {
+                card.get("title"),
+                card.get("question"),
+                card.get("situation"),
+            }
+        ]
+        if not matches:
+            raise ValueError(f"{where}: no card titled {pinned!r}")
+        card = matches[0]
+        if _card_key(card) in used:
+            raise ValueError(f"{where}: pinned card {pinned!r} is repeated")
+        used.add(_card_key(card))
+        return card
     available = [card for card in pool if _card_key(card) not in used]
     if not available:
         raise ValueError(f"{where}: no unused card left")
@@ -153,8 +187,17 @@ def _pick(pool: list[dict], used: set[str], rng: random.Random, where: str) -> d
     return card
 
 
-def make_plan(preset_key: str, pools: dict, seed: int) -> ExamPlan:
-    """Resolve a deterministic, non-repeating card plan for one preset."""
+def make_plan(
+    preset_key: str,
+    pools: dict,
+    seed: int,
+    cards: dict[str, str] | None = None,
+) -> ExamPlan:
+    """Resolve a deterministic, non-repeating card plan for one preset.
+
+    ``cards`` pins a card by title/question/situation. Keys may be pool names
+    or the short aliases ``talk``, ``kerstin``, ``discussion`` and ``planning``.
+    """
     presets = pools.get("presets")
     if not isinstance(presets, dict) or preset_key not in presets:
         raise ValueError(f"unknown exam preset {preset_key!r}")
@@ -162,6 +205,13 @@ def make_plan(preset_key: str, pools: dict, seed: int) -> ExamPlan:
     pool_data = pools.get("pools")
     if not isinstance(pool_data, dict):
         raise ValueError("exam.json: pools must be an object")  # noqa: TRY004
+    pinned: dict[str, str] = {}
+    if cards:
+        for key, value in cards.items():
+            pool_name = POOL_ALIASES.get(key)
+            if pool_name is None:
+                raise ValueError(f"unknown card pool {key!r}")
+            pinned[pool_name] = value
     rng = random.Random(seed)
     used: dict[str, set[str]] = {
         "talk_topics": set(),
@@ -181,6 +231,7 @@ def make_plan(preset_key: str, pools: dict, seed: int) -> ExamPlan:
                     used["talk_topics"],
                     rng,
                     "talk_topics",
+                    pinned.get("talk_topics"),
                 )
             card = pending_talk
             if kind == "learner_talk":
@@ -191,6 +242,7 @@ def make_plan(preset_key: str, pools: dict, seed: int) -> ExamPlan:
                 used["kerstin_topics"],
                 rng,
                 "kerstin_topics",
+                pinned.get("kerstin_topics"),
             )
         else:
             if "plan" in str(raw["title"]).lower():
@@ -199,6 +251,7 @@ def make_plan(preset_key: str, pools: dict, seed: int) -> ExamPlan:
                     used["planning_tasks"],
                     rng,
                     "planning_tasks",
+                    pinned.get("planning_tasks"),
                 )
             else:
                 card = _pick(
@@ -206,6 +259,7 @@ def make_plan(preset_key: str, pools: dict, seed: int) -> ExamPlan:
                     used["discussion_questions"],
                     rng,
                     "discussion_questions",
+                    pinned.get("discussion_questions"),
                 )
         parts.append(
             ExamPart(

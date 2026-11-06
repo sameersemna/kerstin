@@ -95,3 +95,31 @@ def test_prompt_content_has_no_official_brand_names():
     ).lower()
     for brand in ("telc", "goethe", "testdaf", "ösd", "osd"):
         assert brand not in text
+
+
+def test_make_plan_can_pin_cards_by_title_question_or_situation():
+    pins = {
+        "talk_topics": "Arbeit im Homeoffice",
+        "kerstin_topics": "Mein Weg nach Berlin",
+        "discussion_questions": "Sollten Städte autofreie Zonen einrichten?",
+        "planning_tasks": "Der Deutschkurs endet nächsten Monat. Plant gemeinsam ein Abschiedsfest.",
+    }
+    plan = make_plan("praesentation_diskussion_planung", catalog(), 1, cards=pins)
+
+    assert [key(part.card) for part in plan.parts] == [
+        "Arbeit im Homeoffice",
+        "Arbeit im Homeoffice",
+        "Mein Weg nach Berlin",
+        "Sollten Städte autofreie Zonen einrichten?",
+        "Der Deutschkurs endet nächsten Monat. Plant gemeinsam ein Abschiedsfest.",
+    ]
+
+
+def test_make_plan_unknown_pinned_title_raises():
+    with pytest.raises(ValueError):
+        make_plan(
+            "praesentation_diskussion_planung",
+            catalog(),
+            1,
+            cards={"talk_topics": "Diese Karte gibt es nicht"},
+        )

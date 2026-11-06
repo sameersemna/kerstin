@@ -134,3 +134,11 @@ def test_exam_system_prompt_contains_all_cards_and_no_placeholders():
             assert (card.get("title") or card.get("situation")) in prompt
             for point in card["points"]:
                 assert point in prompt
+
+
+def test_exam_md_uses_du_and_has_no_pruefungsmarken():
+    exam_md = (BACKEND_DIR / "prompts" / "exam.md").read_text(encoding="utf-8")
+
+    assert "du an" in exam_md
+    assert "Prüfungsmarken" not in exam_md
+    assert "Gegenpunkt" in exam_md
