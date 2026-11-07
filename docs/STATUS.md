@@ -30,10 +30,10 @@ Since T006: the first clause (≥ 4 words at `,` `;` `:` `–`) is spoken early.
 
 T015 latency with `gemma4:26b` (fixed seed, `--runs 2`): first audio p50/p90 1384/1661 ms server-side → est. real 2152/2429 ms with the VAD tail. The T002 table above is the `qwen3:14b` baseline.
 
-T007 early STT (fixed seed 17, `--runs 2`, Kokoro-kerstin, 20 warm turns): without early STT first audio 1232/1513 ms server-side → est. real **2000/2280 ms**; with `--early-stt` 642/1059 ms → est. real **1410/1827 ms**. `stt_wait_ms` 0/104 ms (p50/p90); 20/20 drafts committed and used, 0 wasted STT. Target p50 < 1500 ms met; p90 remains above.
+T007 early STT (fixed seed 17, `--runs 2`, Kokoro-kerstin, 20 warm turns): without early STT first audio 1232/1513 ms server-side → est. real **2000/2280 ms**; with `--early-stt` 642/1059 ms → est. real **1410/1827 ms**. `stt_wait_ms` 0/104 ms (p50/p90); 20/20 drafts committed and used, 0 wasted STT. Target p50 < 1500 ms met; p90 remains above. Lead fix: frames between the VAD thresholds also invalidate a draft (they stay in the final audio without resetting the tail). Real-speech wasted-draft rate is unmeasured; the fake-mic mid-sentence pause run wasted 2 drafts in one turn.
 
 ## Works (verified in a dev sandbox)
-- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel, feedback and early-STT draft/commit paths. `make test` → 303 Python + 44 JS (`node --test`: mic gate, Markdown renderer, exam UI, voice UI, early STT) passed.
+- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel, feedback and early-STT draft/commit paths. `make test` → 303 Python + 45 JS (`node --test`: mic gate, Markdown renderer, exam UI, voice UI, early STT) passed.
 - App starts; `/health`, `/api/scenarios`, `/`, static files served; WebSocket `start` → session + opener text.
 
 ## Not yet verified
