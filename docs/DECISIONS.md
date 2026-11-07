@@ -38,8 +38,9 @@ Sameer's call after T002. First-sentence TTS: 190 / 338 ms (p50/p90) for medium 
 ## D012 · 2026-11-05 · Accepted — Keep the 768 ms VAD tail and the shared Whisper server
 Sameer's call. A shorter tail risks cutting learners off mid-sentence; a second Whisper instance would add a GPU process. T006 cuts latency by speaking the first clause early instead.
 
-## D013 · 2026-11-05 · Open — Latency target vs. these choices
+## D013 · 2026-11-05 · Decided 2026-11-07 — Latency target vs. these choices
 With D011/D012 the realistic end-of-speech → first audio is ≈2.2–2.4 s p50 (VAD tail 768 + STT ~480 + LLM + TTS), not < 1.5 s as `CLAUDE.md` states. Options: (a) accept and restate the target as "server-side first audio < 1.5 s p50", (b) revisit D012 later. Sameer to decide after trying T006.
+**Decision (2026-11-07, Sameer):** keep the < 1.5 s end-of-speech → first-audio target and keep the 768 ms tail (D012). Close the gap with **early STT** (T007): transcribe a draft during the silence tail. Rejected: a shorter tail (cuts learners off), restating the target, and a faster/second Whisper (touches the shared server). Baseline at decision: ≈1.7 s p50 (768 + 918 ms).
 
 ## D014 · 2026-11-05 · Resolved by D015 — Revisit the conversation model for German correctness
 T010 shows `qwen3:14b` makes grammar errors in ≈25 % of replies and gives wrong explanations when asked, which prompt changes don't fix. This breaks D002 (correct B2 German). Candidates already pulled (Ollama reports Apache 2.0, to verify upstream): `gemma4:26b`, `qwen3.6:latest` (MoE), `mistral-nemo:12b-instruct-2407-q8_0`. Compare with `make persona-eval` (lead judges German) + paired bench. Sameer decides; D009 stands until then. 2026-11-05: Sameer approved only `gemma4:26b` for T015. Thermal policy for evals: cool-down at 76 °C → resume at 70 °C, hard abort 80 °C (Sameer has seen no failures below 83 °C; the margin covers temperature rises between per-turn readings).
