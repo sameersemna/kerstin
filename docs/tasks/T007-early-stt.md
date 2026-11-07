@@ -64,7 +64,7 @@ Bring end-of-speech → first audio below **1.5 s p50** (D013) **without shorten
 - No learner audio or transcripts on disk. Test WAVs are synthesised from fixed text into a scratch dir and not committed.
 
 ## Acceptance criteria
-- [ ] `make test` and `make lint` pass. Server tests with a fake STT cover:
+- [x] `make test` and `make lint` pass. Server tests with a fake STT cover:
   - commit reuses the draft (STT called once);
   - a draft without a commit gets a normal STT on the final audio;
   - a new draft cancels the old one;
@@ -73,22 +73,50 @@ Bring end-of-speech → first audio below **1.5 s p50** (D013) **without shorten
   - drafts ignored in `prep`, when thermal is hot and when the feature is off;
   - a gated draft (too quiet) → no STT call;
   - a draft never interrupts a running reply and never changes `turn_id`.
-- [ ] Node tests for `early_stt.js` pass (incl. „pause 300 ms then keep talking“ → draft invalidated, final sent without commit).
-- [ ] **Latency:** `latency_bench --runs 2` on 8771 with the default voice, with and without `--early-stt`, same seed. Paste both tables. Target: `est. real` p50 **< 1500 ms** with `--early-stt`. Report `stt_wait_ms` p50/p90 and the extra Whisper requests per turn.
-- [ ] **Correctness in a real browser path:** headless Chromium with `--use-fake-device-for-media-stream --use-file-for-fake-audio-capture=<wav>`. Use two Piper-synthesised WAVs (fixed sentences, scratch dir):
+- [x] Node tests for `early_stt.js` pass (incl. „pause 300 ms then keep talking“ → draft invalidated, final sent without commit).
+- [x] **Latency:** `latency_bench --runs 2` on 8771 with the default voice, with and without `--early-stt`, same seed. Paste both tables. Target: `est. real` p50 **< 1500 ms** with `--early-stt`. Report `stt_wait_ms` p50/p90 and the extra Whisper requests per turn.
+- [x] **Correctness in a real browser path:** headless Chromium with `--use-fake-device-for-media-stream --use-file-for-fake-audio-capture=<wav>`. Use two Piper-synthesised WAVs (fixed sentences, scratch dir):
   - (a) one sentence, then 1.5 s silence → one draft, committed, full transcript, `stt_early=true`;
   - (b) „Ich glaube, dass …“ + a **400 ms pause** + the rest of the sentence + 1.5 s silence → the first draft is invalidated, and the final transcript contains the **whole** sentence (not cut at the pause).
   - Paste the `metrics` and draft counters for both.
-- [ ] Whisper load: report drafts sent / committed / wasted per turn over the bench run. Wasted STT ≤ 1 per turn on average.
-- [ ] Worker report filled in.
+- [x] Whisper load: report drafts sent / committed / wasted per turn over the bench run. Wasted STT ≤ 1 per turn on average.
+- [x] Worker report filled in.
 
 ## Worker report (Kilo Code fills this in)
-- **Changed files:**
-- **How tested:**
+- **Changed files:** `backend/kerstin/session.py`, `main.py`, `config.py`; `backend/tests/test_session.py`; `frontend/app.js`, `index.html`, `early_stt.js` (new), `frontend/tests/early_stt.test.js` (new); `scripts/latency_bench.py`; `.env.example`; `docs/PROTOCOL.md`, `docs/ARCHITECTURE.md`, `docs/STATUS.md`; this task file.
+- **How tested:** `make test` → **303 Python + 44 Node** tests passed; `make lint` → ruff passed. The new fake-STT tests cover commit reuse, no-commit fallback, draft replacement, raised draft fallback, stale/unknown commits, disabled/thermal/prep/ignored/gated drafts, turn-id stability and non-interruption. `node --test frontend/tests/early_stt.test.js` covers one-draft commit, the 300 ms mid-sentence pause invalidation, max 3 drafts, min speech/time gates, replacement, `canDraft=false`, and misfire. Port 8771 only; 8770 was not bound. The app ran with `KERSTIN_TTS_BACKEND=auto` and `KERSTIN_LLM_SEED=17`; Kokoro was on the default 8880 sidecar. No real `kerstin` units were installed or touched. GPU checked before runs (`nvidia-smi` 49–58 °C, 0–10 % with the existing shared services); peak 64 °C, no thermal abort, no other service touched. VAD thresholds, `redemptionFrames=8` and `minSpeechFrames=4` are unchanged.
 - **Measurements (if any):**
-- **Deviations from spec / extra files touched:**
-- **New dependencies (+license):**
-- **Open questions:**
+  - **Bench without `--early-stt`** (20 warm measured turns; first audio p50/p90/max): `stt_ms` 519/695/785, `stt_wait_ms` 519/695/785, `llm_first_token_ms` 914/1231/1590, `first_sentence_ms` 1110/1397/1800, `tts_first_ms` 114/125/136, `first_audio_ms` **1232/1513/1923**, `est. real` **2000/2280 ms**; GPU 51→59 °C.
+  - **Bench with `--early-stt`** (same seed, same 20 utterances): `stt_ms` 0/104/214, `stt_wait_ms` **0/104/214**, `llm_first_token_ms` 326/718/928, `first_sentence_ms` 516/928/1107, `tts_first_ms` 112/126/130, `first_audio_ms` **642/1059/1224**, `est. real` **1410/1827 ms**; GPU 58→64 °C. Target p50 met; p90 remains above 1500 ms.
+  - **Whisper load:** 20 drafts sent, 20 committed, 20 used, **0 wasted STT** in the bench (1.00 draft/turn, 0.00 wasted/turn). The draft replaces the final-audio STT call, so total Whisper requests stay **1.0/turn** (no extra requests). Warmup included, one request per turn.
+  - **Browser A (one sentence + 1.5 s silence):** draft id 1 (55,304 bytes) → commit 1 → final 73,728 bytes; transcript `Ich wohne seit drei Jahren in Berlin.`; metrics `stt_ms=0`, `stt_early=true`, `stt_wait_ms=0`, `first_audio_ms=619`, `audio_s=2.3`; server counters `sent=1 committed=1 wasted_stt=0 gated=0`.
+  - **Browser B (`Ich glaube, dass` + 400 ms pause + rest + 1.5 s silence):** drafts id 1/2/3 (27,656/46,088/107,528 bytes), commit only id 3, final 125,952 bytes; transcript `Ich glaube, dass ich am Wochenende nach Berlin fahre.`; metrics `stt_ms=0`, `stt_early=true`, `stt_wait_ms=0`, `first_audio_ms=676`, `audio_s=3.94`; server counters `sent=3 committed=1 wasted_stt=2 gated=0`. The first draft was invalidated.
+  - **Bench tables:**
+```text
+without --early-stt (n=20, p50/p90/max, ms)
+stt_ms                 519      695      785
+stt_wait_ms            519      695      785
+llm_first_token_ms     914     1231     1590
+first_sentence_ms     1110     1397     1800
+tts_first_ms           114      125      136
+first_audio_ms        1232     1513     1923
+est. real             2000     2280
+GPU 51 -> 59 °C
+
+with --early-stt (same seed, n=20, p50/p90/max, ms)
+stt_ms                   0      104      214
+stt_wait_ms              0      104      214
+llm_first_token_ms     326      718      928
+first_sentence_ms      516      928     1107
+tts_first_ms           112      126      130
+first_audio_ms         642     1059     1224
+est. real             1410     1827
+drafts sent/committed/used/wasted: 20/20/20/0 (1.00/1.00/0.00 per turn)
+GPU 58 -> 64 °C
+```
+- **Deviations from spec / extra files touched:** The B WAV was trimmed to remove Piper's own edge silence so the inserted pause is exactly 400 ms; without trimming the combined silence crossed the 768 ms VAD end threshold. Test WAVs live only in `/tmp/kilo/t007-audio/` and are not committed. The pre-existing `.gitignore` changes (`*.prs`, `tmp/`) remain unstaged and are not part of this task. No changes were made to `Makefile`, VAD configuration, Whisper, or TTS.
+- **New dependencies (+license):** None.
+- **Open questions:** `KERSTIN_EARLY_STT` defaults to true in code and `.env.example`; the actual `.env` was not edited. p90 remains ≈1.83 s, so the D013 p50 target is met but tail latency is not.
 
 ## Review (Claude Code fills this in)
 - **Verdict:** accept / revise

@@ -4,6 +4,7 @@ import asyncio
 import logging
 import math
 import struct
+import time
 from array import array
 
 from kerstin.audio import pcm16_rms_dbfs
@@ -133,6 +134,29 @@ class CountingSTT:
         return self.text
 
 
+class ScriptedSTT:
+    """Returns one scripted result per call; useful for draft/fallback paths."""
+
+    def __init__(self, texts=None, delay=0.0, errors=None):
+        self.texts = list(texts or ["Draft transcript.", "Final transcript."])
+        self.delay = delay
+        self.errors = list(errors or [])
+        self.calls = 0
+        self.pcm = []
+        self.started = asyncio.Event()
+
+    async def transcribe(self, pcm16):
+        index = self.calls
+        self.calls += 1
+        self.pcm.append(pcm16)
+        self.started.set()
+        if self.delay:
+            await asyncio.sleep(self.delay)
+        if index < len(self.errors) and self.errors[index] is not None:
+            raise self.errors[index]
+        return self.texts[min(index, len(self.texts) - 1)]
+
+
 class FakeThermalGuard:
     def __init__(self, status):
         self.status = status
@@ -149,6 +173,7 @@ def make_session(
     llm_warmup=True,
     stt_min_rms_dbfs=-55.0,
     stt_filter=True,
+    early_stt=True,
     thermal=None,
     feedback_lang="en",
     ollama_model="gemma4:26b",
@@ -175,6 +200,7 @@ def make_session(
         llm_warmup=llm_warmup,
         stt_min_rms_dbfs=stt_min_rms_dbfs,
         stt_filter=stt_filter,
+        early_stt=early_stt,
         thermal=thermal,
         feedback_lang=feedback_lang,
         ollama_model=ollama_model,
@@ -1103,3 +1129,232 @@ async def test_session_reports_selected_and_unknown_voice():
     s.voice_id = "not-a-voice"
     await s.start()
     assert js[0]["voice"]["id"] == "kokoro-kerstin"
+
+
+# ---------- early STT (T007) ----------
+
+
+async def test_early_stt_commit_reuses_the_draft_transcript():
+    stt = ScriptedSTT(["Draft transcript."])
+    s, js, _ = make_session(FakeLLM(["Hallo."]), stt=stt, llm_warmup=False)
+    await s.start()
+    assert js[0]["early_stt"] is True
+
+    await s.handle_draft(7, PCM_1S)
+    assert s._draft is not None and s._draft.task is not None
+    await s._draft.task
+    await s.handle_commit(7)
+    await s.handle_audio(PCM_1S)
+    await s._turn_task
+
+    assert stt.calls == 1
+    transcript = next(m for m in js if m["type"] == "transcript")
+    assert transcript["text"] == "Draft transcript."
+    metrics = next(m for m in js if m["type"] == "metrics")
+    assert metrics["stt_early"] is True
+    assert metrics["stt_wait_ms"] < 100
+    assert metrics["stt_ms"] == metrics["stt_wait_ms"]
+    assert s.drafts_sent == 1
+    assert s.drafts_committed == 1
+    assert s.drafts_wasted_stt == 0
+
+
+async def test_early_stt_draft_without_commit_gets_fresh_stt():
+    stt = ScriptedSTT(["Draft transcript.", "Final transcript."])
+    s, js, _ = make_session(FakeLLM(["Hallo."]), stt=stt, llm_warmup=False)
+    await s.start()
+
+    await s.handle_draft(1, PCM_1S)
+    await s._draft.task
+    await s.handle_audio(PCM_1S)
+    await s._turn_task
+
+    assert stt.calls == 2
+    transcript = next(m for m in js if m["type"] == "transcript")
+    assert transcript["text"] == "Final transcript."
+    metrics = next(m for m in js if m["type"] == "metrics")
+    assert metrics["stt_early"] is False
+    assert s.drafts_committed == 0
+    assert s.drafts_wasted_stt == 1
+
+
+async def test_early_stt_new_draft_cancels_the_previous_one():
+    stt = ScriptedSTT(["old draft", "new draft", "final"], delay=0.2)
+    s, js, _ = make_session(FakeLLM(["Hallo."]), stt=stt, llm_warmup=False)
+    await s.start()
+
+    await s.handle_draft(1, PCM_1S)
+    await stt.started.wait()
+    await s.handle_draft(2, PCM_1S)
+    await s._draft.task
+    await s.handle_commit(2)
+    await s.handle_audio(PCM_1S)
+    await s._turn_task
+
+    assert stt.calls == 2
+    transcript = next(m for m in js if m["type"] == "transcript")
+    assert transcript["text"] == "new draft"
+    assert s.drafts_committed == 1
+    assert s.drafts_wasted_stt == 1
+
+
+async def test_early_stt_committed_draft_error_falls_back_to_final_audio():
+    stt = ScriptedSTT(["draft", "final"], errors=[RuntimeError("whisper down")])
+    s, js, _ = make_session(FakeLLM(["Hallo."]), stt=stt, llm_warmup=False)
+    await s.start()
+
+    await s.handle_draft(1, PCM_1S)
+    await s.handle_commit(1)
+    await s.handle_audio(PCM_1S)
+    await s._turn_task
+
+    assert stt.calls == 2
+    transcript = next(m for m in js if m["type"] == "transcript")
+    assert transcript["text"] == "final"
+    metrics = next(m for m in js if m["type"] == "metrics")
+    assert metrics["stt_early"] is False
+    assert s.drafts_wasted_stt == 1
+
+
+async def test_early_stt_unknown_commit_uses_normal_path():
+    stt = ScriptedSTT(["draft", "final"])
+    s, js, _ = make_session(FakeLLM(["Hallo."]), stt=stt, llm_warmup=False)
+    await s.start()
+
+    await s.handle_draft(1, PCM_1S)
+    await s._draft.task
+    await s.handle_commit(99)
+    await s.handle_audio(PCM_1S)
+    await s._turn_task
+
+    assert stt.calls == 2
+    assert next(m for m in js if m["type"] == "transcript")["text"] == "final"
+    assert s.drafts_committed == 0
+    assert s.drafts_wasted_stt == 1
+
+
+async def test_early_stt_stale_draft_is_dropped():
+    stt = ScriptedSTT(["draft", "final"])
+    s, js, _ = make_session(FakeLLM(["Hallo."]), stt=stt, llm_warmup=False)
+    await s.start()
+
+    await s.handle_draft(1, PCM_1S)
+    await s._draft.task
+    s._draft.created_at = time.monotonic() - 11
+    await s.handle_commit(1)
+    assert s._draft is None
+    await s.handle_audio(PCM_1S)
+    await s._turn_task
+
+    assert stt.calls == 2
+    assert next(m for m in js if m["type"] == "transcript")["text"] == "final"
+    assert s.drafts_committed == 0
+    assert s.drafts_wasted_stt == 1
+
+
+async def test_early_stt_ignored_when_disabled():
+    stt = ScriptedSTT(["final"])
+    s, js, _ = make_session(FakeLLM(["Hallo."]), stt=stt, early_stt=False, llm_warmup=False)
+    await s.start()
+
+    assert js[0]["early_stt"] is False
+    await s.handle_draft(1, PCM_1S)
+    assert stt.calls == 0
+    assert s._draft is None
+    assert s.drafts_sent == 1
+
+
+async def test_early_stt_ignored_during_exam_prep():
+    stt = ScriptedSTT(["final"])
+    s, js, _ = make_session(
+        FakeLLM(["Hallo."]),
+        stt=stt,
+        exam=exam_plan(),
+        llm_warmup=False,
+    )
+    await s.start()
+    assert js[-1]["type"] == "exam_part" and js[-1]["kind"] == "prep"
+
+    await s.handle_draft(1, PCM_1S)
+    assert stt.calls == 0
+    assert s._draft is None
+
+
+async def test_early_stt_ignored_when_thermal_hot():
+    stt = ScriptedSTT(["final"])
+    s, _, _ = make_session(
+        FakeLLM(["Hallo."]),
+        stt=stt,
+        thermal=FakeThermalGuard(ThermalStatus("hot", 82)),
+        llm_warmup=False,
+    )
+    await s.start()
+
+    await s.handle_draft(1, PCM_1S)
+    assert stt.calls == 0
+    assert s._draft is None
+
+
+async def test_early_stt_quiet_draft_is_gated_without_stt():
+    stt = ScriptedSTT(["final"])
+    s, js, _ = make_session(FakeLLM(["Hallo."]), stt=stt, llm_warmup=False)
+    await s.start()
+
+    await s.handle_draft(1, PCM_SILENCE)
+    assert stt.calls == 0
+    assert s.drafts_gated == 1
+    assert s._draft is not None and s._draft.gated == "too_quiet"
+
+    await s.handle_commit(1)
+    await s.handle_audio(PCM_1S)
+    await s._turn_task
+    assert stt.calls == 1
+    assert s.drafts_committed == 1
+    assert s.drafts_wasted_stt == 0
+    assert next(m for m in js if m["type"] == "metrics")["stt_early"] is False
+
+
+async def test_early_stt_before_session_is_ignored():
+    stt = ScriptedSTT(["final"])
+    s, _, _ = make_session(FakeLLM(["Hallo."]), stt=stt, llm_warmup=False)
+
+    await s.handle_draft(1, PCM_1S)
+    assert stt.calls == 0
+    assert s.drafts_sent == 0
+
+
+async def test_early_stt_never_interrupts_a_running_reply():
+    llm = FakeLLM(["Das ist ein langer Satz, der langsam kommt. "] * 20, delay=0.05)
+    stt = ScriptedSTT(["Draft transcript."], delay=0.2)
+    s, js, _ = make_session(llm, stt=stt, llm_warmup=False)
+    await s.start()
+
+    await s.handle_audio(PCM_1S)
+    await asyncio.sleep(0.05)
+    turn_task = s._turn_task
+    assert s.turn_id == 1
+    await s.handle_draft(1, PCM_1S)
+    assert s.turn_id == 1
+    assert s._turn_task is turn_task
+    assert not turn_task.done()
+
+    await turn_task
+    assert any(m["type"] == "reply_done" and m["turn"] == 1 for m in js)
+    assert not any(m["type"] == "reply_interrupted" for m in js)
+    await s.close()
+
+
+async def test_early_stt_counters_are_logged_on_end(caplog):
+    stt = ScriptedSTT(["Draft transcript.", "Final transcript."])
+    s, _, _ = make_session(FakeLLM(["Hallo."]), stt=stt, llm_warmup=False)
+    await s.start()
+    await s.handle_draft(1, PCM_1S)
+    await s._draft.task
+    await s.handle_audio(PCM_1S)
+    await s._turn_task
+
+    with caplog.at_level(logging.INFO, logger="kerstin.session"):
+        await s.feedback()
+
+    assert "early stt drafts sent=1 committed=0 wasted_stt=1 gated=0" in caplog.text
+    assert "Draft transcript." not in caplog.text

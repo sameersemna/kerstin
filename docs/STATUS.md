@@ -1,6 +1,6 @@
 # Status
 
-_Last updated: 2026-11-07 (T018 voice selection merged)_
+_Last updated: 2026-11-07 (T007 early STT)_
 
 ## Works on the GB10 (T001, 2026-11-04)
 - End-to-end headless: `make smoke` passes. German utterance → whisper.cpp (`:8768`, `language=de`) → Ollama → Piper → WAV over `/ws`.
@@ -30,8 +30,10 @@ Since T006: the first clause (≥ 4 words at `,` `;` `:` `–`) is spoken early.
 
 T015 latency with `gemma4:26b` (fixed seed, `--runs 2`): first audio p50/p90 1384/1661 ms server-side → est. real 2152/2429 ms with the VAD tail. The T002 table above is the `qwen3:14b` baseline.
 
+T007 early STT (fixed seed 17, `--runs 2`, Kokoro-kerstin, 20 warm turns): without early STT first audio 1232/1513 ms server-side → est. real **2000/2280 ms**; with `--early-stt` 642/1059 ms → est. real **1410/1827 ms**. `stt_wait_ms` 0/104 ms (p50/p90); 20/20 drafts committed and used, 0 wasted STT. Target p50 < 1500 ms met; p90 remains above.
+
 ## Works (verified in a dev sandbox)
-- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel and feedback. `make test` → 250 Python + 33 JS (`node --test`: mic gate, Markdown renderer, exam UI) passed.
+- Unit tests: sentence splitter (abbreviations, ordinals, quotes) and session pipeline with fake STT/LLM/TTS, including barge-in cancel, feedback and early-STT draft/commit paths. `make test` → 303 Python + 44 JS (`node --test`: mic gate, Markdown renderer, exam UI, voice UI, early STT) passed.
 - App starts; `/health`, `/api/scenarios`, `/`, static files served; WebSocket `start` → session + opener text.
 
 ## Not yet verified
@@ -39,7 +41,7 @@ T015 latency with `gemma4:26b` (fixed seed, `--runs 2`): first audio p50/p90 138
 - True end-of-speech latency, including the browser VAD tail (T002).
 
 ## Known limitations
-- **Latency over target** once the VAD tail is counted (≈1.8–2.9 s vs < 1.5 s).
+- **Latency:** p50 target met after T007 (est. 1.41 s end-of-speech → first audio); p90 is still ≈1.83 s because LLM/TTS variance remains outside the hidden STT window.
 - German correctness (T015, lead-graded): `gemma4:26b` makes errors in ≈5 % of replies (3/60), and 1 of 10 correction explanations was wrong ("auf dem Tisch"). Better than `qwen3:14b` (18 %) but not zero; keep checking with `make persona-eval`.
 - STT filter (T013): an utterance consisting *only* of "Vielen Dank", "Tschüss" or "Amen" is dropped as a likely Whisper hallucination (whisper.cpp outputs these for clicks/noise even at speech level). Gate threshold −55 dBFS: tune it against the "Pegel" shown in the UI.
 - Feedback 💡 explanations in English or German (T017, D008): UI selector "Erklärungen", remembered per browser, sent with `end`; server default `KERSTIN_FEEDBACK_LANG=en`. Feedback quality (T016, `make feedback-eval`, 5 planted-error cases, gemma4:26b, revised prompt): DE 14/15 errors found, 0 wrong corrections; EN 13/15, 1 wrong correction (non-word "gefossen"); 0 false corrections of correct German, 0 ungrounded/Kerstin quotes, 0 LaTeX noise. Fixed preposition verbs (*sich kümmern um*) are the weak spot.

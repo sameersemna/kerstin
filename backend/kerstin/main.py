@@ -10,6 +10,7 @@ import json
 import logging
 import mimetypes
 import random
+import struct
 import time
 from contextlib import asynccontextmanager
 
@@ -24,7 +25,7 @@ from .exam import load_presets, make_plan
 from .llm import OllamaLLM
 from .mistakes import MistakeLog, pick_focus
 from .prompts import PromptStore
-from .session import Deps, Session
+from .session import DRAFT_MAGIC, Deps, Session
 from .stt import make_stt
 from .thermal import ThermalGuard
 from .tts import NoTTS, PiperTTS
@@ -122,6 +123,7 @@ async def lifespan(app: FastAPI):
         first_clause_min_words=settings.tts_first_clause_min_words,
         stt_min_rms_dbfs=settings.stt_min_rms_dbfs,
         stt_filter=settings.stt_filter,
+        early_stt=settings.early_stt,
         feedback_lang=settings.feedback_lang,
         ollama_model=settings.ollama_model,
         feedback_model=settings.feedback_model,
@@ -298,7 +300,15 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 if session is None:
                     await send_json({"type": "error", "message": "send 'start' first"})
                     continue
-                await session.handle_audio(msg["bytes"])
+                frame = msg["bytes"]
+                if frame.startswith(DRAFT_MAGIC):
+                    if len(frame) < 8:
+                        log.debug("ignoring malformed early-STT draft frame")
+                        continue
+                    draft_id = struct.unpack("<I", frame[4:8])[0]
+                    await session.handle_draft(draft_id, frame[8:])
+                else:
+                    await session.handle_audio(frame)
                 continue
 
             data = json.loads(msg.get("text") or "{}")
@@ -346,6 +356,8 @@ async def ws_endpoint(ws: WebSocket) -> None:
                     voice_id=selected_voice.id,
                 )
                 await session.start()
+            elif kind == "commit" and session:
+                await session.handle_commit(data.get("draft"))
             elif kind == "interrupt" and session:
                 await session.interrupt()
             elif kind == "exam_next":

@@ -19,6 +19,8 @@ const scoreTableEl = $("scoreTable"), scoreRowsEl = $("scoreRows"), scoreMessage
 
 let ws = null;
 let vadInstance = null;
+let earlyStt = null;
+let earlySttEnabled = false;
 let audioCtx = null;
 let currentTurn = 0;          // latest turn id we accept audio for
 let playQueue = [];           // [{turn, buffer}]
@@ -249,7 +251,10 @@ function setExamPart(msg) {
   } else {
     if (examPrepPaused) {
       examPrepPaused = false;
-      if (vadInstance && (!micGate || micGate.isListening())) vadInstance.start();
+      if (vadInstance && (!micGate || micGate.isListening())) {
+        if (earlyStt) earlyStt.reset();
+        vadInstance.start();
+      }
     }
     if (msg.kind === "kerstin_talk") setState("Kerstin spricht …", "speaking");
     else setState("du bist dran …", "listening");
@@ -265,6 +270,7 @@ function setExamDone() {
   examNextBtnEl.textContent = "Prüfung beendet";
   examNextBtnEl.disabled = true;
   if (vadInstance) vadInstance.pause();
+  if (earlyStt) earlyStt.reset();
   examPrepPaused = false;
   setState("Prüfung beendet", "idle");
   endBtn.disabled = false;
@@ -572,6 +578,27 @@ function floatTo16BitPCM(float32) {
   return out.buffer;
 }
 
+function draftFrame(draftId, float32) {
+  const pcm = floatTo16BitPCM(float32);
+  const frame = new Uint8Array(8 + pcm.byteLength);
+  frame.set([0x4b, 0x44, 0x52, 0x31], 0); // "KDR1"
+  new DataView(frame.buffer).setUint32(4, draftId >>> 0, true);
+  frame.set(new Uint8Array(pcm), 8);
+  return frame.buffer;
+}
+
+function canDraftEarly() {
+  return Boolean(
+    earlySttEnabled &&
+      ws &&
+      ws.readyState === WebSocket.OPEN &&
+      !examBlocksSpeech() &&
+      (!micGate || micGate.isListening()) &&
+      vadInstance &&
+      vadInstance.listening !== false
+  );
+}
+
 // ---------- websocket ----------
 function connect() {
   return new Promise((resolve, reject) => {
@@ -610,6 +637,8 @@ function handle(msg) {
       resetScore();
       modeEl.value = msg.exam && msg.exam.preset ? msg.exam.preset : "";
       updateModeControls();
+      earlySttEnabled = msg.early_stt === true;
+      if (earlyStt) earlyStt.resetSession();
       if (msg.voice && msg.voice.id) voiceEl.value = msg.voice.id;
       voiceStatusEl.hidden = true;
       voiceStatusEl.textContent = "";
@@ -687,7 +716,9 @@ function handle(msg) {
       break;
     case "metrics":
       metricsEl.textContent =
-        `Turn ${msg.turn}\nAudio: ${msg.audio_s}s\nPegel: ${msg.audio_dbfs.toFixed(1)} dBFS\nSTT: ${msg.stt_ms} ms\n` +
+        `Turn ${msg.turn}\nAudio: ${msg.audio_s}s\nPegel: ${msg.audio_dbfs.toFixed(1)} dBFS\n` +
+        `STT: ${msg.stt_ms} ms${msg.stt_early ? " (früh)" : ""}\n` +
+        `STT-Warten: ${msg.stt_wait_ms ?? msg.stt_ms} ms\n` +
         `LLM 1. Token: ${msg.llm_first_token_ms} ms\nErste Audio: ${msg.first_audio_ms} ms\n` +
         `Gesamt: ${msg.total_ms} ms (${msg.sentences} Sätze)`;
       break;
@@ -735,6 +766,20 @@ async function start() {
   resetExam();
   resetScore();
   if (!ws || ws.readyState !== WebSocket.OPEN) await connect();
+  earlySttEnabled = false;
+  earlyStt = window.EarlySTT
+    ? window.EarlySTT.createEarlySTT({
+        positiveThreshold: 0.6,
+        negativeThreshold: 0.45,
+        frameMs: 96,
+        minSpeechFrames: 4,
+        canDraft: canDraftEarly,
+        onDraft: (draftId, audio) => {
+          if (!canDraftEarly()) return;
+          ws.send(draftFrame(draftId, audio));
+        },
+      })
+    : null;
 
   vadInstance = await window.vad.MicVAD.new({
     baseAssetPath: "vendor/vad-web/",
@@ -743,21 +788,44 @@ async function start() {
     negativeSpeechThreshold: 0.45,
     redemptionFrames: 8,     // ~0.5-0.8 s of silence ends the utterance (tune in docs/LATENCY.md)
     minSpeechFrames: 4,
+    onFrameProcessed: (probs, frame) => {
+      if (earlyStt) earlyStt.onFrame(probs, frame);
+    },
     onSpeechStart: () => {
-      if (examBlocksSpeech()) return;
-      if (micGate && !micGate.isListening()) return;
+      if (examBlocksSpeech()) {
+        if (earlyStt) earlyStt.reset();
+        return;
+      }
+      if (micGate && !micGate.isListening()) {
+        if (earlyStt) earlyStt.reset();
+        return;
+      }
       // barge-in: learner starts talking while Kerstin speaks
       if (micGate && micGate.getMode() === "headphones" && isSpeaking()) {
         stopPlayback();
         ws.send(JSON.stringify({ type: "interrupt" }));
       }
+      if (earlyStt) earlyStt.begin();
       setState("du sprichst …", "listening");
     },
     onSpeechEnd: (audio) => {
-      if (examBlocksSpeech()) return;
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      if (examBlocksSpeech()) {
+        if (earlyStt) earlyStt.reset();
+        return;
+      }
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        if (earlyStt) earlyStt.reset();
+        return;
+      }
+      const commitId = earlyStt ? earlyStt.end() : null;
+      if (commitId !== null) {
+        ws.send(JSON.stringify({ type: "commit", draft: commitId }));
+      }
       currentTurn += 1; // anything older is now stale
       ws.send(floatTo16BitPCM(audio));
+    },
+    onVADMisfire: () => {
+      if (earlyStt) earlyStt.misfire();
     },
   });
   micGate = createMicGate({
@@ -769,6 +837,7 @@ async function start() {
         setState("Vorbereitung – Mikrofon aus", "idle");
         return;
       }
+      if (earlyStt) earlyStt.reset();
       vadInstance.start();
       setState("hört zu …", "listening");
     },
@@ -792,6 +861,8 @@ function end() {
   if (examPart && examPart.kind !== "done") examNextBtnEl.disabled = true;
   examPrepPaused = false;
   if (vadInstance) { vadInstance.pause(); vadInstance = null; }
+  earlySttEnabled = false;
+  if (earlyStt) { earlyStt.reset(); earlyStt = null; }
   stopPlayback();
   if (micGate) micGate.userInterrupt();
   if (ws && ws.readyState === WebSocket.OPEN) {

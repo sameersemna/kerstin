@@ -39,6 +39,8 @@ SendJson = Callable[[dict], Awaitable[None]]
 SendBytes = Callable[[bytes], Awaitable[None]]
 
 MIN_UTTERANCE_S = 0.35
+DRAFT_TTL_S = 10.0
+DRAFT_MAGIC = b"KDR1"
 
 
 def format_feedback_transcript(history: list[Message]) -> str:
@@ -63,6 +65,7 @@ class Deps:
     first_clause_min_words: int = 4
     stt_min_rms_dbfs: float = -55.0
     stt_filter: bool = True
+    early_stt: bool = True
     feedback_lang: str = "en"
     ollama_model: str = "gemma4:26b"
     feedback_model: str | None = None
@@ -80,10 +83,28 @@ class Deps:
 
 
 @dataclass
+class _Draft:
+    draft_id: int
+    pcm16: bytes
+    created_at: float
+    task: asyncio.Task[str] | None = None
+    gated: str | None = None
+    committed: bool = False
+    used: bool = False
+    stt_started: bool = False
+    wasted_counted: bool = False
+
+    def expired(self) -> bool:
+        return time.monotonic() - self.created_at > DRAFT_TTL_S
+
+
+@dataclass
 class TurnMetrics:
     audio_s: float = 0.0
     audio_dbfs: float = 0.0
     stt_ms: int = 0
+    stt_early: bool = False
+    stt_wait_ms: int = 0
     llm_first_token_ms: int = 0
     first_sentence_ms: int = 0  # t0 until the consumer got the first non-empty sentence
     tts_first_ms: int = 0  # duration of the first sentence's synthesize() call
@@ -133,10 +154,19 @@ class Session:
     _warmup_task: asyncio.Task | None = None
     _tts_warm_task: asyncio.Task | None = None
     _hint_task: asyncio.Task | None = None
+    _ready: bool = False
+    _draft: _Draft | None = None
+    _committed_draft_id: int | None = None
+    _draft_expiry_task: asyncio.Task | None = None
+    drafts_sent: int = 0
+    drafts_committed: int = 0
+    drafts_wasted_stt: int = 0
+    drafts_gated: int = 0
 
     # ---------- public API (called by the websocket handler) ----------
 
     async def start(self) -> None:
+        self._ready = False
         sc = self.deps.prompts.scenario(self.scenario_key)
         if self.exam is not None:
             self.focus = []
@@ -164,6 +194,7 @@ class Session:
             "title": sc.title,
             "focus": [CATEGORIES[key] for key in self.focus],
             "voice": {"id": self.voice.id, "label": self.voice.label},
+            "early_stt": self.deps.early_stt,
         }
         if self.exam is not None:
             session_message["exam"] = {
@@ -180,6 +211,7 @@ class Session:
                 ],
             }
         await self.send_json(session_message)
+        self._ready = True
 
         thermal = await self._thermal_check()
         if thermal is not None and thermal.state == "hot":
@@ -224,9 +256,93 @@ class Session:
         await self.send_json(message)
 
     async def handle_audio(self, pcm16: bytes) -> None:
+        draft = None
+        committed = self._committed_draft_id
+        self._committed_draft_id = None
+        latest = self._draft
+        if latest is not None:
+            if latest.expired():
+                await self._drop_draft(latest, "expired")
+            elif committed is not None and latest.draft_id == committed:
+                draft = latest
+                self._draft = None
+                self._cancel_draft_expiry()
+            else:
+                await self._drop_draft(latest, "uncommitted", wait=False)
+
         await self.interrupt()
         self.turn_id += 1
-        self._turn_task = asyncio.create_task(self._turn(self.turn_id, pcm16))
+        self._turn_task = asyncio.create_task(self._turn(self.turn_id, pcm16, draft))
+
+    async def handle_draft(self, draft_id: int, pcm16: bytes) -> None:
+        """Transcribe a draft while the VAD tail is still running (D013)."""
+        if not isinstance(draft_id, int) or isinstance(draft_id, bool):
+            return
+        if not 0 <= draft_id <= 0xFFFFFFFF:
+            return
+        if not self._ready:
+            log.debug("early stt draft ignored: session not ready")
+            return
+        self.drafts_sent += 1
+        if not self.deps.early_stt:
+            log.debug("early stt draft %d ignored: disabled", draft_id)
+            return
+        thermal = await self._thermal_check()
+        if thermal is not None and thermal.state == "hot":
+            log.debug("early stt draft %d ignored: thermal hot", draft_id)
+            return
+        if self._in_prep():
+            log.debug("early stt draft %d ignored: exam prep", draft_id)
+            return
+
+        if self._draft is not None:
+            await self._drop_draft(self._draft, "replaced", wait=False)
+        self._committed_draft_id = None
+
+        draft = _Draft(
+            draft_id=draft_id,
+            pcm16=pcm16,
+            created_at=time.monotonic(),
+        )
+        duration = pcm16_duration_s(pcm16)
+        if duration < MIN_UTTERANCE_S:
+            draft.gated = "too_short"
+            self.drafts_gated += 1
+            log.debug("early stt draft %d gated: too_short", draft_id)
+        elif pcm16_rms_dbfs(pcm16) < self.deps.stt_min_rms_dbfs:
+            draft.gated = "too_quiet"
+            self.drafts_gated += 1
+            log.debug("early stt draft %d gated: too_quiet", draft_id)
+        else:
+            draft.task = asyncio.create_task(self._transcribe_draft(draft))
+            log.debug("early stt draft %d started", draft_id)
+
+        self._draft = draft
+        self._draft_expiry_task = asyncio.create_task(self._expire_draft(draft))
+
+    async def handle_commit(self, draft_id: int) -> None:
+        """Remember a draft commit; the next binary may reuse that transcript."""
+        if not isinstance(draft_id, int) or isinstance(draft_id, bool):
+            return
+        if not 0 <= draft_id <= 0xFFFFFFFF:
+            return
+        if not self._ready or not self.deps.early_stt:
+            log.debug("early stt commit ignored")
+            return
+
+        latest = self._draft
+        if latest is not None and latest.expired():
+            await self._drop_draft(latest, "expired")
+            latest = None
+
+        self._committed_draft_id = draft_id
+        if latest is not None and latest.draft_id == draft_id:
+            if not latest.committed:
+                latest.committed = True
+                self.drafts_committed += 1
+            log.debug("early stt draft %d committed", draft_id)
+        else:
+            log.debug("early stt commit %d has no matching draft", draft_id)
 
     async def interrupt(self) -> None:
         task = self._turn_task
@@ -275,6 +391,16 @@ class Session:
 
     async def feedback(self, lang: str | None = None, save_mistakes: bool = False) -> None:
         await self.interrupt()
+        if self._draft is not None:
+            await self._drop_draft(self._draft, "end")
+        self._committed_draft_id = None
+        log.info(
+            "early stt drafts sent=%d committed=%d wasted_stt=%d gated=%d",
+            self.drafts_sent,
+            self.drafts_committed,
+            self.drafts_wasted_stt,
+            self.drafts_gated,
+        )
 
         if lang not in (None, "en", "de"):
             log.info("feedback language %r invalid; using %r", lang, self.deps.feedback_lang)
@@ -467,6 +593,19 @@ class Session:
             except asyncio.CancelledError:
                 pass
         self._tts_warm_task = None
+
+        if self._draft is not None:
+            await self._drop_draft(self._draft, "closed")
+        expiry = self._draft_expiry_task
+        if expiry and not expiry.done() and expiry is not asyncio.current_task():
+            expiry.cancel()
+            try:
+                await expiry
+            except asyncio.CancelledError:
+                pass
+        self._draft_expiry_task = None
+        self._committed_draft_id = None
+        self._ready = False
         await self.interrupt()
 
     # ---------- internals ----------
@@ -488,6 +627,105 @@ class Session:
         if markers and markers[-1] not in recent:
             recent = [markers[-1], *recent]
         return [system, *recent]
+
+    def _in_prep(self) -> bool:
+        return (
+            self.exam is not None
+            and self.part_index < len(self.exam.parts)
+            and self.exam.parts[self.part_index].kind == "prep"
+        )
+
+    async def _transcribe_draft(self, draft: _Draft) -> str:
+        draft.stt_started = True
+        return await self.deps.stt.transcribe(draft.pcm16)
+
+    def _cancel_draft_expiry(self) -> None:
+        task = self._draft_expiry_task
+        self._draft_expiry_task = None
+        if task and not task.done() and task is not asyncio.current_task():
+            task.cancel()
+
+    async def _expire_draft(self, draft: _Draft) -> None:
+        try:
+            await asyncio.sleep(DRAFT_TTL_S)
+        except asyncio.CancelledError:
+            return
+        if self._draft is draft and not draft.committed:
+            log.debug("early stt draft %d expired", draft.draft_id)
+            await self._drop_draft(draft, "expired")
+
+    def _count_draft_wasted(self, draft: _Draft) -> None:
+        if draft.stt_started and not draft.used and not draft.wasted_counted:
+            draft.wasted_counted = True
+            self.drafts_wasted_stt += 1
+
+    @staticmethod
+    def _consume_background_task(task: asyncio.Task) -> None:
+        if not task.cancelled():
+            task.exception()
+
+    async def _drop_draft(
+        self, draft: _Draft, reason: str, *, wait: bool = True
+    ) -> None:
+        if self._draft is draft:
+            self._draft = None
+            self._cancel_draft_expiry()
+        task = draft.task
+        if task is not None and not task.done():
+            task.cancel()
+        if task is not None and not wait:
+            task.add_done_callback(self._consume_background_task)
+        elif task is not None:
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            except Exception as exc:  # noqa: BLE001 — a discarded draft is best-effort
+                log.debug(
+                    "early stt draft %d task ended (%s)",
+                    draft.draft_id,
+                    type(exc).__name__,
+                )
+        self._count_draft_wasted(draft)
+        log.debug("early stt draft %d dropped: %s", draft.draft_id, reason)
+
+    async def _settle_draft(self, draft: _Draft) -> None:
+        if draft.used:
+            return
+        task = draft.task
+        if task is not None:
+            if not task.done():
+                task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            except Exception as exc:  # noqa: BLE001 — the final-audio STT is the fallback
+                log.debug(
+                    "early stt draft %d task ended (%s)",
+                    draft.draft_id,
+                    type(exc).__name__,
+                )
+        self._count_draft_wasted(draft)
+
+    async def _transcribe_turn(
+        self, draft: _Draft | None, pcm16: bytes, metrics: TurnMetrics
+    ) -> str:
+        if draft is not None and draft.task is not None and not draft.expired():
+            try:
+                text = await draft.task
+            except asyncio.CancelledError:
+                current = asyncio.current_task()
+                if current is not None and current.cancelling():
+                    raise
+                log.info("early stt draft cancelled; retrying final audio")
+            except Exception as exc:  # noqa: BLE001 — safe fallback to final audio
+                log.info("early stt draft failed (%s); retrying final audio", type(exc).__name__)
+            else:
+                draft.used = True
+                metrics.stt_early = True
+                return text
+        return await self.deps.stt.transcribe(pcm16)
 
     async def _thermal_check(self) -> ThermalStatus | None:
         if self.deps.thermal is None:
@@ -536,7 +774,18 @@ class Session:
             await self._send_audio(self.turn_id, await self.tts.synthesize(clean_for_tts(text)))
         await self.send_json({"type": "reply_done", "turn": self.turn_id})
 
-    async def _turn(self, turn_id: int, pcm16: bytes) -> None:
+    async def _turn(
+        self, turn_id: int, pcm16: bytes, draft: _Draft | None = None
+    ) -> None:
+        try:
+            await self._turn_inner(turn_id, pcm16, draft)
+        finally:
+            if draft is not None:
+                await self._settle_draft(draft)
+
+    async def _turn_inner(
+        self, turn_id: int, pcm16: bytes, draft: _Draft | None = None
+    ) -> None:
         m = TurnMetrics(
             audio_s=round(pcm16_duration_s(pcm16), 2),
             audio_dbfs=round(pcm16_rms_dbfs(pcm16), 1),
@@ -566,11 +815,7 @@ class Session:
             log.info("turn %s thermal hot (gpu=%g °C)", turn_id, thermal.temp_c)
             return
 
-        if (
-            self.exam is not None
-            and self.part_index < len(self.exam.parts)
-            and self.exam.parts[self.part_index].kind == "prep"
-        ):
+        if self._in_prep():
             await self.send_json(
                 {"type": "stt_empty", "turn": turn_id, "reason": "prep"}
             )
@@ -578,8 +823,9 @@ class Session:
             return
 
         await self.send_json({"type": "status", "state": "transcribing", "turn": turn_id})
-        text = await self.deps.stt.transcribe(pcm16)
+        text = await self._transcribe_turn(draft, pcm16, m)
         m.stt_ms = ms()
+        m.stt_wait_ms = m.stt_ms
 
         if self.deps.stt_filter:
             text, reason = clean_transcript(text)
