@@ -63,6 +63,7 @@ UTTERANCES = [
 METRICS = [
     ("audio_s", "audio_s", "f"),
     ("stt_ms", "stt_ms", "i"),
+    ("stt_wait_ms", "stt_wait_ms", "i"),
     ("llm_first_token_ms", "llm_first_token_ms", "i"),
     ("first_sentence_ms", "first_sentence_ms", "i"),
     ("tts_first_ms", "tts_first_ms", "i"),
@@ -76,7 +77,20 @@ def percentile(values: list[float], p: float) -> float:
     return float(np.percentile(values, p))
 
 
-async def run_turn(ws, turn: int, pcm: bytes, timeout: float) -> dict:
+async def run_turn(
+    ws,
+    turn: int,
+    pcm: bytes,
+    timeout: float,
+    *,
+    early_stt: bool = False,
+    vad_tail_ms: int = VAD_TAIL_MS,
+) -> dict:
+    if early_stt:
+        await ws.send(b"KDR1" + struct.pack("<I", turn) + pcm)
+        await asyncio.sleep(max(0, vad_tail_ms - 192) / 1000)
+        await ws.send(json.dumps({"type": "commit", "draft": turn}))
+
     t_sent = time.monotonic()
     deadline = t_sent + timeout
     await ws.send(pcm)
@@ -124,6 +138,7 @@ async def run_turn(ws, turn: int, pcm: bytes, timeout: float) -> dict:
     result = dict(metrics)
     result["transcript"] = transcript
     result["reply"] = " ".join(replies)
+    result["draft_sent"] = early_stt
     return result
 
 
@@ -158,6 +173,22 @@ def print_stage_table(rows: list[dict]) -> None:
         p50 = percentile([float(v) for v in values], 50)
         p90 = percentile([float(v) for v in values], 90)
         print(f"{name:<22}{p50:>10.0f}{p90:>10.0f}")
+
+
+def print_early_stt(rows: list[dict]) -> None:
+    sent = sum(1 for row in rows if row.get("draft_sent"))
+    used = sum(1 for row in rows if row.get("stt_early") is True)
+    wasted = sent - used
+    turns = max(1, len(rows))
+    print("\n(e) Early STT (inferred from per-turn stt_early)")
+    print(
+        f"    drafts sent: {sent}  committed by client: {sent}  "
+        f"used: {used}  wasted STT: {wasted}"
+    )
+    print(
+        f"    per turn: drafts {sent / turns:.2f}  committed {sent / turns:.2f}  "
+        f"wasted STT {wasted / turns:.2f}"
+    )
 
 
 def print_estimate(rows: list[dict], vad_tail_ms: int) -> None:
@@ -220,7 +251,14 @@ async def run(args: argparse.Namespace) -> None:
                 args.cool_at,
                 args.cool_to,
             )
-            await run_turn(ws, turn, pcms[0], TIMEOUT_FIRST_TURN_S)
+            await run_turn(
+                ws,
+                turn,
+                pcms[0],
+                TIMEOUT_FIRST_TURN_S,
+                early_stt=args.early_stt,
+                vad_tail_ms=args.vad_tail_ms,
+            )
             await asyncio.sleep(pause)
 
         for _ in range(args.runs):
@@ -232,7 +270,14 @@ async def run(args: argparse.Namespace) -> None:
                     args.cool_to,
                 )
                 timeout = TIMEOUT_FIRST_TURN_S if turn == 1 else TIMEOUT_LATER_TURN_S
-                row = await run_turn(ws, turn, pcm, timeout)
+                row = await run_turn(
+                    ws,
+                    turn,
+                    pcm,
+                    timeout,
+                    early_stt=args.early_stt,
+                    vad_tail_ms=args.vad_tail_ms,
+                )
                 measured.append(row)
                 print(
                     f"  turn {turn:2d}/{total_turns} ({text_index + 1}/{len(UTTERANCES)}): "
@@ -243,9 +288,11 @@ async def run(args: argparse.Namespace) -> None:
     gpu_end = await cool_down("at end", args.cool_at, args.cool_to)
     print_metric_table(measured)
     print_stage_table(measured)
+    if args.early_stt:
+        print_early_stt(measured)
     print_estimate(measured, args.vad_tail_ms)
     print_turns(measured)
-    print(f"\n(e) GPU: start {gpu_start} °C, end {gpu_end} °C")
+    print(f"\n(f) GPU: start {gpu_start} °C, end {gpu_end} °C")
 
 
 def main() -> int:
@@ -262,6 +309,11 @@ def main() -> int:
     parser.add_argument("--cool-at", type=int, default=COOL_AT_C)
     parser.add_argument("--cool-to", type=int, default=COOL_TO_C)
     parser.add_argument("--vad-tail-ms", type=int, default=VAD_TAIL_MS)
+    parser.add_argument(
+        "--early-stt",
+        action="store_true",
+        help="send a draft 192 ms into the pause, then commit + final at the tail end",
+    )
     args = parser.parse_args()
 
     if args.runs < 1:

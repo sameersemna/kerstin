@@ -11,6 +11,7 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 - [x] T003 **Vendor frontend assets** (vad-web, onnxruntime-web, Silero model) into `frontend/vendor/` so it works offline and isn't CDN-dependent.
 - [x] T005 **Warm-up + random seed** (2026-11-05): cold first turn 8.8 s → 1.4 s; replies vary across sessions.
 - [x] T006 **Speak the first clause early** (2026-11-05): paired median −379 ms; fires in ~30–60 % of turns.
+- [ ] T007 **Early STT** (D013): browser sends a draft ≈200 ms into the VAD tail, server transcribes it while the tail runs out; target < 1.5 s end-of-speech → first audio without shortening the tail.
 - [x] T004 **Render feedback Markdown** in the browser (D017: own DOM-only subset renderer, no library). Task file: `docs/tasks/T004-feedback-markdown.md`.
 
 ## Phase 2 — Conversation quality

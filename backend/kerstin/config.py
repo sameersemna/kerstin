@@ -65,6 +65,7 @@ class Settings(BaseSettings):
     stt_local_compute_type: str = "float16"
     stt_min_rms_dbfs: float = -55.0  # drop quieter utterances before calling STT
     stt_filter: bool = True  # drop hallucination/tag output and trim repetition loops
+    early_stt: bool = True  # transcribe a draft during the VAD silence tail (D013)
 
     # --- Text-to-speech ---
     # "auto": Kokoro sidecar + Piper fallback; "http": alias of auto;

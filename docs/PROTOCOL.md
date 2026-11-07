@@ -8,6 +8,8 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 |---|---|
 | `{"type":"start","scenario":"<key>","use_focus"?,"exam"?:"<preset key>","exam_seed"?,"voice"?:"<id>"}` | Start (or restart) a session. Keys from `GET /api/scenarios`. `use_focus` is opt-in, strict boolean, and defaults to off. `exam` selects an exam preset; `exam_seed` is for the eval/tests only. `voice` selects a catalog id; unknown ids fall back to the default and are reported, not an error. An unknown exam preset returns `error`. |
 | **binary** | One complete learner utterance: 16 kHz, mono, signed 16-bit little-endian PCM, no header. Implicitly starts turn `n+1` and cancels any running turn. |
+| **draft (binary)** | `b"KDR1"` + `uint32` little-endian draft id + learner PCM16 (same format as an utterance). Transcribed early during the VAD silence tail. Never starts a turn, never interrupts Kerstin, never increments the turn counter. |
+| `{"type":"commit","draft":<id>}` | The final binary that follows reuses the transcript of this draft when it is still the latest one. Sent immediately before the utterance; without it the server transcribes the final audio normally. |
 | `{"type":"interrupt"}` | Learner barged in; cancel the running turn. |
 | `{"type":"hint","query"}` | Typed word/phrase lookup; text only, outside the conversation. |
 | `{"type":"end","feedback_lang"?:"en"\|"de","save_mistakes"?}` | End the conversation and request feedback. Invalid values use the server default. `save_mistakes` is opt-in and defaults to `false`. |
@@ -18,7 +20,7 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 
 | Frame | Meaning |
 |---|---|
-| `{"type":"session","scenario","title","focus":[...],"exam"?,"voice":{"id","label"}}` | Session started; reset UI, `turn = 0`. `focus` is the list of active focus labels, empty when off. `exam` has `{preset,title,note,parts:[{kind,title,seconds}]}` when exam mode is active; `voice` is the selected catalog entry. |
+| `{"type":"session","scenario","title","focus":[...],"exam"?,"voice":{"id","label"},"early_stt":true\|false}` | Session started; reset UI, `turn = 0`. `focus` is the list of active focus labels, empty when off. `exam` has `{preset,title,note,parts:[{kind,title,seconds}]}` when exam mode is active; `voice` is the selected catalog entry; `early_stt` says whether the client may send drafts. |
 | `{"type":"status","state":"transcribing"\|"thinking"\|"feedback_running"\|"score_running","turn"}` | Progress hints. |
 | `{"type":"transcript","turn","text"}` | What STT heard. |
 | `{"type":"collected","turn"}` | Exam collect mode: the utterance was stored and no LLM call was made. |
@@ -29,7 +31,7 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 | **binary** | `[4-byte big-endian uint32 turn id][WAV file]` — one sentence of audio. Drop if turn id < current turn. |
 | `{"type":"reply_done","turn"}` | Reply finished. |
 | `{"type":"reply_interrupted","turn"}` | Reply cancelled by barge-in. |
-| `{"type":"metrics","turn","audio_s","audio_dbfs","stt_ms","llm_first_token_ms","first_sentence_ms","tts_first_ms","first_audio_ms","total_ms","sentences"}` | Timings (ms measured from server receiving the utterance). `audio_dbfs` = input RMS level (dBFS, one decimal). `first_sentence_ms` = first spoken chunk (early clause or sentence) available to the consumer; `tts_first_ms` = duration of that first chunk's TTS call. |
+| `{"type":"metrics","turn","audio_s","audio_dbfs","stt_ms","stt_early","stt_wait_ms","llm_first_token_ms","first_sentence_ms","tts_first_ms","first_audio_ms","total_ms","sentences"}` | Timings (ms measured from server receiving the utterance). `audio_dbfs` = input RMS level (dBFS, one decimal). `stt_early` = the committed draft transcript was reused; `stt_wait_ms` = final binary → transcript ready (≈ 0 when the draft finished in time; `stt_ms` mirrors this wait). `first_sentence_ms` = first spoken chunk (early clause or sentence) available to the consumer; `tts_first_ms` = duration of that first chunk's TTS call. |
 | `{"type":"feedback","markdown"}` | End-of-session report. |
 | `{"type":"voice","id","label","fallback":true,"reason":"tts_unavailable"}` | Kokoro failed this turn; Piper is speaking. A later successful primary call sends `fallback:false`. |
 | `{"type":"exam_score","criteria":[{"key","label","band","band_label","reason","evidence"}],"overall_band","overall_label","error_density","grammar_errors":[...],"note"}` | Exam-only transcript estimate after `feedback`. Bands 1–4; evidence is a verbatim learner quote or `null`; `error_density` is per 100 learner words (1 decimal) and `grammar_errors` are verified verbatim snippets. Errors: `{"type":"exam_score","error"}`. |
@@ -39,7 +41,7 @@ Version 0.1. Text frames are JSON; binary frames are audio. Any change here must
 | `{"type":"pong"}` | Reply to ping. |
 
 ## Turn ids
-Both sides start at 0 after `session`. Each binary utterance from the client increments the turn on both sides (the server increments even if the utterance is too short and ignored, to stay in sync). In exam mode, server-initiated Kerstin turns (her talk, part openers and follow-up) also increment the server turn id.
+Both sides start at 0 after `session`. Each utterance binary from the client increments the turn on both sides (the server increments even if the utterance is too short and ignored, to stay in sync). Draft frames and commits never increment the turn. In exam mode, server-initiated Kerstin turns (her talk, part openers and follow-up) also increment the server turn id.
 
 ## HTTP
 - `GET /health` → Ollama reachability, model presence, configured backends, `tts` (`default` and sidecar `kokoro` health/`gpu_resident` or `null`), `gpu_temp_c` (number or null) and `thermal` (`ok|hot|unknown|disabled`).
