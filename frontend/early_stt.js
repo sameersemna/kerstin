@@ -109,7 +109,12 @@
         negativeRun += 1;
         maybeSendDraft();
       } else {
+        // Mid-band frames (between the thresholds) do not end the VAD tail
+        // but are part of the final audio; a soft word here would be missing
+        // from the draft, so invalidate it and let a later pause re-draft.
         negativeRun = 0;
+        latest = null;
+        pauseDraftSent = false;
       }
     }
 

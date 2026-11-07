@@ -134,3 +134,23 @@ test("misfire resets the utterance state", () => {
   assert.equal(drafts.length, 2);
   assert.equal(drafts[1].id, 2);
 });
+
+test("a soft mid-band frame after the draft invalidates it, a later pause re-drafts", () => {
+  const { state, drafts } = make();
+  start(state);
+
+  state.onFrame(probs(0.1), FRAME);
+  state.onFrame(probs(0.1), FRAME);
+  assert.equal(drafts.length, 1);
+
+  // 0.45 <= p < 0.6: vad-web keeps this frame in the utterance without
+  // resetting its tail, so the draft would miss a soft word.
+  state.onFrame(probs(0.5), FRAME);
+  assert.equal(state.stats().latestDraftId, null);
+
+  state.onFrame(probs(0.1), FRAME);
+  state.onFrame(probs(0.1), FRAME);
+  assert.equal(drafts.length, 2);
+  assert.equal(drafts[1].audio.length, 10 * 1536);
+  assert.equal(state.end(), drafts[1].id);
+});
