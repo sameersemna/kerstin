@@ -31,7 +31,7 @@ Do small, surgical edits yourself only when a round-trip to Kilo would cost more
 
 ## Commands
 - `make setup`, `make voice`, `make check`, `make run`, `make test`, `make lint`
-- Health: `curl -s localhost:8770/health | jq`
+- Health: `curl -sk https://localhost:8770/health | jq` (or `make service-status`)
 
 ## Conventions
 - Python 3.11+, type hints, `ruff` clean, async I/O in the server, blocking work via `asyncio.to_thread`.
