@@ -1,8 +1,9 @@
 # Kokoro German TTS sidecar
 
 Optional OpenAI-compatible Kokoro German TTS server for Kerstin. The default
-backend remains `piper`; enable it with `KERSTIN_TTS_BACKEND=http` and
-`KERSTIN_TTS_URL=http://127.0.0.1:8880`.
+Kerstin backend is `auto`: Kokoro through this sidecar with Piper fallback.
+`KERSTIN_TTS_BACKEND=http` is the legacy alias; set `KERSTIN_TTS_URL` when it is
+not on port 8880.
 
 ## Setup
 
@@ -16,6 +17,12 @@ curl -s localhost:8880/health
 `KOKORO_DEVICE` is `cpu` by default; set `cuda` explicitly. A CUDA request
 fails at startup instead of falling back to CPU. `KOKORO_THREADS` defaults to
 4. The server listens on `127.0.0.1:8880` by default.
+
+`KOKORO_VOICES` is a comma-separated allowlist (default `kerstin,thorsten`);
+Victoria is only for explicit evaluations, not production. On CUDA,
+`KOKORO_IDLE_RELEASE_S` (default 600, 0 = off) moves the models to CPU and
+empties the CUDA cache after idle; `POST /v1/warm` reloads them for the next
+session. `/health` reports `gpu_resident`.
 
 ## Voices
 

@@ -17,6 +17,8 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
+import httpx
+
 from . import score as scoring
 from .audio import pcm16_duration_s, pcm16_rms_dbfs
 from .exam import MODERATION_PREFIX, ExamPart, ExamPlan, is_moderation
@@ -28,7 +30,8 @@ from .stt import STT
 from .stt_filter import clean_transcript, is_echo
 from .text import SentenceSplitter, clean_for_tts, strip_think
 from .thermal import ThermalGuard, ThermalStatus
-from .tts import TTS
+from .tts import TTS, make_session_tts
+from .voices import VoiceInfo, resolve_voice
 
 log = logging.getLogger(__name__)
 
@@ -69,6 +72,11 @@ class Deps:
     hint_temperature: float = 0.2
     mistakes: MistakeLog | None = None
     thermal: ThermalGuard | None = None
+    piper: TTS | None = None
+    http_client: httpx.AsyncClient | None = None
+    tts_backend: str = "legacy"
+    tts_url: str = "http://127.0.0.1:8880"
+    tts_default_voice: str = "kokoro-kerstin"
 
 
 @dataclass
@@ -115,11 +123,15 @@ class Session:
     part_index: int = 0
     history: list[Message] = field(default_factory=list)
     turn_id: int = 0
+    voice_id: str | None = None
+    voice: VoiceInfo | None = None
+    tts: TTS | None = None
     _system: str | None = None
     _collect_followup_done: bool = False
     _pending_metrics: tuple[TurnMetrics, float] | None = None
     _turn_task: asyncio.Task | None = None
     _warmup_task: asyncio.Task | None = None
+    _tts_warm_task: asyncio.Task | None = None
     _hint_task: asyncio.Task | None = None
 
     # ---------- public API (called by the websocket handler) ----------
@@ -134,11 +146,24 @@ class Session:
                 self.scenario_key, self.focus or None
             )
         self.history.clear()
+        self.voice = resolve_voice(
+            self.voice_id, self.deps.tts_backend, self.deps.tts_default_voice
+        )
+        self.tts = make_session_tts(
+            self.deps, self.voice.id, on_fallback=self._on_tts_fallback
+        )
+        log.info(
+            "tts engine=%s voice=%s backend=%s",
+            self.voice.engine,
+            self.voice.id,
+            self.deps.tts_backend,
+        )
         session_message = {
             "type": "session",
             "scenario": sc.key,
             "title": sc.title,
             "focus": [CATEGORIES[key] for key in self.focus],
+            "voice": {"id": self.voice.id, "label": self.voice.label},
         }
         if self.exam is not None:
             session_message["exam"] = {
@@ -162,6 +187,12 @@ class Session:
             log.info("session start thermal hot (gpu=%g °C)", thermal.temp_c)
             return
 
+        if (
+            self.voice.engine == "kokoro"
+            and self.deps.tts_backend in ("auto", "http")
+            and self.deps.http_client is not None
+        ):
+            self._tts_warm_task = asyncio.create_task(self._warm_tts())
         greeting = self.exam.greeting if self.exam is not None else sc.opener
         if self.deps.llm_warmup:
             system = {"role": "system", "content": self._system}
@@ -170,6 +201,27 @@ class Session:
         await self._speak_fixed(greeting)
         if self.exam is not None:
             await self._enter_part(0)
+
+    async def _warm_tts(self) -> None:
+        try:
+            await self.deps.http_client.post(
+                self.deps.tts_url.rstrip("/") + "/v1/warm"
+            )
+        except Exception as exc:  # noqa: BLE001 — the opener can use the fallback
+            log.info("TTS warm failed (%s)", type(exc).__name__)
+
+    async def _on_tts_fallback(self, fallback: bool) -> None:
+        if self.voice is None:
+            return
+        message = {
+            "type": "voice",
+            "id": self.voice.id,
+            "label": self.voice.label,
+            "fallback": fallback,
+        }
+        if fallback:
+            message["reason"] = "tts_unavailable"
+        await self.send_json(message)
 
     async def handle_audio(self, pcm16: bytes) -> None:
         await self.interrupt()
@@ -406,6 +458,15 @@ class Session:
             except asyncio.CancelledError:
                 pass
         self._warmup_task = None
+
+        tts_warm = self._tts_warm_task
+        if tts_warm and not tts_warm.done():
+            tts_warm.cancel()
+            try:
+                await tts_warm
+            except asyncio.CancelledError:
+                pass
+        self._tts_warm_task = None
         await self.interrupt()
 
     # ---------- internals ----------
@@ -471,7 +532,9 @@ class Session:
     async def _speak_fixed(self, text: str) -> None:
         self.history.append({"role": "assistant", "content": text})
         await self.send_json({"type": "reply_text", "turn": self.turn_id, "text": text})
-        await self._send_audio(self.turn_id, await self.deps.tts.synthesize(clean_for_tts(text)))
+        if self.tts is None:
+            return
+        await self._send_audio(self.turn_id, await self.tts.synthesize(clean_for_tts(text)))
         await self.send_json({"type": "reply_done", "turn": self.turn_id})
 
     async def _turn(self, turn_id: int, pcm16: bytes) -> None:
@@ -613,11 +676,11 @@ class Session:
                 await self.send_json({"type": "reply_text", "turn": turn_id, "text": sent})
                 if first_tts:
                     synth_started = time.perf_counter()
-                    wav = await self.deps.tts.synthesize(clean_for_tts(sent))
+                    wav = await self.tts.synthesize(clean_for_tts(sent)) if self.tts else None
                     m.tts_first_ms = int((time.perf_counter() - synth_started) * 1000)
                     first_tts = False
                 else:
-                    wav = await self.deps.tts.synthesize(clean_for_tts(sent))
+                    wav = await self.tts.synthesize(clean_for_tts(sent)) if self.tts else None
                 await self._send_audio(turn_id, wav)
                 if not m.first_audio_ms:
                     m.first_audio_ms = ms()

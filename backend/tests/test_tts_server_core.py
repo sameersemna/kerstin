@@ -79,3 +79,9 @@ def test_float_to_wav_header_and_clipping():
     assert values[0] == 0
     assert values[1] == 32767
     assert values[2] == -32767
+
+
+def test_voice_allowlist_parser_default_and_custom():
+    assert core.parse_voice_allowlist(None) == ("kerstin", "thorsten")
+    assert core.parse_voice_allowlist("kerstin, thorsten,") == ("kerstin", "thorsten")
+    assert core.parse_voice_allowlist("kerstin") == ("kerstin",)

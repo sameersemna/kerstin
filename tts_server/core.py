@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import numpy as np
 
 MAX_INPUT_CHARS = 600
+DEFAULT_VOICES = "kerstin,thorsten"
 
 
 class RequestError(ValueError):
@@ -20,6 +21,11 @@ class SpeechRequest:
     text: str
     voice: str
     speed: float = 1.0
+
+
+def parse_voice_allowlist(raw: str | None) -> tuple[str, ...]:
+    source = DEFAULT_VOICES if raw is None or not raw.strip() else raw
+    return tuple(part.strip() for part in source.split(",") if part.strip())
 
 
 def validate_request(payload: dict, voices: set[str] | list[str]) -> SpeechRequest:

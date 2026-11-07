@@ -1,4 +1,4 @@
-.PHONY: setup voice vendor certs run test test-js lint check smoke bench persona-eval feedback-eval hint-eval exam-eval score-eval service-install service-uninstall service-status logs kokoro-setup kokoro-voices kokoro-run
+.PHONY: setup voice vendor certs run test test-js lint check smoke bench persona-eval feedback-eval hint-eval exam-eval score-eval service-install service-uninstall service-status logs logs-tts kokoro-setup kokoro-voices kokoro-run
 
 VENV ?= .venv
 PY := $(VENV)/bin/python
@@ -66,17 +66,28 @@ exam-eval:        ## B2 exam engine eval (both presets; needs Ollama)
 score-eval:      ## exam rubric calibration eval (needs Ollama); hold-out: make score-eval SCORE_ARGS="--cases scripts/score_holdout.json"
 	$(PY) scripts/score_eval.py $(SCORE_ARGS)
 
-service-install: ## install + start Kerstin as a systemd user service (SERVICE_ARGS="--enable" to start on boot)
-	bash scripts/install_service.sh install $(SERVICE_ARGS)
+service-install: ## install + start app (+ TTS when sidecar assets exist)
+	bash scripts/install_service.sh install --unit app $(SERVICE_ARGS)
+	@if [[ -x .venv-kokoro/bin/python && -d voices/kokoro/kerstin ]]; then \
+		bash scripts/install_service.sh install --unit tts $(SERVICE_ARGS); \
+	else \
+		echo "hint: Kokoro sidecar assets not found; installed app only (make kokoro-setup && make kokoro-voices)"; \
+	fi
 
-service-uninstall: ## stop and remove Kerstin's systemd user service
-	bash scripts/install_service.sh uninstall $(SERVICE_ARGS)
+service-uninstall: ## stop and remove Kerstin's systemd user service(s)
+	bash scripts/install_service.sh uninstall --unit app $(SERVICE_ARGS)
+	@if [[ -f "$HOME/.config/systemd/user/kerstin-tts.service" ]]; then \
+		bash scripts/install_service.sh uninstall --unit tts; \
+	fi
 
 service-status:  ## systemd status + /health for Kerstin's user service
 	bash scripts/install_service.sh status $(SERVICE_ARGS)
 
 logs:            ## follow Kerstin's journal
 	journalctl --user -u kerstin -f
+
+logs-tts:        ## follow the Kokoro sidecar journal
+	journalctl --user -u kerstin-tts -f
 
 kokoro-setup:    ## create .venv-kokoro and install pinned Kokoro/CUDA torch (sidecar only)
 	python3 -m venv .venv-kokoro

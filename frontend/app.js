@@ -10,6 +10,7 @@ const mistakeBoxEl = $("mistakeBox"), saveMistakesEl = $("saveMistakes");
 const useFocusEl = $("useFocus"), focusTodayEl = $("focusToday");
 const mistakeSummaryEl = $("mistakeSummary"), clearMistakesBtn = $("clearMistakes");
 const modeEl = $("mode"), scenarioEl = $("scenario"), startBtn = $("startBtn"), endBtn = $("endBtn");
+const voiceEl = $("voice"), voiceStatusEl = $("voiceStatus");
 const examPanelEl = $("examPanel"), examTitleEl = $("examTitle"), examNoteEl = $("examNote");
 const examPartEl = $("examPart"), examUiTextEl = $("examUiText"), examCardEl = $("examCard");
 const examClockEl = $("examClock"), examNextBtnEl = $("examNextBtn"), examDoneMsgEl = $("examDoneMsg");
@@ -49,6 +50,7 @@ const MIC_MODE_KEY = "kerstin.micMode";
 const FEEDBACK_LANG_KEY = "kerstin.feedbackLang";
 const SAVE_MISTAKES_KEY = "kerstin.saveMistakes";
 const USE_FOCUS_KEY = "kerstin.useFocus";
+const VOICE_KEY = "kerstin.voice";
 let clearMistakesArmed = false;
 let clearMistakesTimer = null;
 try {
@@ -61,6 +63,7 @@ try {
   saveMistakesEl.checked = localStorage.getItem(SAVE_MISTAKES_KEY) === "1";
   useFocusEl.checked = localStorage.getItem(USE_FOCUS_KEY) === "1";
 } catch {}
+let voiceList = [];
 
 // ---------- UI helpers ----------
 function setState(text, cls = "idle") {
@@ -607,6 +610,9 @@ function handle(msg) {
       resetScore();
       modeEl.value = msg.exam && msg.exam.preset ? msg.exam.preset : "";
       updateModeControls();
+      if (msg.voice && msg.voice.id) voiceEl.value = msg.voice.id;
+      voiceStatusEl.hidden = true;
+      voiceStatusEl.textContent = "";
       if (msg.exam) showExamSession(msg.exam);
       if (Array.isArray(msg.focus) && msg.focus.length) {
         focusTodayEl.textContent = "Heute im Fokus: " + msg.focus.join(", ");
@@ -615,6 +621,10 @@ function handle(msg) {
         focusTodayEl.textContent = "";
         focusTodayEl.hidden = true;
       }
+      break;
+    case "voice":
+      voiceStatusEl.textContent = window.VoiceUI.fallbackText(Boolean(msg.fallback));
+      voiceStatusEl.hidden = !msg.fallback;
       break;
     case "hint":
       resolveHint(msg);
@@ -770,7 +780,9 @@ async function start() {
     use_focus: useFocusEl.checked,
   };
   if (modeEl.value) payload.exam = modeEl.value;
+  if (voiceEl.value) payload.voice = voiceEl.value;
   ws.send(JSON.stringify(payload));
+  voiceEl.disabled = true;
   endBtn.disabled = false;
   setState("hört zu …", "listening");
 }
@@ -791,6 +803,7 @@ function end() {
   }
   endBtn.disabled = true;
   startBtn.disabled = false;
+  voiceEl.disabled = false;
   setHintEnabled(false);
 }
 
@@ -804,17 +817,46 @@ function interruptSpeaking() {
   if (vadInstance) setState("hört zu …", "listening");
 }
 
+async function loadVoices() {
+  try {
+    const response = await fetch("/api/voices");
+    if (!response.ok) throw new Error("voices failed");
+    const data = await response.json();
+    voiceList = Array.isArray(data.voices) ? data.voices : [];
+    let stored = null;
+    try { stored = localStorage.getItem(VOICE_KEY); } catch {}
+    const selected = window.VoiceUI.resolveSelection(voiceList, stored, data.default);
+    const options = window.VoiceUI.voiceOptions(voiceList, selected);
+    voiceEl.replaceChildren(
+      ...options.map((item) => {
+        const option = document.createElement("option");
+        option.value = item.value;
+        option.textContent = item.label;
+        option.disabled = item.disabled;
+        option.selected = item.selected;
+        return option;
+      })
+    );
+    voiceEl.value = selected;
+  } catch (error) {
+    console.warn("voice catalog unavailable", error);
+  }
+}
+
 async function loadScenarios() {
   const r = await fetch("/api/scenarios");
   const list = await r.json();
   $("scenario").innerHTML = list.map((s) => `<option value="${s.key}">${s.title}</option>`).join("");
 }
 
-startBtn.onclick = () => start().catch((e) => { console.error(e); setState("Start fehlgeschlagen: " + e, "speaking"); startBtn.disabled = false; });
+startBtn.onclick = () => start().catch((e) => { console.error(e); setState("Start fehlgeschlagen: " + e, "speaking"); startBtn.disabled = false; voiceEl.disabled = false; });
 endBtn.onclick = end;
 $("interruptBtn").onclick = interruptSpeaking;
 examNextBtnEl.onclick = pressExamNext;
 modeEl.onchange = updateModeControls;
+voiceEl.onchange = () => {
+  try { localStorage.setItem(VOICE_KEY, voiceEl.value); } catch {}
+};
 $("hintBtn").onclick = submitHint;
 $("hintInput").addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
@@ -846,6 +888,7 @@ document.addEventListener("keydown", (e) => {
   interruptSpeaking();
 });
 resetScore();
+loadVoices();
 loadScenarios();
 loadMistakes();
 loadExams();

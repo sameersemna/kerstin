@@ -5,14 +5,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 FORCE=0
-if [[ "${1:-}" == "--force" ]]; then
-  FORCE=1
-  shift
-fi
-if [[ $# -gt 0 ]]; then
-  echo "usage: $0 [--force]" >&2
-  exit 2
-fi
+EVAL_VOICES=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --force) FORCE=1; shift ;;
+    --eval-voices) EVAL_VOICES=1; shift ;;
+    *) echo "usage: $0 [--force] [--eval-voices]" >&2; exit 2 ;;
+  esac
+done
 
 ROOT="voices/kokoro"
 TMP=""
@@ -66,10 +66,12 @@ fetch "$KERSTIN/voices/df_kerstin.pt" "$ROOT/kerstin/voice.pt" "4f77aed240aaad3e
 fetch "$KERSTIN/LICENSE" "$ROOT/kerstin/LICENSE" "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
 fetch "$KERSTIN/README.md" "$ROOT/kerstin/README.md" "8ba9bd9f9db064c6f30ee8544b682732c81aded131c94b61895d60e24dfc9bda"
 
-fetch "$BASE/config.json" "$ROOT/victoria/config.json" "5abb01e2403b072bf03d04fde160443e209d7a0dad49a423be15196b9b43c17f"
-fetch "$VICTORIA/kikiri_german_victoria_ep10.pth" "$ROOT/victoria/model.pth" "128d1c4a4184a459f23cb307a6cbbb8e9c076c2526f86e18594c1b320a81e00c"
-fetch "$VICTORIA/voices/victoria.pt" "$ROOT/victoria/voice.pt" "18dbcf0afa7b737e450e6ba769ee898a5aae1d90218265ff4c95422f4693da50"
-fetch "$VICTORIA/README.md" "$ROOT/victoria/README.md" "05eb9070a975754d0bc0034787288a2f53c89b5884b72458c61c3a59eb09f69b"
+if (( EVAL_VOICES )); then
+  fetch "$BASE/config.json" "$ROOT/victoria/config.json" "5abb01e2403b072bf03d04fde160443e209d7a0dad49a423be15196b9b43c17f"
+  fetch "$VICTORIA/kikiri_german_victoria_ep10.pth" "$ROOT/victoria/model.pth" "128d1c4a4184a459f23cb307a6cbbb8e9c076c2526f86e18594c1b320a81e00c"
+  fetch "$VICTORIA/voices/victoria.pt" "$ROOT/victoria/voice.pt" "18dbcf0afa7b737e450e6ba769ee898a5aae1d90218265ff4c95422f4693da50"
+  fetch "$VICTORIA/README.md" "$ROOT/victoria/README.md" "05eb9070a975754d0bc0034787288a2f53c89b5884b72458c61c3a59eb09f69b"
+fi
 
 echo "Kokoro voices ready in ./$ROOT"
 du -sh "$ROOT"

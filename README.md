@@ -21,18 +21,17 @@ make run            # http://127.0.0.1:8770
 make test           # unit tests, no GPU needed
 ```
 
-## Optional Kokoro voice
+## Voice and Kokoro sidecar
 
-Piper remains the default. Kokoro German is an optional sidecar for comparison:
-
-```bash
-make kokoro-setup           # separate .venv-kokoro (CUDA torch + German forks)
-make kokoro-voices          # pinned Thorsten/Kerstin/Victoria weights; gitignored
-make kokoro-run             # 127.0.0.1:8880, KOKORO_DEVICE=cpu by default
-KERSTIN_TTS_BACKEND=http KERSTIN_TTS_VOICE=kerstin make run
-```
-
-`KOKORO_DEVICE=cuda` is explicit; if CUDA is unavailable the sidecar exits instead of silently falling back. The A/B bench is `scripts/tts_ab.py`; it writes audio only with `--out DIR`.
+Kerstin opens with `kokoro-kerstin` by default. The header voice selector offers
+`kokoro-kerstin`, `kokoro-thorsten` and `piper-thorsten`; the choice is stored in
+the browser. Kokoro voices need the sidecar (`make kokoro-setup && make
+kokoro-voices`, then `make kokoro-run` or the TTS service). If the sidecar is
+down or a request fails, Piper speaks the reply and the UI shows
+„Stimme nicht erreichbar – Piper springt ein“. `KERSTIN_TTS_VOICE_DEFAULT`
+changes the server default; `piper` mode offers only the Piper voice.
+`make service-install` installs both the app and TTS units when the sidecar
+assets exist, with a soft `Wants=` from the app unit.
 
 ## Run as a service
 
@@ -92,7 +91,8 @@ All settings are `KERSTIN_*` environment variables (see `.env.example`, defined 
 |---|---|---|
 | `KERSTIN_OLLAMA_MODEL` | `gemma4:26b` | ~17 GB while loaded; best German in T015 (5 % vs 18 % error rate) and fastest first audio. Lighter alternative: `qwen3:14b` (D015) |
 | `KERSTIN_STT_BACKEND` | `http` | `http` = your running Whisper server (OpenAI-compatible); `local` = faster-whisper in-process |
-| `KERSTIN_TTS_BACKEND` | `piper` | `http` for a Kokoro-German server, `none` for text only |
+| `KERSTIN_TTS_BACKEND` | `auto` | Kokoro + Piper fallback; `piper` or `none` are explicit |
+| `KERSTIN_TTS_VOICE_DEFAULT` | `kokoro-kerstin` | catalog id; `piper-*` when `KERSTIN_TTS_BACKEND=piper` |
 | `KERSTIN_OLLAMA_KEEP_ALIVE` | `10m` | frees the shared GPU when idle |
 
 ## Project docs

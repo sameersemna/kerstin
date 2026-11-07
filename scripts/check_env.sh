@@ -30,17 +30,19 @@ else
   python3 -c "import faster_whisper" 2>/dev/null && ok "faster-whisper importable" || bad "faster-whisper not installed"
 fi
 
-echo "TTS (${KERSTIN_TTS_BACKEND:-piper})"
-if [[ "${KERSTIN_TTS_BACKEND:-piper}" == "piper" ]]; then
-  [[ -f "$VOICE" ]] && ok "voice $VOICE" || bad "voice missing -> make voice"
-elif [[ "${KERSTIN_TTS_BACKEND:-piper}" == "http" ]]; then
+BACKEND="${KERSTIN_TTS_BACKEND:-auto}"
+echo "TTS ($BACKEND)"
+if [[ "$BACKEND" != "none" ]]; then
+  [[ -f "$VOICE" ]] && ok "Piper fallback $VOICE" || bad "Piper voice missing -> make voice"
+fi
+if [[ "$BACKEND" == "auto" || "$BACKEND" == "http" ]]; then
   TTS_URL="${KERSTIN_TTS_URL:-http://127.0.0.1:8880}"
   HEALTH="$(curl -fsS --max-time 3 "$TTS_URL/health" 2>/dev/null || true)"
   if [[ -n "$HEALTH" ]]; then
     VOICES="$(printf '%s' "$HEALTH" | jq -r '.voices | join(",")' 2>/dev/null || true)"
     ok "TTS server $TTS_URL voices=$VOICES"
   else
-    bad "TTS server unreachable -> make kokoro-run"
+    warn "TTS server unreachable – Piper fallback active -> make kokoro-run / service"
   fi
 fi
 

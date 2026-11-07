@@ -34,7 +34,8 @@ header {
 }
 h1 { margin: 0; font-size: 1.3rem; }
 h1 .sub { font-weight: 400; color: var(--muted); font-size: .9rem; margin-left: 6px; }
-.controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.voice-status { color: var(--accent); font-size: .82rem; }
 select, button {
   font: inherit; padding: 8px 12px; border-radius: 8px;
   border: 1px solid var(--border); background: var(--panel); color: var(--ink);

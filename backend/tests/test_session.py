@@ -1091,3 +1091,15 @@ async def test_hint_context_ignores_markers():
     prompt = llm.last_chat_messages[0]["content"]
     assert "Moderation" not in prompt
     assert "Ich habe einen Termin." in prompt
+
+
+async def test_session_reports_selected_and_unknown_voice():
+    s, js, _ = make_session(FakeLLM(["Hallo."]))
+    s.voice_id = "piper-thorsten"
+    await s.start()
+    assert js[0]["voice"] == {"id": "piper-thorsten", "label": "Thorsten (Piper)"}
+
+    s, js, _ = make_session(FakeLLM(["Hallo."]))
+    s.voice_id = "not-a-voice"
+    await s.start()
+    assert js[0]["voice"]["id"] == "kokoro-kerstin"
