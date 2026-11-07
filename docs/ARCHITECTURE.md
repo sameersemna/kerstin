@@ -10,7 +10,7 @@
 | Speech-to-text | Server | `backend/kerstin/stt.py` | HTTP to existing Whisper server (`HttpSTT`) or `LocalSTT` (faster-whisper) |
 | LLM | Server | `backend/kerstin/llm.py` | Ollama `/api/chat`, streaming, `think: false` |
 | Sentence splitting | Server | `backend/kerstin/text.py` | German-aware (abbreviations, ordinals) |
-| Text-to-speech | Server | `backend/kerstin/tts.py` | Piper `de_DE-thorsten-medium` (D011); optional Kokoro-German sidecar via `HttpTTS` |
+| Text-to-speech | Server | `backend/kerstin/tts.py` | Kokoro `kokoro-kerstin` (default) + Piper fallback; optional sidecar on 8880; per-session voice |
 | Persona & scenarios | Server | `backend/prompts/` | `persona.md`, `scenarios.json`, `feedback.md` |
 
 ## Turn flow

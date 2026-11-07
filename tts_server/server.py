@@ -14,7 +14,13 @@ import torch
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import Response
 
-from .core import RequestError, float_to_wav, fix_phonemes, validate_request
+from .core import (
+    RequestError,
+    float_to_wav,
+    fix_phonemes,
+    parse_voice_allowlist,
+    validate_request,
+)
 
 log = logging.getLogger("kokoro_sidecar")
 logging.basicConfig(level=logging.INFO, format="%(levelname)s kokoro: %(message)s")
@@ -23,14 +29,25 @@ VOICE_ROOT = Path(__file__).resolve().parents[1] / "voices" / "kokoro"
 
 
 class KokoroEngine:
-    def __init__(self, device: str, threads: int, root: Path = VOICE_ROOT) -> None:
+    def __init__(
+        self,
+        device: str,
+        threads: int,
+        root: Path = VOICE_ROOT,
+        allowed_voices: tuple[str, ...] | None = None,
+        idle_release_s: int = 600,
+    ) -> None:
         from kokoro import KModel, KPipeline
 
         self.device = device
         self.threads = threads
+        self.allowed_voices = set(allowed_voices or parse_voice_allowlist(None))
         self.lock = asyncio.Lock()
         self.models: dict[tuple[str, str], object] = {}
         self.voices: dict[str, tuple[object, object]] = {}
+        self.gpu_resident = device == "cuda"
+        self.idle_release_s = idle_release_s
+        self.last_activity = time.monotonic()
 
         if device not in ("cpu", "cuda"):
             raise RuntimeError(f"KOKORO_DEVICE must be cpu or cuda, got {device!r}")
@@ -44,6 +61,8 @@ class KokoroEngine:
             config_path = directory / "config.json"
             model_path = directory / "model.pth"
             voice_path = directory / "voice.pt"
+            if directory.name not in self.allowed_voices:
+                continue
             if not (directory.is_dir() and config_path.is_file() and model_path.is_file() and voice_path.is_file()):
                 continue
             try:
@@ -81,9 +100,60 @@ class KokoroEngine:
         if not self.voices:
             raise RuntimeError(f"no usable Kokoro voices under {root}")
 
+    def _models(self) -> list[object]:
+        return list(dict.fromkeys(self.models.values()))
+
+    def _move(self, device: str) -> None:
+        for model in self._models():
+            model.to(device)
+        self.gpu_resident = device == "cuda"
+        if device == "cpu" and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    def _ensure_resident(self) -> None:
+        if self.device == "cuda" and not self.gpu_resident:
+            before = torch.cuda.memory_allocated() / (1024 * 1024)
+            started = time.perf_counter()
+            self._move("cuda")
+            log.info(
+                "gpu reload_ms=%d vram_allocated_before_mb=%.1f",
+                int((time.perf_counter() - started) * 1000),
+                before,
+            )
+
     async def synthesize(self, text: str, voice: str, speed: float) -> bytes:
         async with self.lock:
+            self._ensure_resident()
+            self.last_activity = time.monotonic()
             return await asyncio.to_thread(self._synthesize, text, voice, speed)
+
+    async def warm(self) -> None:
+        async with self.lock:
+            self._ensure_resident()
+            self.last_activity = time.monotonic()
+
+    async def idle_loop(self) -> None:
+        if self.device != "cuda" or self.idle_release_s <= 0:
+            return
+        while True:
+            await asyncio.sleep(min(30, max(1, self.idle_release_s / 2)))
+            if not self.gpu_resident:
+                continue
+            if time.monotonic() - self.last_activity < self.idle_release_s:
+                continue
+            async with self.lock:
+                if not self.gpu_resident:
+                    continue
+                if time.monotonic() - self.last_activity < self.idle_release_s:
+                    continue
+                before = torch.cuda.memory_allocated() / (1024 * 1024)
+                self._move("cpu")
+                after = torch.cuda.memory_allocated() / (1024 * 1024)
+                log.info(
+                    "gpu idle release vram_before_mb=%.1f vram_after_mb=%.1f",
+                    before,
+                    after,
+                )
 
     def _synthesize(self, text: str, voice: str, speed: float) -> bytes:
         started = time.perf_counter()
@@ -110,11 +180,20 @@ async def lifespan(app: FastAPI):
     device = os.getenv("KOKORO_DEVICE", "cpu").lower()
     threads = int(os.getenv("KOKORO_THREADS", "4"))
     try:
-        app.state.engine = KokoroEngine(device=device, threads=threads)
+        app.state.engine = KokoroEngine(
+            device=device,
+            threads=threads,
+            allowed_voices=parse_voice_allowlist(os.getenv("KOKORO_VOICES")),
+            idle_release_s=int(os.getenv("KOKORO_IDLE_RELEASE_S", "600")),
+        )
     except Exception as exc:
         log.error("startup failed: %s", exc)
         raise
-    yield
+    idle_task = asyncio.create_task(app.state.engine.idle_loop())
+    try:
+        yield
+    finally:
+        idle_task.cancel()
 
 
 app = FastAPI(title="Kokoro German TTS", version="0.1.0", lifespan=lifespan)
@@ -128,7 +207,15 @@ async def health():
         "voices": sorted(engine.voices),
         "device": engine.device,
         "threads": engine.threads,
+        "gpu_resident": engine.gpu_resident,
     }
+
+
+@app.post("/v1/warm")
+async def warm():
+    engine: KokoroEngine = app.state.engine
+    await engine.warm()
+    return {"ok": True, "gpu_resident": engine.gpu_resident}
 
 
 @app.post("/v1/audio/speech")

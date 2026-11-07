@@ -1,0 +1,28 @@
+# Managed by Kerstin scripts/install_service.sh — do not edit; re-run the installer.
+[Unit]
+Description=Kerstin Kokoro TTS sidecar (@NAME@)
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=@REPO@
+ExecStart=@REPO@/.venv-kokoro/bin/python -m tts_server.server
+Environment=KOKORO_DEVICE=cuda
+Environment=HF_HUB_OFFLINE=1
+Environment=PYTHONUNBUFFERED=1
+@PORT_ENV@
+@ENV_LINES@
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=15
+KillSignal=SIGINT
+NoNewPrivileges=yes
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=@NAME@
+
+[Install]
+WantedBy=default.target

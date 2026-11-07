@@ -67,14 +67,14 @@ class Settings(BaseSettings):
     stt_filter: bool = True  # drop hallucination/tag output and trim repetition loops
 
     # --- Text-to-speech ---
-    # "piper": local Piper voice (.onnx), "http": OpenAI-compatible /v1/audio/speech, "none": text only
-    tts_backend: Literal["piper", "http", "none"] = "piper"
+    # "auto": Kokoro sidecar + Piper fallback; "http": alias of auto;
+    # "piper": Piper only; "none": text only.
+    tts_backend: Literal["auto", "http", "piper", "none"] = "auto"
+    tts_voice_default: str = "kokoro-kerstin"
     piper_voice_path: Path = PROJECT_DIR / "voices" / "de_DE-thorsten-medium.onnx"
     piper_length_scale: float = 1.0  # >1.0 = slower speech
     tts_first_clause_min_words: int = 4  # speak the first clause early (0 = off)
     tts_url: str = "http://127.0.0.1:8880"
-    tts_model: str = "kokoro"
-    tts_voice: str = "martin"
 
     # --- Prompts ---
     prompts_dir: Path = BACKEND_DIR / "prompts"
@@ -116,6 +116,16 @@ class Settings(BaseSettings):
         if (self.tls_certfile is None) != (self.tls_keyfile is None):
             raise ValueError(
                 "KERSTIN_TLS_CERTFILE and KERSTIN_TLS_KEYFILE must be set together"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_voice_default(self) -> Settings:
+        from .voices import get_voice
+
+        if get_voice(self.tts_voice_default) is None:
+            raise ValueError(
+                f"KERSTIN_TTS_VOICE_DEFAULT={self.tts_voice_default!r} is not in the voice catalog"
             )
         return self
 

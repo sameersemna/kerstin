@@ -2,6 +2,7 @@
 [Unit]
 Description=Kerstin German conversation partner (@NAME@)
 After=network-online.target
+@WANTS_TTS@
 StartLimitIntervalSec=300
 StartLimitBurst=3
 
@@ -11,6 +12,7 @@ WorkingDirectory=@REPO@/backend
 ExecStart=@REPO@/.venv/bin/python -m kerstin
 @PORT_ENV@
 Environment=PYTHONUNBUFFERED=1
+@ENV_LINES@
 Restart=on-failure
 RestartSec=10
 TimeoutStopSec=15

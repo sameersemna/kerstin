@@ -10,8 +10,10 @@ import json
 import logging
 import mimetypes
 import random
+import time
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI, HTTPException, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -25,7 +27,8 @@ from .prompts import PromptStore
 from .session import Deps, Session
 from .stt import make_stt
 from .thermal import ThermalGuard
-from .tts import make_tts
+from .tts import NoTTS, PiperTTS
+from .voices import catalog_for_backend, default_voice_id, resolve_voice
 
 logging.basicConfig(
     level=settings.log_level.upper(),
@@ -34,6 +37,8 @@ logging.basicConfig(
 log = logging.getLogger("kerstin")
 
 deps: Deps | None = None
+_voice_health_cache: tuple[float, dict | None] = (0.0, None)
+VOICE_HEALTH_TTL_S = 10.0
 
 FRONTEND_VENDOR_FILES = (
     "vad-web/bundle.min.js",
@@ -62,13 +67,55 @@ async def _focus_for_start(deps: Deps, use_focus: object) -> list[str]:
     return focus
 
 
+async def _sidecar_health() -> dict | None:
+    global _voice_health_cache
+    assert deps is not None
+    backend = getattr(deps, "tts_backend", "legacy")
+    client = getattr(deps, "http_client", None)
+    if backend not in ("auto", "http") or client is None:
+        return None
+    now = time.monotonic()
+    if now - _voice_health_cache[0] < VOICE_HEALTH_TTL_S:
+        return _voice_health_cache[1]
+    try:
+        response = await client.get(settings.tts_url.rstrip("/") + "/health")
+        response.raise_for_status()
+        data = response.json()
+        status = {
+            "ok": True,
+            "gpu_resident": bool(data.get("gpu_resident", False)),
+            "voices": data.get("voices", []),
+        }
+    except Exception as exc:  # noqa: BLE001 — availability is advisory
+        log.info("TTS sidecar unavailable (%s)", type(exc).__name__)
+        status = None
+    _voice_health_cache = (now, status)
+    return status
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global deps
+    global deps, _voice_health_cache
+    _voice_health_cache = (0.0, None)
+    piper = PiperTTS(settings) if settings.piper_voice_path.exists() else None
+    if settings.tts_backend != "none" and piper is None:
+        raise RuntimeError(
+            f"Piper voice not found at {settings.piper_voice_path}; run `make voice`"
+        )
+    http_client = (
+        httpx.AsyncClient(timeout=httpx.Timeout(3.0, connect=0.5))
+        if settings.tts_backend in ("auto", "http")
+        else None
+    )
     deps = Deps(
         stt=make_stt(settings),
         llm=OllamaLLM(settings),
-        tts=make_tts(settings),
+        tts=piper or NoTTS(),
+        piper=piper,
+        http_client=http_client,
+        tts_backend=settings.tts_backend,
+        tts_url=settings.tts_url,
+        tts_default_voice=settings.tts_voice_default,
         prompts=PromptStore(settings.prompts_dir),
         history_max_turns=settings.history_max_turns,
         llm_warmup=settings.llm_warmup,
@@ -93,11 +140,17 @@ async def lifespan(app: FastAPI):
             else None
         ),
     )
+    if settings.tts_backend == "http":
+        log.info("KERSTIN_TTS_BACKEND=http is deprecated; using auto")
     log.info(
         "Kerstin %s ready: model=%s stt=%s tts=%s",
         __version__, settings.ollama_model, settings.stt_backend, settings.tts_backend,
     )
-    yield
+    try:
+        yield
+    finally:
+        if http_client is not None:
+            await http_client.aclose()
 
 
 app = FastAPI(title="Kerstin", version=__version__, lifespan=lifespan)
@@ -113,6 +166,9 @@ async def health() -> JSONResponse:
         thermal = await deps.thermal.check()
         thermal_state = thermal.state
         gpu_temp_c = thermal.temp_c
+    kokoro = await _sidecar_health()
+    backend = getattr(deps, "tts_backend", "legacy")
+    default_voice = getattr(deps, "tts_default_voice", "kokoro-kerstin")
     return JSONResponse(
         {
             "version": __version__,
@@ -120,6 +176,17 @@ async def health() -> JSONResponse:
             "model": settings.ollama_model,
             "stt_backend": settings.stt_backend,
             "tts_backend": settings.tts_backend,
+            "tts": {
+                "default": default_voice_id(backend, default_voice),
+                "kokoro": (
+                    None
+                    if kokoro is None
+                    else {
+                        "ok": kokoro["ok"],
+                        "gpu_resident": kokoro["gpu_resident"],
+                    }
+                ),
+            },
             "gpu_temp_c": gpu_temp_c,
             "thermal": thermal_state,
             "frontend_vendor": all(
@@ -135,6 +202,31 @@ async def scenarios() -> JSONResponse:
     assert deps is not None
     return JSONResponse(
         [{"key": s.key, "title": s.title} for s in deps.prompts.scenarios().values()]
+    )
+
+
+@app.get("/api/voices")
+async def voices() -> JSONResponse:
+    assert deps is not None
+    backend = getattr(deps, "tts_backend", "legacy")
+    default_voice = getattr(deps, "tts_default_voice", "kokoro-kerstin")
+    catalog = catalog_for_backend(backend)
+    kokoro = await _sidecar_health()
+    available_kokoro = set(kokoro.get("voices", [])) if kokoro is not None else set()
+    return JSONResponse(
+        {
+            "default": default_voice_id(backend, default_voice),
+            "voices": [
+                {
+                    "id": voice.id,
+                    "label": voice.label,
+                    "available": True
+                    if voice.engine == "piper"
+                    else voice.engine_voice in available_kokoro,
+                }
+                for voice in catalog
+            ],
+        }
     )
 
 
@@ -236,6 +328,14 @@ async def ws_endpoint(ws: WebSocket) -> None:
                     focus = []
                 else:
                     focus = await _focus_for_start(deps, data.get("use_focus"))
+                requested_voice = data.get("voice")
+                if not isinstance(requested_voice, str):
+                    requested_voice = None
+                selected_voice = resolve_voice(
+                    requested_voice, deps.tts_backend, deps.tts_default_voice
+                )
+                if requested_voice and requested_voice != selected_voice.id:
+                    log.info("unknown voice requested; using default")
                 session = Session(
                     deps=deps,
                     send_json=send_json,
@@ -243,6 +343,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
                     scenario_key=data.get("scenario") or settings.default_scenario,
                     focus=focus,
                     exam=plan,
+                    voice_id=selected_voice.id,
                 )
                 await session.start()
             elif kind == "interrupt" and session:

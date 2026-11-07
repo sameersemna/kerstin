@@ -16,6 +16,8 @@
       <select id="mode" aria-label="Modus">
         <option value="">Freies Gespräch</option>
       </select>
+      <select id="voice" aria-label="Stimme"></select>
+      <span id="voiceStatus" class="voice-status" hidden></span>
       <select id="scenario" aria-label="Szenario"></select>
       <select id="micMode" aria-label="Mikrofon-Modus">
         <option value="speakers">Lautsprecher (Mikro pausiert, während Kerstin spricht)</option>
@@ -93,6 +95,7 @@
 
   <script src="mic_gate.js"></script>
   <script src="exam_ui.js"></script>
+  <script src="voice_ui.js"></script>
   <script src="markdown.js"></script>
   <script src="app.js"></script>
 </body>
