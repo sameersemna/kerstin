@@ -35,7 +35,7 @@ async def test_failure_uses_fallback_once_per_streak(error):
     events = []
     primary = FakeTTS(b"primary", error=error)
     fallback = FakeTTS(b"fallback")
-    tts = FallbackTTS(primary, fallback, events.append)
+    tts = FallbackTTS(primary, fallback, events.append, retry_after_s=0)
 
     assert await tts.synthesize("Hallo") == b"fallback"
     assert await tts.synthesize("Hallo") == b"fallback"
@@ -44,4 +44,26 @@ async def test_failure_uses_fallback_once_per_streak(error):
 
     primary.error = None
     assert await tts.synthesize("Hallo") == b"primary"
+    assert events == [True, False]
+
+
+async def test_failed_primary_is_skipped_until_retry_window_passes():
+    now = [100.0]
+    events = []
+    primary = FakeTTS(b"primary", error=TimeoutError())
+    fallback = FakeTTS(b"fallback")
+    tts = FallbackTTS(
+        primary, fallback, events.append, retry_after_s=30, clock=lambda: now[0]
+    )
+
+    assert await tts.synthesize("Hallo") == b"fallback"
+    assert primary.calls == 1
+    now[0] += 10
+    assert await tts.synthesize("Hallo") == b"fallback"
+    assert primary.calls == 1  # skipped: no second timeout inside the window
+
+    primary.error = None
+    now[0] += 25
+    assert await tts.synthesize("Hallo") == b"primary"
+    assert primary.calls == 2
     assert events == [True, False]

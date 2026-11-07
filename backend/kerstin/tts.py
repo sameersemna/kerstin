@@ -6,6 +6,7 @@ import asyncio
 import inspect
 import io
 import logging
+import time
 import wave
 from collections.abc import Awaitable, Callable
 from types import SimpleNamespace
@@ -103,17 +104,27 @@ class FallbackTTS:
         primary: TTS,
         fallback: TTS,
         on_fallback: Callable[[bool], Awaitable[None]] | None = None,
+        retry_after_s: float = 30.0,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.primary = primary
         self.fallback = fallback
         self.on_fallback = on_fallback
         self.failed = False
+        # After a failure, skip the primary for a while: a hung sidecar would
+        # otherwise cost the full read timeout on every sentence (T018 review).
+        self.retry_after_s = retry_after_s
+        self.clock = clock
+        self._skip_until = 0.0
 
     async def synthesize(self, text: str) -> bytes | None:
+        if self.failed and self.clock() < self._skip_until:
+            return await self.fallback.synthesize(text)
         try:
             wav = await self.primary.synthesize(text)
         except Exception as exc:  # noqa: BLE001 — fallback is the whole point
             log.info("primary TTS unavailable (%s); using fallback", type(exc).__name__)
+            self._skip_until = self.clock() + self.retry_after_s
             if not self.failed:
                 self.failed = True
                 if self.on_fallback:

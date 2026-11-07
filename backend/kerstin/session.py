@@ -532,9 +532,8 @@ class Session:
     async def _speak_fixed(self, text: str) -> None:
         self.history.append({"role": "assistant", "content": text})
         await self.send_json({"type": "reply_text", "turn": self.turn_id, "text": text})
-        if self.tts is None:
-            return
-        await self._send_audio(self.turn_id, await self.tts.synthesize(clean_for_tts(text)))
+        if self.tts is not None:
+            await self._send_audio(self.turn_id, await self.tts.synthesize(clean_for_tts(text)))
         await self.send_json({"type": "reply_done", "turn": self.turn_id})
 
     async def _turn(self, turn_id: int, pcm16: bytes) -> None:

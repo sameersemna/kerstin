@@ -197,5 +197,12 @@ make check (repo .env uses piper): [ok] Piper fallback voices/de_DE-thorsten-med
 - **Open questions:** The exact top-level `/health` shape is unchanged from T012; T018 adds `tts`; no open blocker. Sameer may still want to revisit the final voice preference after listening.
 
 ## Review (Claude Code fills this in)
-- **Verdict:** accept / revise
+- **Verdict:** Accepted (2026-11-07) with two small lead fixes.
 - **Notes:**
+  - Verified: 290 Python + 36 JS tests and ruff pass. The main `.venv` has no torch. Per-session TTS keeps the `TTS` Protocol unchanged. Victoria is neither offered nor loaded. Installer `--env` rejects non-`KERSTIN_`/`KOKORO_` keys (exit 2). The app unit gets `Wants=`/`After=kerstin-tts.service` only when the Kokoro venv and voice exist. No real units are installed; `.env` is untouched.
+  - Results: idle release frees 1042 → 278 MiB (the CUDA context stays, well above the 300 MB bar). Reload costs 95–125 ms. Default `first_audio_ms` p50 is 918 ms at 57 °C peak. Fallback with the sidecar stopped: 821 ms.
+  - Lead fix 1: `FallbackTTS` retried the primary on every sentence. A *hung* sidecar (as opposed to a stopped one) would then cost the 3 s read timeout per sentence for the whole conversation. After a failure it now skips the primary for 30 s (`retry_after_s`; a new session always tries Kokoro first). Test added. Consequence: after the sidecar recovers mid-session, Piper can continue for up to 30 s before Kokoro returns.
+  - Lead fix 2: `_speak_fixed` returned before `reply_done` when the session had no TTS, which would leave the UI waiting. It now always sends `reply_done`.
+  - Note: the sidecar moves models between devices on the event-loop thread (≈100 ms block). Acceptable for a single-purpose sidecar behind one lock.
+  - Note: with `KOKORO_DEVICE=cpu`, long sentences (≈4 s synthesis) exceed the 3 s read timeout and fall back to Piper. Fine, because D024 makes `cuda` the deployment default.
+  - Pending (Sameer): `.env` still has `KERSTIN_TTS_BACKEND=piper`, which overrides the new `auto` default. Remove that line (or set `auto`), then `make service-install`.
