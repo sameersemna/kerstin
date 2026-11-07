@@ -68,7 +68,7 @@ score-eval:      ## exam rubric calibration eval (needs Ollama); hold-out: make 
 
 service-install: ## install + start app (+ TTS when sidecar assets exist)
 	bash scripts/install_service.sh install --unit app $(SERVICE_ARGS)
-	@if [[ -x .venv-kokoro/bin/python && -d voices/kokoro/kerstin ]]; then \
+	@if [ -x .venv-kokoro/bin/python ] && [ -d voices/kokoro/kerstin ]; then \
 		bash scripts/install_service.sh install --unit tts $(SERVICE_ARGS); \
 	else \
 		echo "hint: Kokoro sidecar assets not found; installed app only (make kokoro-setup && make kokoro-voices)"; \
@@ -76,7 +76,7 @@ service-install: ## install + start app (+ TTS when sidecar assets exist)
 
 service-uninstall: ## stop and remove Kerstin's systemd user service(s)
 	bash scripts/install_service.sh uninstall --unit app $(SERVICE_ARGS)
-	@if [[ -f "$HOME/.config/systemd/user/kerstin-tts.service" ]]; then \
+	@if [ -f "$$HOME/.config/systemd/user/kerstin-tts.service" ]; then \
 		bash scripts/install_service.sh uninstall --unit tts; \
 	fi
 
