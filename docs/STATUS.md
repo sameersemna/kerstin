@@ -1,6 +1,6 @@
 # Status
 
-_Last updated: 2026-11-06 (T012 Kokoro A/B merged)_
+_Last updated: 2026-11-07 (T018 voice selection merged)_
 
 ## Works on the GB10 (T001, 2026-11-04)
 - End-to-end headless: `make smoke` passes. German utterance → whisper.cpp (`:8768`, `language=de`) → Ollama → Piper → WAV over `/ws`.

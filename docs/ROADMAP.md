@@ -30,7 +30,7 @@ The lead (Claude Code) ticks items and writes task files. IDs are stable — ref
 - [x] T026 **Exam UI**: mode selector, part panel with task card, countdown, "Weiter"/"Fertig", auto-finish of the learner talk at time + 30 s.
 - [x] T025 **Exam rubric scoring**: per-criterion estimate (task fulfilment, coherence, vocabulary, grammar; no pronunciation from text) + calibration eval on transcripts of known levels (ordering + stability); clearly labelled as an estimate.
 - [x] T022 **Hint box** (D018): learner types "Wie sagt man …?" (English or German paraphrase) → short German answer with article/forms + example in a side panel; not spoken, not in history. Task file: `docs/tasks/T022-hint-button.md`.
-- [ ] T018 **Voice selection** (D024): default `kokoro-kerstin` (Kokoro sidecar on GPU, systemd unit, idle release), UI voice selector, Piper fallback.
+- [x] T018 **Voice selection** (D024): default `kokoro-kerstin` (Kokoro sidecar on GPU, systemd unit, idle release), UI voice selector, Piper fallback.
 - [ ] T023 **Session history page** (transcripts + feedback, local only).
 
 ## Phase 4 — Ops on the shared GB10
