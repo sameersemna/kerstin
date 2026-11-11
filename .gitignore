@@ -12,6 +12,8 @@ recordings/
 .DS_Store
 certs/
 data/
+*.prs
 frontend/vendor/
 .venv-kokoro/
 voices/kokoro/
+tmp/
